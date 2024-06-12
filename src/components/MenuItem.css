@@ -1,0 +1,45 @@
+.menu-item {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    width: 100%;
+    padding: 1rem;
+    background-color: #fff;
+    margin: 0.5rem;
+    gap: 0.5rem;
+    transition: transform 0.2s;
+    margin-top: 0.5rem;
+}
+
+.menu-item select {
+    width: 100px;
+    /* padding: 0.5rem; */
+    /* margin-top: 0.5rem; */
+    border: 1px solid #ccc;
+    border-radius: 0.25rem;
+}
+
+/* .menu-item option {
+    background-color: white;
+    color: black;
+} */
+
+.must-have {
+    background-color: blue;
+    color: white;
+}
+
+.like-to-have {
+    background-color: green;
+    color: white;
+}
+
+.maybe {
+    background-color: yellow;
+    color: black;
+}
+
+.off-limits {
+    background-color: red;
+    color: white;
+}

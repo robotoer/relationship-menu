@@ -1,0 +1,44 @@
+.menu-item-compare {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  width: 100%;
+  padding: 1rem;
+  background-color: #fff;
+  margin: 0.5rem;
+  gap: 0.5rem;
+  transition: transform 0.2s;
+  margin-top: 0.5rem;
+}
+
+.menu-item {
+  margin-left: 0.5rem;
+}
+
+.must-have {
+  background-color: blue;
+  color: white;
+  width: 32px;
+  height: 32px;
+}
+
+.like-to-have {
+  background-color: green;
+  color: white;
+  width: 32px;
+  height: 32px;
+}
+
+.maybe {
+  background-color: yellow;
+  color: black;
+  width: 32px;
+  height: 32px;
+}
+
+.off-limits {
+  background-color: red;
+  color: white;
+  width: 32px;
+  height: 32px;
+}
