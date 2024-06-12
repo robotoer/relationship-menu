@@ -1,3 +1,5 @@
+import "./About.css";
+
 /**
  * Describes the basic purpose of using a relationship menu to aid the creation of a custom
  * relationship between two or more partners. This webapp provides a simple way to create, customize

@@ -61,11 +61,11 @@ export const App = () => {
   return (
     <div className="app">
       <Navbar
-        title="Relationship Menus"
+        title="Non-Escalator Relationship Menu"
         links={[
-          { to: "/", text: "Home" },
-          { to: "/create", text: "Create" },
-          { to: "/view", text: "View" },
+          { to: "/", text: "Library" },
+          { to: "/compare", text: "Compare" },
+          { to: "/about", text: "About" },
         ]}
       />
       <Routes>

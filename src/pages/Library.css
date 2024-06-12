@@ -1,0 +1,27 @@
+/* A grid of saved relationship menu tiles. */
+.library {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-gap: 1rem;
+  padding: 1rem;
+}
+
+.create-menu {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 266px;
+  width: 192px;
+  border: 2px dashed #ccc;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.create-menu button {
+  background-color: white;
+  border: 0px solid #ccc;
+  border-radius: 5px;
+  padding: 0.5rem 1rem;
+  font-size: 1rem;
+  cursor: pointer;
+}

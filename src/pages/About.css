@@ -1,0 +1,8 @@
+/* Displays a simple paragraph/article styled guide to using the webapp. */
+.about-page {
+  padding: 1rem;
+
+  /* Centers the page content and sets a max-width. */
+  margin: 0 auto;
+  max-width: 800px;
+}

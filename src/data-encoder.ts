@@ -3,9 +3,11 @@
  */
 
 export const encodeData = (data: any): string => {
-  return Buffer.from(JSON.stringify(data)).toString("base64");
+  return btoa(JSON.stringify(data));
+  // return Buffer.from(JSON.stringify(data)).toString("base64");
 };
 
 export const decodeData = (data: string): any => {
-  return JSON.parse(Buffer.from(data, "base64").toString());
+  return JSON.parse(atob(data));
+  // return JSON.parse(Buffer.from(data, "base64").toString());
 };

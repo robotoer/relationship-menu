@@ -2,6 +2,7 @@
  * Displays a comparison of multiple relationship menus.
  */
 
+import "./Compare.css";
 import { MenuCompareLegend } from "../components/MenuCompareLegend";
 import { MenuGroup } from "../components/MenuGroup";
 import { MenuItemCompare } from "../components/MenuItemCompare";
