@@ -6,6 +6,7 @@ import "./Library.css";
 
 import { MenuTile } from "../components/MenuTile";
 import { RelationshipMenuDocument } from "../model/menu";
+import { Link } from "react-router-dom";
 
 export const LibraryPage = ({
   menus,
@@ -25,7 +26,9 @@ export const LibraryPage = ({
 
       {/* Add a button to create a new menu */}
       <div className="create-menu">
-        <button>Create New Menu</button>
+        <Link to="/menu">
+          <button>Create New Menu</button>
+        </Link>
       </div>
     </div>
   );

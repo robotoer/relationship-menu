@@ -70,6 +70,7 @@ export const App = () => {
       />
       <Routes>
         <Route path="/" element={<LibraryPage menus={documents} />} />
+        <Route path="/menu" element={<WrappedMenuPage />} />
         <Route path="/menu/:encoded" element={<WrappedMenuPage />} />
         <Route
           path="/compare"

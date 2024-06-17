@@ -58,6 +58,7 @@
     "@storybook/test": "^8.1.6",
     "@types/prop-types": "^15",
     "@types/react-router-dom": "^5.3.3",
+    "chromatic": "^11.5.4",
     "eslint-plugin-storybook": "^0.8.0",
     "prop-types": "^15.8.1",
     "storybook": "^8.1.6",

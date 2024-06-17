@@ -38,8 +38,22 @@ export const MenuPage = ({
                 onChange={(value) => onChange(group, itemIndex, value)}
               />
             ))}
+            {/* Adding new relationship menu items */}
+            <MenuItem
+              item="New item"
+              value={undefined}
+              onChange={(value) => onChange(group, menu[group].length, value)}
+            />
           </MenuGroup>
         ))}
+        {/* Adding new relationship menu groups */}
+        <MenuGroup title="Add new group">
+          <MenuItem
+            item="New group"
+            value={undefined}
+            onChange={(value) => onChange("New group", 0, value)}
+          />
+        </MenuGroup>
       </div>
     </>
   );
