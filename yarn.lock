@@ -7806,6 +7806,18 @@ __metadata:
   languageName: node
   linkType: hard
 
+"env-cmd@npm:^10.1.0":
+  version: 10.1.0
+  resolution: "env-cmd@npm:10.1.0"
+  dependencies:
+    commander: "npm:^4.0.0"
+    cross-spawn: "npm:^7.0.0"
+  bin:
+    env-cmd: bin/env-cmd.js
+  checksum: 10c0/8ea5f4205bed83f39ea0ef0eb94d52a47bc815302c55779fb6c38346ca9284df1855f0847c8f5c702554f7f01e3575d171f12cffd13a1bada01961815842abe3
+  languageName: node
+  linkType: hard
+
 "env-paths@npm:^2.2.0":
   version: 2.2.1
   resolution: "env-paths@npm:2.2.1"
@@ -14634,6 +14646,7 @@ __metadata:
     "@types/react-dom": "npm:^18.3.0"
     "@types/react-router-dom": "npm:^5.3.3"
     chromatic: "npm:^11.5.4"
+    env-cmd: "npm:^10.1.0"
     eslint-plugin-storybook: "npm:^0.8.0"
     prop-types: "npm:^15.8.1"
     react: "npm:^18.3.1"

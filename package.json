@@ -23,7 +23,8 @@
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build"
+    "build-storybook": "storybook build",
+    "chromatic": "env-cmd chromatic"
   },
   "eslintConfig": {
     "extends": [
@@ -59,6 +60,7 @@
     "@types/prop-types": "^15",
     "@types/react-router-dom": "^5.3.3",
     "chromatic": "^11.5.4",
+    "env-cmd": "^10.1.0",
     "eslint-plugin-storybook": "^0.8.0",
     "prop-types": "^15.8.1",
     "storybook": "^8.1.6",
