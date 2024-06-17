@@ -3,6 +3,7 @@ import type { Meta, StoryObj } from "@storybook/react";
 import { LibraryPage } from "./Library";
 import { encodeData } from "../data-encoder";
 import { RelationshipMenu } from "../model/menu";
+import { HashRouter } from "react-router-dom";
 
 const meta = {
   title: "Pages/Library",
@@ -10,6 +11,10 @@ const meta = {
   parameters: {
     layout: "fullscreen",
   },
+  decorators: [
+    // HashRouter is required for the Link component to work in Storybook
+    (Story) => <HashRouter>{Story()}</HashRouter>,
+  ],
 } satisfies Meta<typeof LibraryPage>;
 
 export default meta;
