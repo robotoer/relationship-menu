@@ -22,7 +22,7 @@ export const MenuItem = ({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value as RelationshipMenuItemValue)}
-        className={value}
+        className={value || "unknown"}
       >
         <option value={undefined}>---</option>
         <option value="must-have">Must Have</option>

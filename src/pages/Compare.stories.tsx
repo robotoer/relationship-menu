@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react";
 
 import { ComparePage } from "./Compare";
+import { HashRouter } from "react-router-dom";
 
 const meta = {
   title: "Pages/Compare",
@@ -8,6 +9,10 @@ const meta = {
   parameters: {
     layout: "fullscreen",
   },
+  decorators: [
+    // HashRouter is required for the Link component to work in Storybook
+    (Story) => <HashRouter>{Story()}</HashRouter>,
+  ],
 } satisfies Meta<typeof ComparePage>;
 
 export default meta;
