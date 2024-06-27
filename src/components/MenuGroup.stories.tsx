@@ -13,7 +13,7 @@ type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {
   args: {
-    title: "Menu Group",
+    title: <h2>Menu Group</h2>,
     children: "Menu Group Content",
   },
 };

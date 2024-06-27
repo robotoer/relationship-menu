@@ -5,12 +5,12 @@ export const MenuGroup = ({
   title,
   children,
 }: {
-  title: string;
+  title: ReactNode;
   children: ReactNode;
 }) => {
   return (
     <div className="menu-group">
-      <h2>{title}</h2>
+      {title}
       {children}
     </div>
   );

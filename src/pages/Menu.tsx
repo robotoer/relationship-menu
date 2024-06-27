@@ -8,6 +8,25 @@ import { MenuItem } from "../components/MenuItem";
 import { RelationshipMenu, RelationshipMenuItemValue } from "../model/menu";
 import { ShareSection } from "../components/ShareSection";
 
+const GroupTitle = ({
+  className,
+  placeholder,
+  ...params
+}: React.DetailedHTMLProps<
+  React.InputHTMLAttributes<HTMLInputElement>,
+  HTMLInputElement
+>) => (
+  <input
+    className={
+      className
+        ? `new-group-title ${className}`
+        : "new-group-title"
+    }
+    placeholder={placeholder || "New group"}
+    {...params}
+  />
+);
+
 export const MenuPage = ({
   menu,
   onChange,
@@ -29,7 +48,7 @@ export const MenuPage = ({
       />
       <div className="menu-page">
         {Object.keys(menu).map((group, groupIndex) => (
-          <MenuGroup key={groupIndex} title={group}>
+          <MenuGroup key={groupIndex} title={<GroupTitle value={group} />}>
             {menu[group].map((item, itemIndex) => (
               <MenuItem
                 key={itemIndex}
@@ -38,6 +57,10 @@ export const MenuPage = ({
                 onChange={(value) => onChange(group, itemIndex, value)}
               />
             ))}
+
+            {/* Divider */}
+            <div className="menu-divider" />
+
             {/* Adding new relationship menu items */}
             <MenuItem
               item="New item"
@@ -46,8 +69,9 @@ export const MenuPage = ({
             />
           </MenuGroup>
         ))}
+        
         {/* Adding new relationship menu groups */}
-        <MenuGroup title="Add new group">
+        <MenuGroup title={<GroupTitle />}>
           <MenuItem
             item="New group"
             value={undefined}

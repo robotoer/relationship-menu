@@ -1,6 +1,21 @@
 import "./MenuItem.css";
 import { RelationshipMenuItemValue } from "../model/menu";
 
+const MenuItemInput = ({
+  className,
+  placeholder,
+  ...params
+}: React.DetailedHTMLProps<
+  React.InputHTMLAttributes<HTMLInputElement>,
+  HTMLInputElement
+>) => (
+  <input
+    className={className ? `menu-item-input ${className}` : "menu-item-input"}
+    placeholder={placeholder || "New item"}
+    {...params}
+  />
+);
+
 /**
  * Color-coded display of a single relationship menu item. Selected preference (if any)
  * should be displayed as a colored box before the item text.
@@ -30,7 +45,9 @@ export const MenuItem = ({
         <option value="maybe">Maybe</option>
         <option value="off-limits">Off Limits</option>
       </select>
-      <label>{item}</label>
+      <label>
+        <MenuItemInput value={item} onChange={(e) => {}} />  
+      </label>
     </div>
   );
 };

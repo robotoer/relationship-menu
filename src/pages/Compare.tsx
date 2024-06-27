@@ -41,7 +41,7 @@ export const ComparePage = ({
         }}
       />
       {Object.entries(comparison).map(([title, group], index) => (
-        <MenuGroup key={index} title={title}>
+        <MenuGroup key={index} title={<h2>{title}</h2>}>
           <MenuCompareLegend titles={titles} />
           {group.map((item, itemIndex) => (
             <MenuItemCompare

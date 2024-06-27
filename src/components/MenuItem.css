@@ -1,45 +1,61 @@
 .menu-item {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    width: 100%;
-    padding: 1rem;
-    background-color: #fff;
-    margin: 0.5rem;
-    gap: 0.5rem;
-    transition: transform 0.2s;
-    margin-top: 0.5rem;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  width: 100%;
+  background-color: #fff;
+  margin: 0.25rem;
+  gap: 0.5rem;
+  transition: transform 0.2s;
 }
 
 .menu-item select {
-    width: 100px;
-    /* padding: 0.5rem; */
-    /* margin-top: 0.5rem; */
-    border: 1px solid #ccc;
-    border-radius: 0.25rem;
+  width: 100px;
+  /* padding: 0.5rem; */
+  /* margin-top: 0.5rem; */
+  border: 1px solid #ccc;
+  border-radius: 0.25rem;
 }
 
 .unknown {
-    background-color: white;
-    color: black;
+  background-color: white;
+  color: black;
+  height: 32px;
 }
 
 .must-have {
-    background-color: blue;
-    color: white;
+  background-color: blue;
+  color: white;
+  height: 32px;
 }
 
 .like-to-have {
-    background-color: green;
-    color: white;
+  background-color: green;
+  color: white;
+  height: 32px;
 }
 
 .maybe {
-    background-color: yellow;
-    color: black;
+  background-color: yellow;
+  color: black;
+  height: 32px;
 }
 
 .off-limits {
-    background-color: red;
-    color: white;
+  background-color: red;
+  color: white;
+  height: 32px;
+}
+
+.menu-item-input {
+  width: 100%;
+  box-sizing: border-box;
+
+  border: none;
+
+  height: 32px;
+}
+
+.menu-item label {
+  width: 100%;
 }
