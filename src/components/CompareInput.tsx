@@ -1,3 +1,5 @@
+import "./CompareInput.css";
+
 export const CompareInput = ({
   label,
   value,
@@ -13,7 +15,7 @@ export const CompareInput = ({
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className={value || "unknown"}
+        // className={value || "unknown"}
       />
     </div>
   );

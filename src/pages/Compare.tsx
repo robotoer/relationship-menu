@@ -40,18 +40,20 @@ export const ComparePage = ({
           });
         }}
       />
-      {Object.entries(comparison).map(([title, group], index) => (
-        <MenuGroup key={index} title={<h2>{title}</h2>}>
-          <MenuCompareLegend titles={titles} />
-          {group.map((item, itemIndex) => (
-            <MenuItemCompare
-              key={itemIndex}
-              item={item.item}
-              menuItems={item.values}
-            />
-          ))}
-        </MenuGroup>
-      ))}
+      <div className="compare-page-grid">
+        {Object.entries(comparison).map(([title, group], index) => (
+          <MenuGroup key={index} title={<h2>{title}</h2>}>
+            <MenuCompareLegend titles={titles} />
+            {group.map((item, itemIndex) => (
+              <MenuItemCompare
+                key={itemIndex}
+                item={item.item}
+                menuItems={item.values}
+              />
+            ))}
+          </MenuGroup>
+        ))}
+      </div>
     </div>
   );
 };

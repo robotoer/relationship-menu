@@ -1,4 +1,5 @@
 import { CompareInput } from "./CompareInput";
+import "./CompareSection.css";
 
 /**
  * <CompareSection /> is a component that displays a list of encoded relationship menus for comparison.

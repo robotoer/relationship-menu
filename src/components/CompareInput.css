@@ -1,0 +1,14 @@
+/* Vertical flexbox with small gap between title and input */
+.compare-input {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+
+  align-items: center;
+
+  width: 100%;
+}
+
+.compare-input input {
+  width: calc(100% - 2rem);
+}

@@ -1,0 +1,7 @@
+/* Horizontal flexbox with gaps between children */
+.compare-section {
+  display: flex;
+  gap: 1rem;
+  overflow-x: auto;
+  padding: 1rem;
+}
