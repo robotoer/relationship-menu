@@ -4822,19 +4822,21 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/node@npm:^16.18.98":
-  version: 16.18.98
-  resolution: "@types/node@npm:16.18.98"
-  checksum: 10c0/5f79c70ace541c3ee7d61a00e48c796a56690882d612cc17fb518aeec30215a70ebaf2a72a6db4083e49ce2e7eda2b144703a5346b831820d8a405efc9c11b75
-  languageName: node
-  linkType: hard
-
 "@types/node@npm:^18.0.0":
   version: 18.19.34
   resolution: "@types/node@npm:18.19.34"
   dependencies:
     undici-types: "npm:~5.26.4"
   checksum: 10c0/e985f50684def801801069e236165ee511f9195fc04ad4a2af7642d86aeaeaf7bfe34c147f894a48618a5c71c15b388ca91341a244792149543a712e38351988
+  languageName: node
+  linkType: hard
+
+"@types/node@npm:^20.14.9":
+  version: 20.14.9
+  resolution: "@types/node@npm:20.14.9"
+  dependencies:
+    undici-types: "npm:~5.26.4"
+  checksum: 10c0/911ffa444dc032897f4a23ed580c67903bd38ea1c5ec99b1d00fa10b83537a3adddef8e1f29710cbdd8e556a61407ed008e06537d834e48caf449ce59f87d387
   languageName: node
   linkType: hard
 
@@ -14902,7 +14904,7 @@ __metadata:
     "@testing-library/react": "npm:^13.4.0"
     "@testing-library/user-event": "npm:^13.5.0"
     "@types/jest": "npm:^27.5.2"
-    "@types/node": "npm:^16.18.98"
+    "@types/node": "npm:^20.14.9"
     "@types/prop-types": "npm:^15"
     "@types/react": "npm:^18.3.3"
     "@types/react-dom": "npm:^18.3.0"
