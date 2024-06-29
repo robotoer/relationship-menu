@@ -7,38 +7,25 @@ import { MenuCompareLegend } from "../components/MenuCompareLegend";
 import { MenuGroup } from "../components/MenuGroup";
 import { MenuItemCompare } from "../components/MenuItemCompare";
 import { MenuComparison } from "../model/compare";
-import { useSearchParams } from "react-router-dom";
-import { useMemo } from "react";
-import { decodeData } from "../data-encoder";
-import { RelationshipMenu } from "../model/menu";
 import { CompareSection } from "../components/CompareSection";
 
 export const ComparePage = ({
   titles,
+  encoded,
   comparison,
+  onChangeCompared,
 }: {
   titles: string[];
+  encoded: string[];
   comparison: MenuComparison;
+  onChangeCompared: (encoded: string[]) => void;
 }) => {
-  // Read query parameters from react-router-dom:
-  const [params, setParams] = useSearchParams();
-  // Decode the menu data from the query parameters:
-  const decoded: RelationshipMenu[] = useMemo(
-    () => params.getAll("encoded").map(decodeData),
-    [params]
-  );
-
   return (
     <div className="compare-page">
       <CompareSection
-        menus={[...decoded.map((menu) => JSON.stringify(menu)), ""]}
-        onChange={(menus) => {
-          setParams({
-            encoded: menus
-              .map((menu) => (menu ? encodeURI(JSON.stringify(menu)) : ""))
-              .filter((x) => !!x),
-          });
-        }}
+        titles={titles}
+        menus={encoded}
+        onChange={onChangeCompared}
       />
       <div className="compare-page-grid">
         {Object.entries(comparison).map(([title, group], index) => (

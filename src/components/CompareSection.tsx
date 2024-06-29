@@ -7,9 +7,11 @@ import "./CompareSection.css";
  * The currently filled out inputs should be shown first with an empty input at the end for adding new menus.
  */
 export const CompareSection = ({
+  titles,
   menus,
   onChange,
 }: {
+  titles: string[];
   menus: string[];
   onChange: (menus: string[]) => void;
 }) => {

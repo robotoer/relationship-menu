@@ -12,6 +12,8 @@ import {
 } from "./model/menu";
 import { MenuPage } from "./pages/Menu";
 import { decodeData, encodeData } from "./data-encoder";
+import { MenuComparison } from "./model/compare";
+import { compareMenus } from "./data-comparer";
 
 const WrappedLibraryPage = () => {
   const [documents, setDocuments] = useState<RelationshipMenuDocument[]>([]);
@@ -65,7 +67,7 @@ const WrappedMenuPage = () => {
     const key = `menu:${menuTitleEncoded}`;
     const value = encodeData(menu);
     localStorage.setItem(key, value);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [menu]); // We are purpusely not saving when the title changes to avoid creating a new document unnecessarily.
   // Update query parameters as menu or title changes:
   useEffect(() => {
@@ -137,23 +139,44 @@ const WrappedMenuPage = () => {
 };
 
 const WrappedComparePage = () => {
-  const [comparison, setComparison] = useState({});
-  const [titles, setTitles] = useState([]);
+  const [comparison, setComparison] = useState({} as MenuComparison);
+  const [titles, setTitles] = useState([] as string[]);
+  const [params, setParams] = useSearchParams();
+  const encoded = useMemo(() => params.getAll("encoded"), [params]);
+  const encodedTitles = useMemo(() => params.getAll("encodedTitle"), [params]);
 
   // Load comparison documents from query parameters:
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const comparisonEncoded = urlParams.get("comparison");
-    if (comparisonEncoded) {
-      setComparison(decodeData(comparisonEncoded));
+    if (encoded) {
+      const decoded = encoded.flatMap((x) => {
+        try {
+          return [decodeData(x) as RelationshipMenu];
+        } catch (e) {
+          console.error("Failed to decode menu:", x);
+          return [];
+        }
+      });
+      const comparison = compareMenus(decoded);
+      setComparison(comparison);
     }
-    const titlesEncoded = urlParams.get("titles");
-    if (titlesEncoded) {
-      setTitles(decodeData(titlesEncoded));
+    if (encodedTitles) {
+      setTitles(encodedTitles.map(decodeData));
     }
-  }, []);
+  }, [encoded, encodedTitles, params]);
 
-  return <ComparePage comparison={comparison} titles={titles} />;
+  return (
+    <ComparePage
+      comparison={comparison}
+      titles={titles}
+      encoded={params.getAll("encoded")}
+      onChangeCompared={
+        // Update the page query params
+        (encoded) => {
+          setParams({ encoded });
+        }
+      }
+    />
+  );
 };
 
 /**
