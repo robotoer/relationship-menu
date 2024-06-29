@@ -6,7 +6,7 @@ export const MenuGroup = ({
   children,
 }: {
   title: ReactNode;
-  children: ReactNode;
+  children?: ReactNode;
 }) => {
   return (
     <div className="menu-group">

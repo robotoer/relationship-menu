@@ -1,5 +1,5 @@
 import "./MenuItem.css";
-import { RelationshipMenuItemValue } from "../model/menu";
+import { RelationshipMenuItem, RelationshipMenuItemValue } from "../model/menu";
 
 const MenuItemInput = ({
   className,
@@ -30,13 +30,15 @@ export const MenuItem = ({
 }: {
   item: string;
   value?: RelationshipMenuItemValue;
-  onChange: (value?: RelationshipMenuItemValue) => void;
+  onChange: (value: Partial<RelationshipMenuItem>) => void;
 }) => {
   return (
     <div className="menu-item">
       <select
         value={value}
-        onChange={(e) => onChange(e.target.value as RelationshipMenuItemValue)}
+        onChange={(e) =>
+          onChange({ value: e.target.value as RelationshipMenuItemValue })
+        }
         className={value || "unknown"}
       >
         <option value={undefined}>---</option>
@@ -46,7 +48,10 @@ export const MenuItem = ({
         <option value="off-limits">Off Limits</option>
       </select>
       <label>
-        <MenuItemInput value={item} onChange={(e) => {}} />  
+        <MenuItemInput
+          value={item}
+          onChange={(e) => onChange({ item: e.target.value })}
+        />
       </label>
     </div>
   );

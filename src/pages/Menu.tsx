@@ -5,7 +5,7 @@
 import "./Menu.css";
 import { MenuGroup } from "../components/MenuGroup";
 import { MenuItem } from "../components/MenuItem";
-import { RelationshipMenu, RelationshipMenuItemValue } from "../model/menu";
+import { RelationshipMenu, RelationshipMenuItem } from "../model/menu";
 import { ShareSection } from "../components/ShareSection";
 
 const GroupTitle = ({
@@ -17,11 +17,7 @@ const GroupTitle = ({
   HTMLInputElement
 >) => (
   <input
-    className={
-      className
-        ? `new-group-title ${className}`
-        : "new-group-title"
-    }
+    className={className ? `new-group-title ${className}` : "new-group-title"}
     placeholder={placeholder || "New group"}
     {...params}
   />
@@ -33,9 +29,14 @@ export const MenuPage = ({
 }: {
   menu: RelationshipMenu;
   onChange: (
-    group: string,
-    itemIndex: number,
-    value?: RelationshipMenuItemValue
+    change:
+      | {
+          kind: "item";
+          group: string;
+          itemIndex: number;
+          value?: Partial<RelationshipMenuItem>;
+        }
+      | { kind: "group"; oldGroup?: string; newGroup?: string }
   ) => void;
 }) => {
   return (
@@ -48,13 +49,29 @@ export const MenuPage = ({
       />
       <div className="menu-page">
         {Object.keys(menu).map((group, groupIndex) => (
-          <MenuGroup key={groupIndex} title={<GroupTitle value={group} />}>
+          <MenuGroup
+            key={groupIndex}
+            title={
+              <GroupTitle
+                value={group}
+                onChange={(e) =>
+                  onChange({
+                    kind: "group",
+                    oldGroup: group,
+                    newGroup: e.target.value,
+                  })
+                }
+              />
+            }
+          >
             {menu[group].map((item, itemIndex) => (
               <MenuItem
                 key={itemIndex}
                 item={item.item}
                 value={item.value}
-                onChange={(value) => onChange(group, itemIndex, value)}
+                onChange={(value) =>
+                  onChange({ kind: "item", group, itemIndex, value })
+                }
               />
             ))}
 
@@ -63,20 +80,33 @@ export const MenuPage = ({
 
             {/* Adding new relationship menu items */}
             <MenuItem
-              item="New item"
+              item=""
               value={undefined}
-              onChange={(value) => onChange(group, menu[group].length, value)}
+              onChange={(value) =>
+                onChange({
+                  kind: "item",
+                  group,
+                  itemIndex: menu[group].length,
+                  value,
+                })
+              }
             />
           </MenuGroup>
         ))}
-        
+
         {/* Adding new relationship menu groups */}
-        <MenuGroup title={<GroupTitle />}>
-          <MenuItem
-            item="New group"
-            value={undefined}
-            onChange={(value) => onChange("New group", 0, value)}
-          />
+        <MenuGroup
+          title={
+            <GroupTitle
+              onChange={(e) => {
+                onChange({ kind: "group", newGroup: e.target.value });
+                // Clear the input field after adding a new group:
+                e.target.value = "";
+              }}
+            />
+          }
+        >
+          Enter a new group title to add a new group.
         </MenuGroup>
       </div>
     </>
