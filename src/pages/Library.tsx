@@ -7,6 +7,7 @@ import "./Library.css";
 import { MenuTile } from "../components/MenuTile";
 import { RelationshipMenuDocument } from "../model/menu";
 import { Link } from "react-router-dom";
+import { encodeData } from "../data-encoder";
 
 export const LibraryPage = ({
   menus,
@@ -20,7 +21,7 @@ export const LibraryPage = ({
           key={menu.encoded}
           title={menu.title}
           image={<img src={menu.image} alt={menu.title} />}
-          link={`/menu/${menu.encoded}`}
+          link={`/menu?encoded=${menu.encoded}&encodedTitle=${encodeData(menu.title)}`}
         />
       ))}
 

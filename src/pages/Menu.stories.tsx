@@ -72,9 +72,11 @@ const exampleTemplateEncoded = encodeData(exampleTemplate);
 
 export const Default: Story = {
   args: {
+    title: "Relationship Menu Example",
     menu: exampleMenu,
     menuEncoded: exampleMenuEncoded,
     templateEncoded: exampleTemplateEncoded,
     onChange: () => {},
+    onChangeTitle: () => {},
   },
 };

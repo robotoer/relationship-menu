@@ -8,6 +8,21 @@ import { MenuItem } from "../components/MenuItem";
 import { RelationshipMenu, RelationshipMenuItem } from "../model/menu";
 import { ShareSection } from "../components/ShareSection";
 
+const MenuTitle = ({
+  className,
+  placeholder,
+  ...params
+}: React.DetailedHTMLProps<
+  React.InputHTMLAttributes<HTMLInputElement>,
+  HTMLInputElement
+>) => (
+  <input
+    className={className ? `menu-title ${className}` : "menu-title"}
+    placeholder={placeholder || "Menu title"}
+    {...params}
+  />
+);
+
 const GroupTitle = ({
   className,
   placeholder,
@@ -24,11 +39,14 @@ const GroupTitle = ({
 );
 
 export const MenuPage = ({
+  title,
   menu,
   menuEncoded,
   templateEncoded,
   onChange,
+  onChangeTitle,
 }: {
+  title: string;
   menu: RelationshipMenu;
   menuEncoded: string;
   templateEncoded: string;
@@ -42,6 +60,7 @@ export const MenuPage = ({
         }
       | { kind: "group"; oldGroup?: string; newGroup?: string }
   ) => void;
+  onChangeTitle: (title: string) => void;
 }) => {
   return (
     <>
@@ -50,6 +69,11 @@ export const MenuPage = ({
         menuUrl={`${window.location.protocol}//${window.location.host}/menu/${menuEncoded}`}
         templateEncoded={templateEncoded}
         templateUrl={`${window.location.protocol}//${window.location.host}/menu/${templateEncoded}`}
+      />
+      <MenuTitle
+        value={title}
+        placeholder="Menu title"
+        onChange={(e) => onChangeTitle(e.target.value)}
       />
       <div className="menu-page">
         {Object.keys(menu).map((group, groupIndex) => (

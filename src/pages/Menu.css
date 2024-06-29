@@ -24,3 +24,17 @@
   background-color: #ccc;
   margin: 1rem 0;
 }
+
+.menu-title {
+  width: calc(100% - 32px);
+  box-sizing: border-box;
+  margin-top: 16px;
+  margin-bottom: 16px;
+
+  font-size: 2rem;
+  font-weight: bold;
+
+  text-align: center;
+
+  border: none;
+}

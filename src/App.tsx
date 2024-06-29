@@ -1,34 +1,78 @@
 import { useEffect, useMemo, useState } from "react";
 import "./App.css";
-import { Routes, Route, useParams } from "react-router-dom";
+import { Routes, Route, useSearchParams } from "react-router-dom";
 import { Navbar } from "./components/Navbar";
 import { LibraryPage } from "./pages/Library";
 import { AboutPage } from "./pages/About";
 import { ComparePage } from "./pages/Compare";
-import { RelationshipMenu, RelationshipMenuDocument, RelationshipMenuItem } from "./model/menu";
+import {
+  RelationshipMenu,
+  RelationshipMenuDocument,
+  RelationshipMenuItem,
+} from "./model/menu";
 import { MenuPage } from "./pages/Menu";
 import { decodeData, encodeData } from "./data-encoder";
 
 const WrappedLibraryPage = () => {
   const [documents, setDocuments] = useState<RelationshipMenuDocument[]>([]);
   useEffect(() => {
-    const stored = localStorage.getItem("documents");
-    if (stored) {
-      setDocuments(JSON.parse(stored));
+    const newDocuments = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith("menu:")) {
+        const value = localStorage.getItem(key);
+        if (value) {
+          const title = decodeData(key.slice(5));
+          const document: RelationshipMenuDocument = {
+            title,
+            image: "https://via.placeholder.com/150",
+            encoded: value,
+          };
+          newDocuments.push(document);
+        }
+      }
     }
+    setDocuments(newDocuments);
   }, []);
   return <LibraryPage menus={documents} />;
 };
 
 const WrappedMenuPage = () => {
+  const [title, setTitle] = useState("");
   const [menu, setMenu] = useState<RelationshipMenu>({});
   // Get path paremeters from react-router-dom:
-  const { encoded } = useParams<{ encoded: string }>();
-  // Sync the encoded data with the menu state:
+  const [params, setParams] = useSearchParams();
+  // Sync the encoded data with the menu state only on first load (to prevent infinite loop):
   useEffect(() => {
-    if (!encoded) return;
-    setMenu(decodeData(encoded));
-  }, [encoded]);
+    const encoded = params.get("encoded");
+    const encodedTitle = params.get("encodedTitle");
+    if (encoded) {
+      setMenu(decodeData(encoded));
+    }
+    if (encodedTitle) {
+      setTitle(decodeData(encodedTitle));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  // Save the menu to the browser local storage:
+  useEffect(() => {
+    // Don't save empty menus:
+    if (Object.keys(menu).length === 0) {
+      return;
+    }
+
+    const menuTitleEncoded = encodeData(title);
+    const key = `menu:${menuTitleEncoded}`;
+    const value = encodeData(menu);
+    localStorage.setItem(key, value);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [menu]); // We are purpusely not saving when the title changes to avoid creating a new document unnecessarily.
+  // Update query parameters as menu or title changes:
+  useEffect(() => {
+    const menuEncoded = encodeData(menu);
+    const menuTitleEncoded = encodeData(title);
+    setParams({ encoded: menuEncoded, encodedTitle: menuTitleEncoded });
+  }, [menu, title, setParams]);
 
   const menuEncoded = useMemo(() => encodeData(menu), [menu]);
   const template = useMemo(() => {
@@ -40,9 +84,10 @@ const WrappedMenuPage = () => {
     return template;
   }, [menu]);
   const templateEncoded = useMemo(() => encodeData(template), [template]);
-  
+
   return (
     <MenuPage
+      title={title}
       menu={menu}
       menuEncoded={menuEncoded}
       templateEncoded={templateEncoded}
@@ -86,6 +131,7 @@ const WrappedMenuPage = () => {
           }
         }
       }
+      onChangeTitle={setTitle}
     />
   );
 };
@@ -137,7 +183,6 @@ export const App = () => {
       <Routes>
         <Route path="/" element={libraryPage} />
         <Route path="/menu" element={menuPage} />
-        <Route path="/menu/:encoded" element={menuPage} />
         <Route path="/compare" element={comparePage} />
         <Route path="/about" element={aboutPage} />
       </Routes>
