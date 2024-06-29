@@ -9,8 +9,8 @@ export const MenuCompareLegend = ({ titles }: { titles: string[] }) => {
   return (
     <div className="menu-compare-legend">
       {titles.map((title, index) => (
-        <div className="legend-title-outer">
-          <div key={index} className="legend-title">
+        <div className="legend-title-outer" key={index}>
+          <div className="legend-title">
             {title}
           </div>
         </div>

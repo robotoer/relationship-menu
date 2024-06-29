@@ -46,8 +46,11 @@ const WrappedMenuPage = () => {
   const [params, setParams] = useSearchParams();
   // Sync the encoded data with the menu state only on first load (to prevent infinite loop):
   useEffect(() => {
-    const encoded = params.get("encoded");
-    const encodedTitle = params.get("encodedTitle");
+    const encodedRaw = params.get("encoded");
+    const [encodedTitle, encoded] = encodedRaw?.split(":") ?? [
+      undefined,
+      undefined,
+    ];
     if (encoded) {
       setMenu(decodeData(encoded));
     }
@@ -73,10 +76,13 @@ const WrappedMenuPage = () => {
   useEffect(() => {
     const menuEncoded = encodeData(menu);
     const menuTitleEncoded = encodeData(title);
-    setParams({ encoded: menuEncoded, encodedTitle: menuTitleEncoded });
+    setParams({ encoded: `${menuTitleEncoded}:${menuEncoded}` });
   }, [menu, title, setParams]);
 
-  const menuEncoded = useMemo(() => encodeData(menu), [menu]);
+  const menuEncoded = useMemo(
+    () => `${encodeData(title)}:${encodeData(menu)}`,
+    [menu, title]
+  );
   const template = useMemo(() => {
     // Strip all values from the menu to create a template:
     const template: RelationshipMenu = {};
@@ -142,12 +148,31 @@ const WrappedComparePage = () => {
   const [comparison, setComparison] = useState({} as MenuComparison);
   const [titles, setTitles] = useState([] as string[]);
   const [params, setParams] = useSearchParams();
-  const encoded = useMemo(() => params.getAll("encoded"), [params]);
-  const encodedTitles = useMemo(() => params.getAll("encodedTitle"), [params]);
+  const [encoded, encodedTitles] = useMemo(
+    () => params.getAll("encoded")?.map((x) => x.split(":")[0]),
+    [params]
+  );
 
   // Load comparison documents from query parameters:
   useEffect(() => {
-    if (encoded) {
+    const encodedRaw = params.get("encoded");
+    const encoded = params.getAll("encoded")?.flatMap((x) => {
+      try {
+        return [x.split(":")[1]];
+      } catch (e) {
+        console.error("Failed to decode menu:", x);
+        return [];
+      }
+    });
+    const encodedTitles = params.getAll("encoded")?.flatMap((x) => {
+      try {
+        return [x.split(":")[0]];
+      } catch (e) {
+        console.error("Failed to decode menu:", x);
+        return [];
+      }
+    });
+    if (encodedRaw) {
       const decoded = encoded.flatMap((x) => {
         try {
           return [decodeData(x) as RelationshipMenu];

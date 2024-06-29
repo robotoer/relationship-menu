@@ -38,3 +38,18 @@
 
   border: none;
 }
+
+/* Horizontal flexbox that auto-expands the first child */
+.menu-title-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.menu-title-container > *:first-child {
+  flex: 1;
+}
+
+.menu-compare {
+  padding-right: 1rem;
+}

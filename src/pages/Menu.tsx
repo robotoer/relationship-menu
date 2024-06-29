@@ -7,6 +7,7 @@ import { MenuGroup } from "../components/MenuGroup";
 import { MenuItem } from "../components/MenuItem";
 import { RelationshipMenu, RelationshipMenuItem } from "../model/menu";
 import { ShareSection } from "../components/ShareSection";
+import { Link } from "react-router-dom";
 
 const MenuTitle = ({
   className,
@@ -70,11 +71,16 @@ export const MenuPage = ({
         templateEncoded={templateEncoded}
         templateUrl={`${window.location.protocol}//${window.location.host}/menu/${templateEncoded}`}
       />
-      <MenuTitle
-        value={title}
-        placeholder="Menu title"
-        onChange={(e) => onChangeTitle(e.target.value)}
-      />
+      <div className="menu-title-container">
+        <MenuTitle
+          value={title}
+          placeholder="Menu title"
+          onChange={(e) => onChangeTitle(e.target.value)}
+        />
+        <Link to={`/compare?encoded=${menuEncoded}`} className="menu-compare">
+          Compare
+        </Link>
+      </div>
       <div className="menu-page">
         {Object.keys(menu).map((group, groupIndex) => (
           <MenuGroup
