@@ -7,7 +7,7 @@ import { AboutPage } from "./pages/About";
 import { ComparePage } from "./pages/Compare";
 import { RelationshipMenu, RelationshipMenuDocument, RelationshipMenuItem } from "./model/menu";
 import { MenuPage } from "./pages/Menu";
-import { decodeData } from "./data-encoder";
+import { decodeData, encodeData } from "./data-encoder";
 
 const WrappedLibraryPage = () => {
   const [documents, setDocuments] = useState<RelationshipMenuDocument[]>([]);
@@ -29,9 +29,23 @@ const WrappedMenuPage = () => {
     if (!encoded) return;
     setMenu(decodeData(encoded));
   }, [encoded]);
+
+  const menuEncoded = useMemo(() => encodeData(menu), [menu]);
+  const template = useMemo(() => {
+    // Strip all values from the menu to create a template:
+    const template: RelationshipMenu = {};
+    for (const group in menu) {
+      template[group] = menu[group].map((item) => ({ item: item.item }));
+    }
+    return template;
+  }, [menu]);
+  const templateEncoded = useMemo(() => encodeData(template), [template]);
+  
   return (
     <MenuPage
       menu={menu}
+      menuEncoded={menuEncoded}
+      templateEncoded={templateEncoded}
       onChange={
         // Update the value of `menu` in the state:
         (change) => {

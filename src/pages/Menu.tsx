@@ -7,8 +7,6 @@ import { MenuGroup } from "../components/MenuGroup";
 import { MenuItem } from "../components/MenuItem";
 import { RelationshipMenu, RelationshipMenuItem } from "../model/menu";
 import { ShareSection } from "../components/ShareSection";
-import { useMemo } from "react";
-import { encodeData } from "../data-encoder";
 
 const GroupTitle = ({
   className,
@@ -27,9 +25,13 @@ const GroupTitle = ({
 
 export const MenuPage = ({
   menu,
+  menuEncoded,
+  templateEncoded,
   onChange,
 }: {
   menu: RelationshipMenu;
+  menuEncoded: string;
+  templateEncoded: string;
   onChange: (
     change:
       | {
@@ -41,24 +43,13 @@ export const MenuPage = ({
       | { kind: "group"; oldGroup?: string; newGroup?: string }
   ) => void;
 }) => {
-  const menuEncoded = useMemo(() => encodeData(menu), [menu]);
-  const template = useMemo(() => {
-    // Strip all values from the menu to create a template:
-    const template: RelationshipMenu = {};
-    for (const group in menu) {
-      template[group] = menu[group].map((item) => ({ item: item.item }));
-    }
-    return template;
-  }, [menu]);
-  const templateEncoded = useMemo(() => encodeData(template), [template]);
-
   return (
     <>
       <ShareSection
         menuEncoded={menuEncoded}
-        menuUrl={`https://example.com/${menuEncoded}`}
+        menuUrl={`${window.location.protocol}//${window.location.host}/menu/${menuEncoded}`}
         templateEncoded={templateEncoded}
-        templateUrl={`https://example.com/${templateEncoded}`}
+        templateUrl={`${window.location.protocol}//${window.location.host}/menu/${templateEncoded}`}
       />
       <div className="menu-page">
         {Object.keys(menu).map((group, groupIndex) => (
