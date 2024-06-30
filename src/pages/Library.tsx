@@ -21,7 +21,7 @@ export const LibraryPage = ({
           key={menu.encoded}
           title={menu.title}
           image={<img src={menu.image} alt={menu.title} />}
-          link={`/menu?encoded=${encodeData(menu.title)}:${menu.encoded}`}
+          link={`/menu?encoded=${encodeURIComponent(`${encodeData(menu.title)}:${menu.encoded}`)}`}
         />
       ))}
 

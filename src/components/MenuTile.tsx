@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import "./MenuTile.css";
 import { ReactNode } from "react";
 
@@ -14,7 +15,7 @@ export const MenuTile = ({
     <div className="menu-tile">
       <h2>{title}</h2>
       {image}
-      <a href={link}>View</a>
+      <Link to={link}>View</Link>
     </div>
   );
 };
