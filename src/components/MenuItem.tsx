@@ -24,10 +24,12 @@ const MenuItemInput = ({
  * their preference.
  */
 export const MenuItem = ({
+  id,
   item,
   value,
   onChange,
 }: {
+  id?: string;
   item: string;
   value?: RelationshipMenuItemValue;
   onChange: (value: Partial<RelationshipMenuItem>) => void;
@@ -49,6 +51,7 @@ export const MenuItem = ({
       </select>
       <label>
         <MenuItemInput
+          id={id}
           value={item}
           onChange={(e) => onChange({ item: e.target.value })}
         />
