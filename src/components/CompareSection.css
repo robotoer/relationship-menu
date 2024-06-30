@@ -5,3 +5,10 @@
   overflow-x: auto;
   padding: 1rem;
 }
+
+/* Media query to make the flexbox wrap */
+@media (max-width: 768px) {
+  .compare-section {
+    flex-wrap: wrap;
+  }
+}

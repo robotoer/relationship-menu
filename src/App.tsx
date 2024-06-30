@@ -221,7 +221,7 @@ export const App = () => {
   return (
     <div className="app">
       <Navbar
-        title="Non-Escalator Relationship Menu"
+        title="Relationship Menu"
         links={[
           { to: "/", text: "Library" },
           { to: "/compare", text: "Compare" },
