@@ -1,6 +1,3 @@
-# CI github workflow that runs (along with its dependencies):
-# - yarn build
-
 name: "CI"
 
 on: push
