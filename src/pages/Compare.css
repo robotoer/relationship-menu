@@ -4,3 +4,10 @@
   grid-gap: 1rem;
   padding: 1rem;
 }
+
+/* Media queries for grid-template-columns */
+@media all and (max-width: 800px) {
+  .compare-page-grid {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  }
+}

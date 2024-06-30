@@ -16,6 +16,7 @@
 }
 
 .unknown {
+  flex: none;
   background-color: grey;
   color: white;
   width: 32px;
@@ -23,6 +24,7 @@
 }
 
 .must-have {
+  flex: none;
   background-color: blue;
   color: white;
   width: 32px;
@@ -30,6 +32,7 @@
 }
 
 .like-to-have {
+  flex: none;
   background-color: green;
   color: white;
   width: 32px;
@@ -37,6 +40,7 @@
 }
 
 .maybe {
+  flex: none;
   background-color: yellow;
   color: black;
   width: 32px;
@@ -44,6 +48,7 @@
 }
 
 .off-limits {
+  flex: none;
   background-color: red;
   color: white;
   width: 32px;
