@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import "./App.css";
-import { Routes, Route, useSearchParams } from "react-router-dom";
+import { Routes, Route, useLocation, useSearchParams } from "react-router-dom";
 import { Navbar } from "./components/Navbar";
 import { LibraryPage } from "./pages/Library";
 import { AboutPage } from "./pages/About";
@@ -217,6 +217,15 @@ export const App = () => {
   const menuPage = useMemo(() => <WrappedMenuPage />, []);
   const comparePage = useMemo(() => <WrappedComparePage />, []);
   const aboutPage = useMemo(() => <AboutPage />, []);
+
+  const location = useLocation();
+
+  useEffect(() => {
+    // track pageview with gtag / react-ga / react-ga4, for example:
+    window.gtag("event", "page_view", {
+      page_path: location.pathname + location.search,
+    });
+  }, [location]);
 
   return (
     <div className="app">
