@@ -10,8 +10,8 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 266px;
-  width: 192px;
+  height: 100%;
+  width: 100%;
   border: 2px dashed #ccc;
   border-radius: 5px;
   cursor: pointer;
