@@ -1,7 +1,21 @@
 .share-section {
-  display: flex;
+  /* display: flex;
   justify-content: center;
   align-items: center;
   margin-top: 20px;
-  gap: 10px;
+  gap: 10px; */
+
+  display: grid;
+  /* Grid should have a maximum of 4 columns */
+  grid-template-columns: 200px 200px 200px 200px;
+  grid-gap: 1rem;
+  padding: 1rem;
+  justify-content: center;
+}
+
+/* Media queries for grid-template-columns */
+@media all and (max-width: 800px) {
+  .share-section {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  }
 }

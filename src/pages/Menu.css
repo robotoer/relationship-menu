@@ -5,6 +5,13 @@
   padding: 1rem;
 }
 
+/* Media queries for grid-template-columns */
+@media all and (max-width: 800px) {
+  .menu-page {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  }
+}
+
 .new-group-title {
   width: calc(100% - 32px);
   box-sizing: border-box;
@@ -29,7 +36,6 @@
   width: calc(100% - 32px);
   box-sizing: border-box;
   margin-top: 16px;
-  margin-bottom: 16px;
 
   font-size: 2rem;
   font-weight: bold;

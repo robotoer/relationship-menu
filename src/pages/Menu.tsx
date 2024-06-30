@@ -65,12 +65,6 @@ export const MenuPage = ({
 }) => {
   return (
     <>
-      <ShareSection
-        menuEncoded={menuEncoded}
-        menuUrl={`${window.location.protocol}//${window.location.host}/menu/${menuEncoded}`}
-        templateEncoded={templateEncoded}
-        templateUrl={`${window.location.protocol}//${window.location.host}/menu/${templateEncoded}`}
-      />
       <div className="menu-title-container">
         <MenuTitle
           value={title}
@@ -81,6 +75,12 @@ export const MenuPage = ({
           Compare
         </Link>
       </div>
+      <ShareSection
+        menuEncoded={menuEncoded}
+        menuUrl={`${window.location.protocol}//${window.location.host}/menu/${menuEncoded}`}
+        templateEncoded={templateEncoded}
+        templateUrl={`${window.location.protocol}//${window.location.host}/menu/${templateEncoded}`}
+      />
       <div className="menu-page">
         {Object.keys(menu).map((group, groupIndex) => (
           <MenuGroup
