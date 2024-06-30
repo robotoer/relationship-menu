@@ -77,9 +77,9 @@ export const MenuPage = ({
       </div>
       <ShareSection
         menuEncoded={menuEncoded}
-        menuUrl={`${window.location.protocol}//${window.location.host}/menu/${menuEncoded}`}
+        menuUrl={`${window.location.protocol}//${window.location.host}/menu?encoded=${encodeURIComponent(menuEncoded)}`}
         templateEncoded={templateEncoded}
-        templateUrl={`${window.location.protocol}//${window.location.host}/menu/${templateEncoded}`}
+        templateUrl={`${window.location.protocol}//${window.location.host}/menu?encoded=${encodeURIComponent(templateEncoded)}`}
       />
       <div className="menu-page">
         {Object.keys(menu).map((group, groupIndex) => {
