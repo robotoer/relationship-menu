@@ -19,13 +19,15 @@ export const SharePane = ({
     <div className="share-pane">
       {title && <h3 className="title">{title}</h3>}
       {description && <p className="description">{description}</p>}
-      <input type="text" value={value} readOnly className="share-input" />
-      <button
-        className="share-button"
-        onClick={() => navigator.clipboard.writeText(value)}
-      >
-        Copy
-      </button>
+      <div className="share-input-container">
+        <input type="text" value={value} readOnly className="share-input" />
+        <button
+          className="share-button"
+          onClick={() => navigator.clipboard.writeText(value)}
+        >
+          Copy
+        </button>
+      </div>
     </div>
   );
 };

@@ -7,7 +7,7 @@
 
   display: grid;
   /* Grid should have a maximum of 4 columns */
-  grid-template-columns: 200px 200px 200px 200px;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   grid-gap: 1rem;
   padding: 1rem;
   justify-content: center;
