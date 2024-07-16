@@ -45,7 +45,7 @@ export const MenuItem = ({
         }
         className={value || "unknown"}
       >
-        <option value={undefined}>---</option>
+        <option value="">---</option>
         <option value="must-have">Must Have</option>
         <option value="like-to-have">Like to Have</option>
         <option value="maybe">Maybe</option>
