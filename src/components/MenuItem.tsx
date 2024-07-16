@@ -28,11 +28,13 @@ export const MenuItem = ({
   item,
   value,
   onChange,
+  onDelete,
 }: {
   id?: string;
   item: string;
   value?: RelationshipMenuItemValue;
   onChange: (value: Partial<RelationshipMenuItem>) => void;
+  onDelete: () => void;
 }) => {
   return (
     <div className="menu-item">
@@ -56,6 +58,9 @@ export const MenuItem = ({
           onChange={(e) => onChange({ item: e.target.value })}
         />
       </label>
+      <button className="delete-button" onClick={onDelete}>
+        Delete
+      </button>
     </div>
   );
 };
