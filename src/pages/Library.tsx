@@ -8,6 +8,7 @@ import { MenuTile } from "../components/MenuTile";
 import { RelationshipMenuDocument } from "../model/menu";
 import { Link } from "react-router-dom";
 import { encodeData } from "../data-encoder";
+import { RandomAvatar } from "react-random-avatars";
 
 export const LibraryPage = ({
   menus,
@@ -20,7 +21,7 @@ export const LibraryPage = ({
         <MenuTile
           key={menu.encoded}
           title={menu.title}
-          image={<img src={menu.image} alt={menu.title} />}
+          image={<RandomAvatar name={menu.title} size={150} />}
           link={`/menu?encoded=${encodeURIComponent(`${encodeData(menu.title)}:${menu.encoded}`)}`}
         />
       ))}

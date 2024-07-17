@@ -22,7 +22,6 @@ export const createLocalStorage = (): Storage => {
             const title = key.slice(5);
             const document: RelationshipMenuDocument = {
               title,
-              image: "https://via.placeholder.com/150",
               encoded: value,
             };
             documents[title] = document;

@@ -25,7 +25,6 @@ export const Default: Story = {
     menus: [
       {
         title: "Partner 1",
-        image: "https://via.placeholder.com/150",
         encoded: encodeData({
           Commitment: [
             {
@@ -57,7 +56,6 @@ export const Default: Story = {
       },
       {
         title: "Partner 2",
-        image: "https://via.placeholder.com/150",
         encoded: encodeData({
           Commitment: [
             {

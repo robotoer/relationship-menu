@@ -12,7 +12,6 @@ describe("LocalStorage", () => {
   test("should save and retrieve documents", async () => {
     const doc: RelationshipMenuDocument = {
       title: "Test Document",
-      image: "https://via.placeholder.com/150",
       encoded: "encoded-content",
     };
 
@@ -25,7 +24,6 @@ describe("LocalStorage", () => {
   test("should clear all documents", async () => {
     const doc: RelationshipMenuDocument = {
       title: "Test Document",
-      image: "https://via.placeholder.com/150",
       encoded: "encoded-content",
     };
 
@@ -39,12 +37,10 @@ describe("LocalStorage", () => {
   test("should retrieve documents by id", async () => {
     const doc1: RelationshipMenuDocument = {
       title: "Doc1",
-      image: "https://via.placeholder.com/150",
       encoded: "encoded-content-1",
     };
     const doc2: RelationshipMenuDocument = {
       title: "Doc2",
-      image: "https://via.placeholder.com/150",
       encoded: "encoded-content-2",
     };
 

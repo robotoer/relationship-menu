@@ -17,6 +17,5 @@ export type RelationshipMenu = {
 
 export type RelationshipMenuDocument = {
   title: string;
-  image: string;
   encoded: string;
 };

@@ -56,7 +56,6 @@ const WrappedMenuPage = () => {
     const value = encodeData(menu);
     storage.saveDocuments({
       title,
-      image: "https://via.placeholder.com/150",
       encoded: value,
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
