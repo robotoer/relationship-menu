@@ -45,18 +45,3 @@ export const createLocalStorage = (): Storage => {
     },
   };
 };
-
-// Implementation of the `Storage` type that uses @helia/json and IPFS:
-export const createIpfsStorage = (): Storage => {
-  return {
-    getDocuments: async (id?: string) => {
-      throw new Error("Not implemented");
-    },
-    saveDocuments: async (...docs) => {
-      throw new Error("Not implemented");
-    },
-    clear: async () => {
-      throw new Error("Not implemented");
-    },
-  };
-};

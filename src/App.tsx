@@ -14,28 +14,14 @@ import { MenuPage } from "./pages/Menu";
 import { decodeData, encodeData } from "./data-encoder";
 import { MenuComparison } from "./model/compare";
 import { compareMenus } from "./data-comparer";
+import { useStorage } from "./providers/Storage";
 
 const WrappedLibraryPage = () => {
-  const [documents, setDocuments] = useState<RelationshipMenuDocument[]>([]);
-  useEffect(() => {
-    const newDocuments = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && key.startsWith("menu:")) {
-        const value = localStorage.getItem(key);
-        if (value) {
-          const title = decodeData(key.slice(5));
-          const document: RelationshipMenuDocument = {
-            title,
-            image: "https://via.placeholder.com/150",
-            encoded: value,
-          };
-          newDocuments.push(document);
-        }
-      }
-    }
-    setDocuments(newDocuments);
-  }, []);
+  const { documents: documentsMap } = useStorage();
+  const documents = useMemo(
+    () => Object.values(documentsMap),
+    [documentsMap]
+  );
   return <LibraryPage menus={documents} />;
 };
 
