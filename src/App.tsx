@@ -12,12 +12,22 @@ import { MenuComparison } from "./model/compare";
 import { compareMenus } from "./data-comparer";
 import { useStorage } from "./providers/Storage";
 
+/**
+ * A component that wraps the LibraryPage component and provides the necessary data.
+ * @returns The wrapped LibraryPage component.
+ */
 const WrappedLibraryPage = () => {
   const { documents: documentsMap } = useStorage();
   const documents = useMemo(() => Object.values(documentsMap), [documentsMap]);
   return <LibraryPage menus={documents} />;
 };
 
+/**
+ * A wrapped version of the MenuPage component that handles state management and data encoding/decoding.
+ * It uses react-router-dom to get path parameters and syncs the encoded data with the menu state.
+ * The menu is saved to the browser's local storage and query parameters are updated as the menu or title changes.
+ * @returns The wrapped MenuPage component.
+ */
 const WrappedMenuPage = () => {
   const { storage } = useStorage();
   const [title, setTitle] = useState("");
@@ -125,6 +135,11 @@ const WrappedMenuPage = () => {
   );
 };
 
+/**
+ * A wrapped component for the ComparePage.
+ * 
+ * @returns The wrapped ComparePage component.
+ */
 const WrappedComparePage = () => {
   const [comparison, setComparison] = useState({} as MenuComparison);
   const [titles, setTitles] = useState([] as string[]);

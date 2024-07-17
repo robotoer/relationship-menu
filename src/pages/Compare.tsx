@@ -9,6 +9,14 @@ import { MenuItemCompare } from "../components/MenuItemCompare";
 import { MenuComparison } from "../model/compare";
 import { CompareSection } from "../components/CompareSection";
 
+/**
+ * Renders the ComparePage component.
+ *
+ * @param titles - An array of strings representing the titles of the menus.
+ * @param encoded - An array of strings representing the encoded menus.
+ * @param comparison - An object representing the menu comparison.
+ * @param onChangeCompared - A function that is called when the compared menus change.
+ */
 export const ComparePage = ({
   titles,
   encoded,

@@ -5,6 +5,11 @@
 import { MenuComparison } from "./model/compare";
 import { RelationshipMenu } from "./model/menu";
 
+/**
+ * Compares multiple RelationshipMenu objects and returns a MenuComparison object.
+ * @param menus An array of RelationshipMenu objects to compare.
+ * @returns A MenuComparison object representing the comparison result.
+ */
 export const compareMenus = (menus: RelationshipMenu[]): MenuComparison => {
   const comparison: MenuComparison = {};
 

@@ -10,6 +10,14 @@ import { Link } from "react-router-dom";
 import { encodeData } from "../data-encoder";
 import { RandomAvatar } from "react-random-avatars";
 
+/**
+ * Renders the Library page, displaying a list of relationship menus.
+ *
+ * @component
+ * @param {Object} props - The component props.
+ * @param {RelationshipMenuDocument[]} props.menus - The array of relationship menus to display.
+ * @returns {JSX.Element} The rendered Library page.
+ */
 export const LibraryPage = ({
   menus,
 }: {
