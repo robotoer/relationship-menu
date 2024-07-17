@@ -1,10 +1,19 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useMemo,
+} from "react";
 import { Storage } from "../storage";
 import { RelationshipMenuDocument } from "../model/menu";
 
 type StorageContextType = {
   storage: Storage;
   documents: { [id: string]: RelationshipMenuDocument };
+
+  saving: boolean;
+  saveError?: string;
 };
 
 const StorageContext = createContext<StorageContextType | undefined>(undefined);
@@ -16,6 +25,8 @@ export const StorageProvider: React.FC<{
   const [documents, setDocuments] = useState<{
     [id: string]: RelationshipMenuDocument;
   }>({});
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | undefined>();
 
   useEffect(() => {
     const fetchDocuments = async () => {
@@ -25,8 +36,39 @@ export const StorageProvider: React.FC<{
     fetchDocuments();
   }, [storage]);
 
+  // Record the state of saving/saveError in the context:
+  const wrappedStorage: Storage = useMemo(
+    () => ({
+      getDocuments: storage.getDocuments,
+      saveDocuments: async (...docs) => {
+        setSaving(true);
+        setSaveError(undefined);
+        try {
+          const ids = await storage.saveDocuments(...docs);
+          setDocuments((prev) => {
+            const next = { ...prev };
+            for (const doc of docs) {
+              next[doc.title] = doc;
+            }
+            return next;
+          });
+          return ids;
+        } catch (e: any) {
+          setSaveError(e.message);
+          return [];
+        } finally {
+          setSaving(false);
+        }
+      },
+      clear: storage.clear,
+    }),
+    [storage]
+  );
+
   return (
-    <StorageContext.Provider value={{ storage, documents }}>
+    <StorageContext.Provider
+      value={{ storage: wrappedStorage, documents, saving, saveError }}
+    >
       {children}
     </StorageContext.Provider>
   );
