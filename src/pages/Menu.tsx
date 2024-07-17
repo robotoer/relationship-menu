@@ -9,6 +9,16 @@ import { RelationshipMenu, RelationshipMenuItem } from "../model/menu";
 import { ShareSection } from "../components/ShareSection";
 import { Link } from "react-router-dom";
 
+/**
+ * Renders an input element for the menu title.
+ *
+ * @component
+ * @param {React.DetailedHTMLProps<React.InputHTMLAttributes<HTMLInputElement>, HTMLInputElement>} props - The input element props.
+ * @param {string} props.className - The class name for the input element.
+ * @param {string} props.placeholder - The placeholder text for the input element.
+ * @param {React.InputHTMLAttributes<HTMLInputElement>} props.params - Additional parameters for the input element.
+ * @returns {JSX.Element} The rendered input element.
+ */
 const MenuTitle = ({
   className,
   placeholder,
@@ -39,6 +49,17 @@ const GroupTitle = ({
   />
 );
 
+/**
+ * Represents the menu page component.
+ *
+ * @param title - The title of the menu.
+ * @param menu - The relationship menu.
+ * @param menuEncoded - The encoded string representation of the menu.
+ * @param templateEncoded - The encoded string representation of the template.
+ * @param onChange - The callback function for handling menu changes.
+ * @param onChangeTitle - The callback function for handling title changes.
+ * @returns The rendered menu page component.
+ */
 export const MenuPage = ({
   title,
   menu,

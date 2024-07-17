@@ -1,11 +1,29 @@
-import { debounce } from "lodash";
 import { RelationshipMenuDocument } from "./model/menu";
 
+/**
+ * Represents a storage interface for managing RelationshipMenuDocuments.
+ */
 export type Storage = {
+  /**
+   * Retrieves RelationshipMenuDocuments from the storage.
+   * @param id - Optional ID of the document to retrieve. If not provided, retrieves all documents.
+   * @returns A Promise that resolves to an object containing the retrieved documents, where the keys are the document IDs.
+   */
   getDocuments(
     id?: string
   ): Promise<{ [id: string]: RelationshipMenuDocument }>;
+
+  /**
+   * Saves RelationshipMenuDocuments to the storage.
+   * @param docs - The RelationshipMenuDocuments to save.
+   * @returns A Promise that resolves to an array of IDs of the saved documents.
+   */
   saveDocuments(...docs: RelationshipMenuDocument[]): Promise<string[]>;
+
+  /**
+   * Clears all RelationshipMenuDocuments from the storage.
+   * @returns A Promise that resolves when the storage is cleared.
+   */
   clear(): Promise<void>;
 };
 
@@ -47,6 +65,10 @@ const localStorageClear = async () => {
   localStorage.clear();
 };
 
+/**
+ * Creates a local storage object.
+ * @returns The local storage object.
+ */
 export const createLocalStorage = (): Storage => {
   return {
     getDocuments: localStorageGetDocuments,

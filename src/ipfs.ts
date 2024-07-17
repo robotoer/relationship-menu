@@ -1,5 +1,6 @@
 import { json, JSON } from "@helia/json";
 import { createHelia } from "helia";
+// NOTE: Importing from `multiformats` seems to break jest. This is a known issue with the library.
 import { CID } from "multiformats/cid";
 import { code, encode } from "multiformats/codecs/json";
 import { sha256 } from "multiformats/hashes/sha2";
@@ -7,6 +8,11 @@ import { Storage } from "./storage";
 import { RelationshipMenuDocument } from "./model/menu";
 import { debounce } from "lodash";
 
+/**
+ * Calculates the IPFS hash for the given object.
+ * @param obj - The object to calculate the IPFS hash for.
+ * @returns A Promise that resolves to the IPFS hash as a string.
+ */
 export const calculateIpfsHash = async (obj: any): Promise<string> => {
   const bytes = encode(obj);
   const hash = await sha256.digest(bytes);
@@ -55,6 +61,10 @@ const ipfsClear = async () => {
 };
 
 // Implementation of the `Storage` type that uses @helia/json and IPFS:
+/**
+ * Creates an IPFS storage object.
+ * @returns A promise that resolves to a Storage object.
+ */
 export const createIpfsStorage = async (): Promise<Storage> => {
   const hel = await createHelia();
   const helJson = json(hel);

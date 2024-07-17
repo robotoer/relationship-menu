@@ -18,6 +18,14 @@ type StorageContextType = {
 
 const StorageContext = createContext<StorageContextType | undefined>(undefined);
 
+/**
+ * A provider component that wraps the application and provides storage functionality.
+ *
+ * @component
+ * @param {React.ReactNode} children - The child components to be wrapped by the provider.
+ * @param {Storage} storage - The storage object used for storing documents.
+ * @returns {React.ReactNode} The wrapped child components.
+ */
 export const StorageProvider: React.FC<{
   children: React.ReactNode;
   storage: Storage;
