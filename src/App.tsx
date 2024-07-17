@@ -5,11 +5,7 @@ import { Navbar } from "./components/Navbar";
 import { LibraryPage } from "./pages/Library";
 import { AboutPage } from "./pages/About";
 import { ComparePage } from "./pages/Compare";
-import {
-  RelationshipMenu,
-  RelationshipMenuDocument,
-  RelationshipMenuItem,
-} from "./model/menu";
+import { RelationshipMenu, RelationshipMenuItem } from "./model/menu";
 import { MenuPage } from "./pages/Menu";
 import { decodeData, encodeData } from "./data-encoder";
 import { MenuComparison } from "./model/compare";
@@ -18,10 +14,7 @@ import { useStorage } from "./providers/Storage";
 
 const WrappedLibraryPage = () => {
   const { documents: documentsMap } = useStorage();
-  const documents = useMemo(
-    () => Object.values(documentsMap),
-    [documentsMap]
-  );
+  const documents = useMemo(() => Object.values(documentsMap), [documentsMap]);
   return <LibraryPage menus={documents} />;
 };
 
@@ -57,7 +50,7 @@ const WrappedMenuPage = () => {
     storage.saveDocuments({
       title,
       encoded: value,
-    })
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [menu]); // We are purpusely not saving when the title changes to avoid creating a new document unnecessarily.
   // Update query parameters as menu or title changes:
