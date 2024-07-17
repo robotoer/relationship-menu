@@ -26,6 +26,7 @@ const WrappedLibraryPage = () => {
 };
 
 const WrappedMenuPage = () => {
+  const { storage } = useStorage();
   const [title, setTitle] = useState("");
   const [menu, setMenu] = useState<RelationshipMenu>({});
   // Get path paremeters from react-router-dom:
@@ -52,10 +53,12 @@ const WrappedMenuPage = () => {
       return;
     }
 
-    const menuTitleEncoded = encodeData(title);
-    const key = `menu:${menuTitleEncoded}`;
     const value = encodeData(menu);
-    localStorage.setItem(key, value);
+    storage.saveDocuments({
+      title,
+      image: "https://via.placeholder.com/150",
+      encoded: value,
+    })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [menu]); // We are purpusely not saving when the title changes to avoid creating a new document unnecessarily.
   // Update query parameters as menu or title changes:
