@@ -9,6 +9,19 @@
   transition: transform 0.2s;
 }
 
+.delete-button {
+  background-color: transparent;
+  border: none;
+  color: red;
+  cursor: pointer;
+  font-size: 1rem;
+  margin-left: 0.5rem;
+}
+
+.delete-button:hover {
+  color: darkred;
+}
+
 .menu-item select {
   width: 100px;
   /* padding: 0.5rem; */
