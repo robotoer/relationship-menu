@@ -5,12 +5,17 @@ import { Navbar } from "./components/Navbar";
 import { LibraryPage } from "./pages/Library";
 import { AboutPage } from "./pages/About";
 import { ComparePage } from "./pages/Compare";
-import { RelationshipMenu, RelationshipMenuItem } from "./model/menu";
+import {
+  RelationshipMenu,
+  RelationshipMenuDocument,
+  RelationshipMenuItem,
+} from "./model/menu";
 import { MenuPage } from "./pages/Menu";
 import { decodeData, encodeData } from "./data-encoder";
 import { MenuComparison } from "./model/compare";
 import { compareMenus } from "./data-comparer";
-import { useStorage } from "./providers/Storage";
+import { useDocuments, useStorage } from "./providers/Storage";
+import { calculateIpfsHash } from "./ipfs";
 
 /**
  * A component that wraps the LibraryPage component and provides the necessary data.
@@ -18,7 +23,21 @@ import { useStorage } from "./providers/Storage";
  */
 const WrappedLibraryPage = () => {
   const { documents: documentsMap } = useStorage();
-  const documents = useMemo(() => Object.values(documentsMap), [documentsMap]);
+  const [documents, setDocuments] = useState<
+    (RelationshipMenuDocument & { id: string })[]
+  >([]);
+  useEffect(() => {
+    (async () => {
+      setDocuments(
+        await Promise.all(
+          Object.values(documentsMap).map(async (document) => ({
+            ...document,
+            id: await calculateIpfsHash(document),
+          }))
+        )
+      );
+    })();
+  }, [documentsMap]);
   return <LibraryPage menus={documents} />;
 };
 
@@ -29,7 +48,7 @@ const WrappedLibraryPage = () => {
  * @returns The wrapped MenuPage component.
  */
 const WrappedMenuPage = () => {
-  const { storage } = useStorage();
+  const { storage, documents } = useStorage();
   const [title, setTitle] = useState("");
   const [menu, setMenu] = useState<RelationshipMenu>({});
   // Get path paremeters from react-router-dom:
@@ -37,15 +56,21 @@ const WrappedMenuPage = () => {
   // Sync the encoded data with the menu state only on first load (to prevent infinite loop):
   useEffect(() => {
     const encodedRaw = params.get("encoded");
-    const [encodedTitle, encoded] = encodedRaw?.split(":") ?? [
-      undefined,
-      undefined,
-    ];
+    if (!encodedRaw) {
+      return;
+    }
+    const document = documents[encodedRaw];
+    if (!document) {
+      return;
+    }
+
+    const { title, encoded } = document;
+
     if (encoded) {
       setMenu(decodeData(encoded));
     }
-    if (encodedTitle) {
-      setTitle(decodeData(encodedTitle));
+    if (title !== undefined && title !== null) {
+      setTitle(title);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -137,53 +162,19 @@ const WrappedMenuPage = () => {
 
 /**
  * A wrapped component for the ComparePage.
- * 
+ *
  * @returns The wrapped ComparePage component.
  */
 const WrappedComparePage = () => {
   const [comparison, setComparison] = useState({} as MenuComparison);
-  const [titles, setTitles] = useState([] as string[]);
   const [params, setParams] = useSearchParams();
-  const [encoded, encodedTitles] = useMemo(
-    () => params.getAll("encoded")?.map((x) => x.split(":")[0]),
-    [params]
-  );
-
-  // Load comparison documents from query parameters:
-  useEffect(() => {
-    const encodedRaw = params.get("encoded");
-    const encoded = params.getAll("encoded")?.flatMap((x) => {
-      try {
-        return [x.split(":")[1]];
-      } catch (e) {
-        console.error("Failed to decode menu:", x);
-        return [];
-      }
-    });
-    const encodedTitles = params.getAll("encoded")?.flatMap((x) => {
-      try {
-        return [x.split(":")[0]];
-      } catch (e) {
-        console.error("Failed to decode menu:", x);
-        return [];
-      }
-    });
-    if (encodedRaw) {
-      const decoded = encoded.flatMap((x) => {
-        try {
-          return [decodeData(x) as RelationshipMenu];
-        } catch (e) {
-          console.error("Failed to decode menu:", x);
-          return [];
-        }
-      });
-      const comparison = compareMenus(decoded);
-      setComparison(comparison);
-    }
-    if (encodedTitles) {
-      setTitles(encodedTitles.map(decodeData));
-    }
-  }, [encoded, encodedTitles, params]);
+  // const [encoded, encodedTitles] = useMemo(
+  //   () => params.getAll("encoded")?.map((x) => x.split(":")[0]),
+  //   [params]
+  // );
+  const ids = useMemo(() => params.getAll("encoded"), [params]);
+  const documents = useDocuments(...ids);
+  const titles = useMemo(() => documents.map((doc) => doc?.title || ""), [documents]);
 
   return (
     <ComparePage

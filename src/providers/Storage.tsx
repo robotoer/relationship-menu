@@ -89,3 +89,17 @@ export const useStorage = (): StorageContextType => {
   }
   return context;
 };
+
+export const useDocuments = (
+  ...ids: string[]
+): (RelationshipMenuDocument | undefined)[] => {
+  const { storage, documents } = useStorage();
+  const [doc, setDoc] = useState<(RelationshipMenuDocument | undefined)[]>([]);
+  useEffect(() => {
+    (async () => {
+      const fetchedDocs = await storage.getDocuments(...ids);
+      setDoc(ids.map((id) => fetchedDocs[id] || documents[id]));
+    })();
+  }, [documents, storage, ids]);
+  return doc;
+};

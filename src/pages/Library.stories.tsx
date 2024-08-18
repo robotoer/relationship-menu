@@ -25,6 +25,7 @@ export const Default: Story = {
     menus: [
       {
         title: "Partner 1",
+        id: "partner1",
         encoded: encodeData({
           Commitment: [
             {
@@ -56,6 +57,7 @@ export const Default: Story = {
       },
       {
         title: "Partner 2",
+        id: "partner2",
         encoded: encodeData({
           Commitment: [
             {
