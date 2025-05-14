@@ -28,31 +28,51 @@ const StorageContext = createContext<StorageContextType | undefined>(undefined);
  */
 export const StorageProvider: React.FC<{
   children: React.ReactNode;
-  storage: Storage;
+  storage: Storage | Promise<Storage>;
 }> = ({ children, storage }) => {
   const [documents, setDocuments] = useState<{
     [id: string]: RelationshipMenuDocument;
   }>({});
+  const [awaitedStorage, setAwaitedStorage] = useState<Storage>({
+    ready: () => false,
+    getDocuments: async () => ({}),
+    saveDocuments: async () => [],
+    clear: async () => {},
+  });
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | undefined>();
 
   useEffect(() => {
+    (async () => {
+      setAwaitedStorage(await Promise.resolve(storage));
+    })();
+  }, [storage]);
+
+  useEffect(() => {
     const fetchDocuments = async () => {
-      const docs = await storage.getDocuments();
-      setDocuments(docs);
+      const docs = await awaitedStorage?.getDocuments?.();
+      if (docs) {
+        setDocuments(docs);
+      }
     };
     fetchDocuments();
-  }, [storage]);
+  }, [awaitedStorage]);
 
   // Record the state of saving/saveError in the context:
   const wrappedStorage: Storage = useMemo(
     () => ({
-      getDocuments: storage.getDocuments,
+      ready: awaitedStorage.ready,
+      getDocuments: awaitedStorage.getDocuments,
       saveDocuments: async (...docs) => {
+        console.log("wrappedStorage: saveDocuments");
         setSaving(true);
+        console.log("wrappedStorage: setSaving(true)");
         setSaveError(undefined);
+        console.log("wrappedStorage: setSaveError(undefined)");
         try {
-          const ids = await storage.saveDocuments(...docs);
+          console.log("awaitedStorage:", awaitedStorage);
+          const ids = await awaitedStorage.saveDocuments(...docs);
+          console.log("wrappedStorage: saveDocuments");
           setDocuments((prev) => {
             const next = { ...prev };
             for (const doc of docs) {
@@ -62,15 +82,16 @@ export const StorageProvider: React.FC<{
           });
           return ids;
         } catch (e: any) {
+          console.error("Error saving documents:", e);
           setSaveError(e.message);
           return [];
         } finally {
           setSaving(false);
         }
       },
-      clear: storage.clear,
+      clear: awaitedStorage.clear,
     }),
-    [storage]
+    [awaitedStorage]
   );
 
   return (
@@ -97,8 +118,10 @@ export const useDocuments = (
   const [doc, setDoc] = useState<(RelationshipMenuDocument | undefined)[]>([]);
   useEffect(() => {
     (async () => {
-      const fetchedDocs = await storage.getDocuments(...ids);
-      setDoc(ids.map((id) => fetchedDocs[id] || documents[id]));
+      const fetchedDocs = await storage?.getDocuments?.(...ids);
+      if (fetchedDocs) {
+        setDoc(ids.map((id) => fetchedDocs[id] || documents[id]));
+      }
     })();
   }, [documents, storage, ids]);
   return doc;

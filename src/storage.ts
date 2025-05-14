@@ -4,6 +4,8 @@ import { RelationshipMenuDocument } from "./model/menu";
  * Represents a storage interface for managing RelationshipMenuDocuments.
  */
 export type Storage = {
+  ready(): boolean;
+
   /**
    * Retrieves RelationshipMenuDocuments from the storage.
    * @param id - Optional ID of the document to retrieve. If not provided, retrieves all documents.
@@ -52,6 +54,7 @@ const localStorageGetDocuments = async (id?: string) => {
 const localStorageSaveDocuments = async (
   ...docs: RelationshipMenuDocument[]
 ): Promise<string[]> => {
+  console.log("Saving documents to localStorage...");
   const ids: string[] = [];
   for (const doc of docs) {
     const key = `menu:${doc.title}`;
@@ -71,6 +74,7 @@ const localStorageClear = async () => {
  */
 export const createLocalStorage = (): Storage => {
   return {
+    ready: () => true,
     getDocuments: localStorageGetDocuments,
     saveDocuments: localStorageSaveDocuments,
     // saveDocuments: (...docs) =>

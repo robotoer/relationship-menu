@@ -4,6 +4,8 @@ import "./index.css";
 import { App } from "./App";
 import reportWebVitals from "./reportWebVitals";
 import { BrowserRouter } from "react-router-dom";
+import { StorageProvider } from "./providers/Storage";
+import { createIpfsStorage } from "./ipfs";
 
 const root = ReactDOM.createRoot(
   document.getElementById("root") as HTMLElement
@@ -11,7 +13,9 @@ const root = ReactDOM.createRoot(
 root.render(
   <React.StrictMode>
     <BrowserRouter>
-      <App />
+      <StorageProvider storage={createIpfsStorage()}>
+        <App />
+      </StorageProvider>
     </BrowserRouter>
   </React.StrictMode>
 );
