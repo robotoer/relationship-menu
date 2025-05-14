@@ -13,7 +13,7 @@ import {
 import { MenuPage } from "./pages/Menu";
 import { decodeData, encodeData } from "./data-encoder";
 import { MenuComparison } from "./model/compare";
-import { compareMenus } from "./data-comparer";
+// import { compareMenus } from "./data-comparer";
 import { useDocuments, useStorage } from "./providers/Storage";
 import { calculateIpfsHash } from "./ipfs";
 
@@ -76,16 +76,22 @@ const WrappedMenuPage = () => {
   }, []);
   // Save the menu to the browser local storage:
   useEffect(() => {
-    // Don't save empty menus:
-    if (Object.keys(menu).length === 0) {
-      return;
-    }
+    (async () => {
+      // Don't save empty menus:
+      if (Object.keys(menu).length === 0) {
+        return;
+      }
 
-    const value = encodeData(menu);
-    storage.saveDocuments({
-      title,
-      encoded: value,
-    });
+      console.log("Saving menu:", storage);
+
+      const value = encodeData(menu);
+      console.log("Saving menu:", title, value);
+      const ids = await storage.saveDocuments({
+        title,
+        encoded: value,
+      });
+      console.log("Saved menu:", ids);
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [menu]); // We are purpusely not saving when the title changes to avoid creating a new document unnecessarily.
   // Update query parameters as menu or title changes:
@@ -174,7 +180,10 @@ const WrappedComparePage = () => {
   // );
   const ids = useMemo(() => params.getAll("encoded"), [params]);
   const documents = useDocuments(...ids);
-  const titles = useMemo(() => documents.map((doc) => doc?.title || ""), [documents]);
+  const titles = useMemo(
+    () => documents.map((doc) => doc?.title || ""),
+    [documents]
+  );
 
   return (
     <ComparePage
