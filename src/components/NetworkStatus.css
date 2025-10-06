@@ -1,0 +1,154 @@
+.network-status {
+  background-color: #f7f9fc;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 20px;
+}
+
+.network-status h4 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  color: #333;
+}
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 8px;
+  animation: pulse 2s infinite;
+}
+
+.status-dot.online {
+  background-color: #4caf50;
+  box-shadow: 0 0 5px #4caf50;
+}
+
+.status-dot.offline {
+  background-color: #f44336;
+  animation: none;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+.network-details {
+  margin-top: 15px;
+  font-size: 14px;
+}
+
+.peer-id {
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+
+.peer-id code {
+  display: inline-block;
+  background-color: #eee;
+  padding: 2px 5px;
+  border-radius: 4px;
+  font-family: monospace;
+  margin-left: 5px;
+  font-size: 12px;
+}
+
+.peer-count {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.peer-count label {
+  margin-right: 5px;
+}
+
+.peer-count span {
+  font-weight: 500;
+  color: #4caf50;
+}
+
+.peer-list {
+  margin-top: 10px;
+}
+
+.peer-list label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: 500;
+}
+
+.peer-list ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  background-color: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  padding: 8px;
+}
+
+.peer-list li {
+  padding: 4px 0;
+  font-family: monospace;
+  font-size: 12px;
+  color: #555;
+}
+
+.peer-list li.more-peers {
+  color: #999;
+  font-style: italic;
+}
+
+.multiaddrs {
+  margin-top: 12px;
+  border-top: 1px solid #e0e0e0;
+  padding-top: 12px;
+}
+
+.multiaddrs summary {
+  cursor: pointer;
+  font-weight: 500;
+  color: #666;
+  padding: 4px 0;
+  user-select: none;
+}
+
+.multiaddrs summary:hover {
+  color: #333;
+}
+
+.multiaddrs ul {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0 0;
+  background-color: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  padding: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.multiaddrs li {
+  padding: 4px 0;
+  word-break: break-all;
+}
+
+.multiaddrs code {
+  font-family: monospace;
+  font-size: 11px;
+  color: #555;
+}
