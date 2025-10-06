@@ -37,3 +37,5 @@ yarn-error.log*
 *.env
 !example.env
 .aider*
+
+/test-results/
