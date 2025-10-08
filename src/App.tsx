@@ -172,7 +172,7 @@ const WrappedMenuPage = () => {
  * @returns The wrapped ComparePage component.
  */
 const WrappedComparePage = () => {
-  const [comparison, setComparison] = useState({} as MenuComparison);
+  const comparison = {} as MenuComparison;
   const [params, setParams] = useSearchParams();
   // const [encoded, encodedTitles] = useMemo(
   //   () => params.getAll("encoded")?.map((x) => x.split(":")[0]),
