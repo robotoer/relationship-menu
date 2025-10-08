@@ -16017,13 +16017,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"napi-build-utils@npm:^1.0.1":
-  version: 1.0.2
-  resolution: "napi-build-utils@npm:1.0.2"
-  checksum: 10c0/37fd2cd0ff2ad20073ce78d83fd718a740d568b225924e753ae51cb69d68f330c80544d487e5e5bd18e28702ed2ca469c2424ad948becd1862c1b0209542b2e9
-  languageName: node
-  linkType: hard
-
 "napi-build-utils@npm:^2.0.0":
   version: 2.0.0
   resolution: "napi-build-utils@npm:2.0.0"
@@ -16092,14 +16085,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"node-datachannel@npm:^0.10.0":
-  version: 0.10.1
-  resolution: "node-datachannel@npm:0.10.1"
+"node-datachannel@npm:^0.29.0":
+  version: 0.29.0
+  resolution: "node-datachannel@npm:0.29.0"
   dependencies:
-    node-domexception: "npm:^2.0.1"
     node-gyp: "npm:latest"
-    prebuild-install: "npm:^7.0.1"
-  checksum: 10c0/1ed251958f961c534e65b7f1d5dab3d5cfcb5b4f488609c181f076572d15c0ee28f52ff6108defcfb68d3e30b2fd53e254841aa9da8448f4b7a24adc7ea8af76
+    prebuild-install: "npm:^7.1.3"
+  checksum: 10c0/e877ae55bbff1efe24b206ce65f309eb105084626069980dcadf56da4e0dc9e92a7fb208808895375b12cb263b035e4ea6d9738fe5b99d778cfbec1d5039dd4d
   languageName: node
   linkType: hard
 
@@ -16109,13 +16101,6 @@ __metadata:
   dependencies:
     minimatch: "npm:^3.0.2"
   checksum: 10c0/16222e871708c405079ff8122d4a7e1d522c5b90fc8f12b3112140af871cfc70128c376e845dcd0044c625db0d2efebd2d852414599d240564db61d53402b4c1
-  languageName: node
-  linkType: hard
-
-"node-domexception@npm:^2.0.1":
-  version: 2.0.1
-  resolution: "node-domexception@npm:2.0.1"
-  checksum: 10c0/310a81984b03b7cfa84a4c308d8b7479c6e6253dfbf1689dc560c873b0ca0affa158834add9178b5a952be10804a30fca46cc9a0c8f0aa812dd7a72dbbf109a1
   languageName: node
   linkType: hard
 
@@ -17841,28 +17826,6 @@ __metadata:
     picocolors: "npm:^1.0.0"
     source-map-js: "npm:^1.2.0"
   checksum: 10c0/955407b8f70cf0c14acf35dab3615899a2a60a26718a63c848cf3c29f2467b0533991b985a2b994430d890bd7ec2b1963e36352b0774a19143b5f591540f7c06
-  languageName: node
-  linkType: hard
-
-"prebuild-install@npm:^7.0.1":
-  version: 7.1.2
-  resolution: "prebuild-install@npm:7.1.2"
-  dependencies:
-    detect-libc: "npm:^2.0.0"
-    expand-template: "npm:^2.0.3"
-    github-from-package: "npm:0.0.0"
-    minimist: "npm:^1.2.3"
-    mkdirp-classic: "npm:^0.5.3"
-    napi-build-utils: "npm:^1.0.1"
-    node-abi: "npm:^3.3.0"
-    pump: "npm:^3.0.0"
-    rc: "npm:^1.2.7"
-    simple-get: "npm:^4.0.0"
-    tar-fs: "npm:^2.0.0"
-    tunnel-agent: "npm:^0.6.0"
-  bin:
-    prebuild-install: bin.js
-  checksum: 10c0/e64868ba9ef2068fd7264f5b03e5298a901e02a450acdb1f56258d88c09dea601eefdb3d1dfdff8513fdd230a92961712be0676192626a3b4d01ba154d48bdd3
   languageName: node
   linkType: hard
 
