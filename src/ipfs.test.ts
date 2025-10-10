@@ -17,6 +17,55 @@
  * 3. Run these as integration tests in a browser environment
  */
 
+// Import types to make this a module (required for TypeScript isolatedModules)
+import type { RelationshipMenuDocument } from './model/menu';
+
+// Re-export to satisfy TypeScript's isolatedModules requirement
+export {};
+
+// Mock localStorage for testing
+const localStorageMock = (() => {
+  let store: Record<string, string> = {};
+  return {
+    getItem: (key: string) => store[key] || null,
+    setItem: (key: string, value: string) => {
+      store[key] = value;
+    },
+    removeItem: (key: string) => {
+      delete store[key];
+    },
+    clear: () => {
+      store = {};
+    },
+    get length() {
+      return Object.keys(store).length;
+    },
+    key: (index: number) => {
+      const keys = Object.keys(store);
+      return keys[index] || null;
+    },
+  };
+})();
+
+// @ts-ignore
+global.localStorage = localStorageMock;
+
+// Mock functions referenced in tests (not actually used since tests are skipped)
+const getHeliaInstance = (): any => null;
+const getNetworkStats = (): { peerId: string | null; connections: number; peers: string[]; multiaddrs: string[] } => ({ 
+  peerId: null, 
+  connections: 0, 
+  peers: [], 
+  multiaddrs: [] 
+});
+const createIpfsStorage = async (): Promise<any> => ({
+  ready: () => true,
+  getDocuments: async () => ({}),
+  saveDocuments: async () => [],
+  clear: async () => {},
+});
+const calculateIpfsHash = async (obj: any): Promise<string> => 'mock-hash';
+
 describe.skip('IPFS P2P Functionality', () => {
   beforeEach(() => {
     localStorageMock.clear();
