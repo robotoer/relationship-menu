@@ -72,28 +72,47 @@ Useful for developing and testing UI components in isolation.
 
 ## Testing
 
+### Unit Tests
+
+```bash
+# Run Jest unit tests
+yarn test
+
+# Run unit tests in watch mode
+yarn test --watch
+```
+
+**Note**: IPFS-related unit tests are currently skipped due to ESM module compatibility issues with Jest. See `src/ipfs.test.ts` for details.
+
 ### E2E Tests with Playwright
 
 The application has comprehensive end-to-end test coverage:
 
 ```bash
+# First-time setup: Install Playwright browsers
+# Note: If you encounter download issues, use the setup script:
+./e2e/setup.sh
+
 # Run all E2E tests
-npx playwright test
+yarn test:e2e
 
 # Run P2P connectivity tests (5 tests, ~2 minutes)
-npx playwright test e2e/p2p-connectivity.spec.ts
+yarn test:e2e e2e/p2p-connectivity.spec.ts
 
 # Run application workflow tests (11 tests, ~1.5 minutes)
-npx playwright test e2e/application-workflow.spec.ts --workers=1
+yarn test:e2e e2e/application-workflow.spec.ts
 
 # Run with UI
-npx playwright test --ui
+yarn test:e2e:ui
 
 # Run in headed mode (see the browser)
-npx playwright test --headed
+yarn test:e2e:headed
 ```
 
-**Test Results**: ✅ 16/16 tests passing (100%)
+**Known Issues**:
+- Playwright browser download may fail due to a progress display bug in version 1.55.1
+- Use `./e2e/setup.sh` for manual browser installation if needed
+- E2E tests depend on P2P/IPFS functionality which has ESM limitations in the test environment
 
 See [E2E_TEST_RESULTS.md](./E2E_TEST_RESULTS.md) for detailed test documentation.
 
