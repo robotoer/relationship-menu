@@ -440,7 +440,7 @@ test.describe('Multi-User Data Sharing', () => {
         for (const item of group.items) {
           const itemInput = page1.locator('.menu-group')
             .filter({ hasText: group.name })
-            .locator('input.menu-item-name').last();
+            .locator('input.menu-item-input').last();
           
           await itemInput.fill(item);
           await itemInput.press('Enter');
