@@ -24,7 +24,7 @@ This document tracks remaining tasks and improvements for the relationship-menu 
 - [ ] Review and merge PR #27: Bump react-router-dom from 6.23.1 to 6.26.2
 - [ ] Review and merge PR #26: Bump webpack from 5.92.0 to 5.94.0
 - [ ] Review and merge PR #25: Bump @testing-library/jest-dom from 5.17.0 to 6.5.0
-- [ ] Update browserslist database (run: `npx update-browserslist-db@latest`)
+- [ ] Update browserslist database (run: `yarn dlx update-browserslist-db@latest`)
 
 ### P2P/IPFS Features
 - [ ] Review and merge PR #23: P2P/IPFS-backed menu storage and sharing
