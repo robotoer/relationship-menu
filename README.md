@@ -117,7 +117,7 @@ Builds the app for production to the `build` folder. The build is minified and o
 
 #### Serve production build locally
 ```bash
-npx serve -s build
+yarn dlx serve -s build
 ```
 
 ## Project Structure
