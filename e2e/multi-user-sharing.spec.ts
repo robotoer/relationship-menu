@@ -430,34 +430,81 @@ test.describe('Multi-User Data Sharing', () => {
       ];
 
       for (const group of groups) {
-        // Type the group name
+        console.log(`🔧 Creating group: ${group.name}`);
+        
+        // Type the group name - use the new group input at the bottom
         const groupInput = page1.locator('input.new-group-title').last();
         await groupInput.click();
         await groupInput.fill(group.name);
         
-        // Click elsewhere to trigger blur/change
+        // Click elsewhere to trigger blur/change event
         await page1.locator('body').click({ position: { x: 10, y: 10 } });
+        
+        // Wait for the new group to appear in the list
+        // The group should appear with the title we just entered
         await page1.waitForTimeout(1000);
         
-        // Wait for the group to be created and menu items to be available
-        const menuGroup = page1.locator('.menu-group').filter({ hasText: group.name });
-        await expect(menuGroup.locator('input.menu-item-input').first()).toBeVisible({ timeout: 10000 });
+        // Debug: log all menu groups
+        const allGroups = await page1.locator('.menu-group').count();
+        console.log(`📊 Total menu groups after creating "${group.name}": ${allGroups}`);
         
-        console.log(`✅ Created group: ${group.name}`);
+        // Find the menu group that contains our group name in its title input
+        // We need to be more specific - look for the group title input with this value
+        const menuGroup = page1.locator('.menu-group').filter({ 
+          has: page1.locator(`input.new-group-title[value="${group.name}"]`)
+        });
         
-        // Add items to this group
-        for (const item of group.items) {
-          const itemInput = menuGroup.locator('input.menu-item-input').last();
+        // Verify the group exists
+        const groupCount = await menuGroup.count();
+        console.log(`📊 Groups matching "${group.name}": ${groupCount}`);
+        
+        if (groupCount === 0) {
+          // Fallback: try finding by text content
+          const menuGroupByText = page1.locator('.menu-group').filter({ hasText: group.name });
+          const textCount = await menuGroupByText.count();
+          console.log(`📊 Groups with text "${group.name}": ${textCount}`);
           
-          await itemInput.click();
-          await itemInput.fill(item);
+          if (textCount > 0) {
+            // Use the text-based locator
+            await expect(menuGroupByText.locator('input.menu-item-input').first()).toBeVisible({ timeout: 10000 });
+            console.log(`✅ Created group: ${group.name}`);
+            
+            // Add items to this group
+            for (const item of group.items) {
+              const itemInput = menuGroupByText.locator('input.menu-item-input').last();
+              
+              await itemInput.click();
+              await itemInput.fill(item);
+              
+              // Click elsewhere to trigger blur/change
+              await page1.locator('body').click({ position: { x: 10, y: 10 } });
+              await page1.waitForTimeout(500);
+            }
+            
+            console.log(`✅ Added ${group.items.length} items to ${group.name}`);
+          } else {
+            throw new Error(`Group "${group.name}" was not created - cannot find it in the DOM`);
+          }
+        } else {
+          // Wait for menu items to be available in the group
+          await expect(menuGroup.locator('input.menu-item-input').first()).toBeVisible({ timeout: 10000 });
           
-          // Click elsewhere to trigger blur/change
-          await page1.locator('body').click({ position: { x: 10, y: 10 } });
-          await page1.waitForTimeout(500);
+          console.log(`✅ Created group: ${group.name}`);
+          
+          // Add items to this group
+          for (const item of group.items) {
+            const itemInput = menuGroup.locator('input.menu-item-input').last();
+            
+            await itemInput.click();
+            await itemInput.fill(item);
+            
+            // Click elsewhere to trigger blur/change
+            await page1.locator('body').click({ position: { x: 10, y: 10 } });
+            await page1.waitForTimeout(500);
+          }
+          
+          console.log(`✅ Added ${group.items.length} items to ${group.name}`);
         }
-        
-        console.log(`✅ Added ${group.items.length} items to ${group.name}`);
       }
 
       await page1.waitForTimeout(3000);
