@@ -114,17 +114,6 @@ yarn test:e2e:headed
 - Use `./e2e/setup.sh` for manual browser installation if needed
 - E2E tests depend on P2P/IPFS functionality which has ESM limitations in the test environment
 
-See [E2E_TEST_RESULTS.md](./E2E_TEST_RESULTS.md) for detailed test documentation.
-
-## Documentation
-
-- [E2E Test Results](./E2E_TEST_RESULTS.md) - Comprehensive test results and metrics
-- [Application Workflow Tests](./E2E_APPLICATION_TESTS.md) - Detailed UI workflow test documentation
-- [E2E Testing Guide](./E2E_TESTING.md) - Guide for writing and running E2E tests
-- [P2P Implementation Guide](./P2P_IMPLEMENTATION.md) - P2P architecture and implementation details
-- [P2P Quick Start](./P2P_QUICKSTART.md) - Quick guide to P2P functionality
-- [P2P Testing Guide](./P2P_TESTING_GUIDE.md) - Guide for testing P2P features
-
 ## Architecture
 
 ### P2P Networking

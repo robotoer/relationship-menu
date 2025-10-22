@@ -1,4 +1,4 @@
-import { json, JSON } from "@helia/json";
+import { json, JSON as HeliaJSON } from "@helia/json";
 import { createHelia, Helia } from "helia";
 // NOTE: Importing from `multiformats` seems to break jest. This is a known issue with the library.
 import { CID } from "multiformats/cid";
@@ -9,6 +9,20 @@ import { RelationshipMenuDocument } from "./model/menu";
 
 // Global reference to the Helia instance for monitoring
 let heliaInstance: Helia | null = null;
+
+/**
+ * Reset the Helia instance (useful for testing)
+ */
+export const resetHeliaInstance = async (): Promise<void> => {
+  if (heliaInstance) {
+    try {
+      await heliaInstance.stop();
+    } catch (error) {
+      console.error('Error stopping Helia instance:', error);
+    }
+    heliaInstance = null;
+  }
+};
 
 /**
  * Get the current Helia instance for monitoring and testing
@@ -64,7 +78,7 @@ export const calculateIpfsHash = async (obj: any): Promise<string> => {
 };
 
 const ipfsSaveDocuments =
-  (helJson: JSON) =>
+  (helJson: HeliaJSON) =>
   async (...docs: RelationshipMenuDocument[]) => {
     console.log("Saving documents to IPFS...");
     const ids: string[] = [];
@@ -79,7 +93,7 @@ const ipfsSaveDocuments =
     return ids;
   };
 
-const ipfsGetDocuments = (helJson: JSON) => async (id?: string) => {
+const ipfsGetDocuments = (helJson: HeliaJSON) => async (id?: string) => {
   if (!id) {
     const promises: Promise<[string, RelationshipMenuDocument] | null>[] = [];
     for (let i = 0; i < localStorage.length; i++) {

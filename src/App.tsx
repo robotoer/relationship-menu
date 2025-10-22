@@ -13,7 +13,6 @@ import {
 import { MenuPage } from "./pages/Menu";
 import { decodeData, encodeData } from "./data-encoder";
 import { MenuComparison } from "./model/compare";
-// import { compareMenus } from "./data-comparer";
 import { useDocuments, useStorage } from "./providers/Storage";
 import { calculateIpfsHash } from "./ipfs";
 
@@ -53,9 +52,12 @@ const WrappedMenuPage = () => {
   const [menu, setMenu] = useState<RelationshipMenu>({});
   // Get path paremeters from react-router-dom:
   const [params, setParams] = useSearchParams();
-  // Sync the encoded data with the menu state only on first load (to prevent infinite loop):
+  
+  // Memoize encodedRaw to use as stable dependency
+  const encodedRaw = useMemo(() => params.get("encoded"), [params]);
+  
+  // Sync the encoded data with the menu state when params or documents change:
   useEffect(() => {
-    const encodedRaw = params.get("encoded");
     if (!encodedRaw) {
       return;
     }
@@ -72,8 +74,7 @@ const WrappedMenuPage = () => {
     if (title !== undefined && title !== null) {
       setTitle(title);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [encodedRaw, documents]);
   // Save the menu to the browser local storage:
   useEffect(() => {
     (async () => {
@@ -82,15 +83,11 @@ const WrappedMenuPage = () => {
         return;
       }
 
-      console.log("Saving menu:", storage);
-
       const value = encodeData(menu);
-      console.log("Saving menu:", title, value);
-      const ids = await storage.saveDocuments({
+      await storage.saveDocuments({
         title,
         encoded: value,
       });
-      console.log("Saved menu:", ids);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [menu]); // We are purpusely not saving when the title changes to avoid creating a new document unnecessarily.
@@ -174,10 +171,6 @@ const WrappedMenuPage = () => {
 const WrappedComparePage = () => {
   const comparison = {} as MenuComparison;
   const [params, setParams] = useSearchParams();
-  // const [encoded, encodedTitles] = useMemo(
-  //   () => params.getAll("encoded")?.map((x) => x.split(":")[0]),
-  //   [params]
-  // );
   const ids = useMemo(() => params.getAll("encoded"), [params]);
   const documents = useDocuments(...ids);
   const titles = useMemo(
