@@ -51,32 +51,52 @@ const localStorageMock = (() => {
 global.localStorage = localStorageMock;
 
 // Mock functions referenced in tests (not actually used since tests are skipped)
-const getHeliaInstance = (): any => null;
+let mockHeliaInstance: any = null;
+
+const resetHeliaInstance = async (): Promise<void> => {
+  if (mockHeliaInstance && mockHeliaInstance.stop) {
+    await mockHeliaInstance.stop();
+  }
+  mockHeliaInstance = null;
+};
+
+const getHeliaInstance = (): any => mockHeliaInstance;
+
 const getNetworkStats = (): { peerId: string | null; connections: number; peers: string[]; multiaddrs: string[] } => ({ 
-  peerId: null, 
-  connections: 0, 
-  peers: [], 
-  multiaddrs: [] 
+  peerId: mockHeliaInstance ? 'mock-peer-id' : null, 
+  connections: mockHeliaInstance ? 1 : 0, 
+  peers: mockHeliaInstance ? ['mock-peer'] : [], 
+  multiaddrs: mockHeliaInstance ? ['/ip4/127.0.0.1/tcp/4001'] : [] 
 });
-const createIpfsStorage = async (): Promise<any> => ({
-  ready: () => true,
-  getDocuments: async () => ({}),
-  saveDocuments: async () => [],
-  clear: async () => {},
-});
+
+const createIpfsStorage = async (): Promise<any> => {
+  mockHeliaInstance = {
+    stop: async () => {},
+    libp2p: {
+      peerId: { toString: () => 'mock-peer-id' },
+      getConnections: () => [{ remotePeer: { toString: () => 'mock-peer' } }],
+      getMultiaddrs: () => [{ toString: () => '/ip4/127.0.0.1/tcp/4001' }],
+    },
+  };
+  return {
+    ready: () => true,
+    getDocuments: async () => ({}),
+    saveDocuments: async () => [],
+    clear: async () => {},
+  };
+};
+
 const calculateIpfsHash = async (obj: any): Promise<string> => 'mock-hash';
 
 describe.skip('IPFS P2P Functionality', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     localStorageMock.clear();
+    await resetHeliaInstance();
   });
 
   afterEach(async () => {
     // Clean up any created instances
-    const instance = getHeliaInstance();
-    if (instance && (instance as any).stop) {
-      await (instance as any).stop();
-    }
+    await resetHeliaInstance();
   });
 
   describe('Node Creation', () => {
@@ -109,7 +129,10 @@ describe.skip('IPFS P2P Functionality', () => {
   });
 
   describe('Network Statistics', () => {
-    it('should return null stats when no node exists', () => {
+    it('should return null stats when no node exists', async () => {
+      // Ensure singleton is reset before testing
+      await resetHeliaInstance();
+      
       const stats = getNetworkStats();
       
       expect(stats.peerId).toBeNull();
