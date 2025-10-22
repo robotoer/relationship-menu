@@ -39,3 +39,4 @@ yarn-error.log*
 .aider*
 
 /test-results/
+e2e/test-results.json

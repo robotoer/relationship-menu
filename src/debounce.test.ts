@@ -7,7 +7,7 @@ describe("debounce", () => {
     const debounced = debounce(func, 100);
     debounced();
     expect(func).not.toBeCalled();
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 150));
     expect(func).toBeCalled();
   });
   it("should call the function immediately if leading is true", async () => {
@@ -15,7 +15,7 @@ describe("debounce", () => {
     const debounced = debounce(func, 100, { leading: true });
     debounced();
     expect(func).toBeCalled();
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 150));
     expect(func).toBeCalledTimes(1);
   });
 });

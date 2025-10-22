@@ -7,13 +7,16 @@ import { BrowserRouter } from "react-router-dom";
 import { StorageProvider } from "./providers/Storage";
 import { createIpfsStorage } from "./ipfs";
 
+// Create storage promise at module scope to prevent multiple Helia nodes
+const storagePromise = createIpfsStorage();
+
 const root = ReactDOM.createRoot(
   document.getElementById("root") as HTMLElement
 );
 root.render(
   <React.StrictMode>
     <BrowserRouter>
-      <StorageProvider storage={createIpfsStorage()}>
+      <StorageProvider storage={storagePromise}>
         <App />
       </StorageProvider>
     </BrowserRouter>
