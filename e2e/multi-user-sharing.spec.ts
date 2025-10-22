@@ -430,20 +430,30 @@ test.describe('Multi-User Data Sharing', () => {
       ];
 
       for (const group of groups) {
-        await page1.fill('input.new-group-title', group.name);
-        await page1.press('input.new-group-title', 'Enter');
+        // Type the group name
+        const groupInput = page1.locator('input.new-group-title').last();
+        await groupInput.click();
+        await groupInput.fill(group.name);
+        
+        // Click elsewhere to trigger blur/change
+        await page1.locator('body').click({ position: { x: 10, y: 10 } });
         await page1.waitForTimeout(1000);
+        
+        // Wait for the group to be created and menu items to be available
+        const menuGroup = page1.locator('.menu-group').filter({ hasText: group.name });
+        await expect(menuGroup.locator('input.menu-item-input').first()).toBeVisible({ timeout: 10000 });
         
         console.log(`✅ Created group: ${group.name}`);
         
         // Add items to this group
         for (const item of group.items) {
-          const itemInput = page1.locator('.menu-group')
-            .filter({ hasText: group.name })
-            .locator('input.menu-item-input').last();
+          const itemInput = menuGroup.locator('input.menu-item-input').last();
           
+          await itemInput.click();
           await itemInput.fill(item);
-          await itemInput.press('Enter');
+          
+          // Click elsewhere to trigger blur/change
+          await page1.locator('body').click({ position: { x: 10, y: 10 } });
           await page1.waitForTimeout(500);
         }
         
