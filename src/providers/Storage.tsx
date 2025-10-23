@@ -116,13 +116,27 @@ export const useDocuments = (
 ): (RelationshipMenuDocument | undefined)[] => {
   const { storage, documents } = useStorage();
   const [doc, setDoc] = useState<(RelationshipMenuDocument | undefined)[]>([]);
+  
+  // Stabilize ids by stringifying and deduplicating
+  const idsString = ids.join(',');
+  const stableIds = useMemo(() => {
+    const unique = Array.from(new Set(ids));
+    return unique;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idsString]);
+  
   useEffect(() => {
     (async () => {
-      const fetchedDocs = await storage?.getDocuments?.(...ids);
-      if (fetchedDocs) {
-        setDoc(ids.map((id) => fetchedDocs[id] || documents[id]));
-      }
+      // Fetch all documents by calling getDocuments for each id
+      const fetchPromises = stableIds.map(async (id) => {
+        const fetchedDocs = await storage?.getDocuments?.(id);
+        return fetchedDocs && fetchedDocs[id] ? fetchedDocs[id] : documents[id];
+      });
+      
+      const results = await Promise.all(fetchPromises);
+      setDoc(results);
     })();
-  }, [documents, storage, ids]);
+  }, [documents, storage, stableIds]);
+  
   return doc;
 };
