@@ -117,13 +117,12 @@ export const useDocuments = (
   const { storage, documents } = useStorage();
   const [doc, setDoc] = useState<(RelationshipMenuDocument | undefined)[]>([]);
   
-  // Stabilize ids by stringifying and deduplicating
-  const idsString = ids.join(',');
+  // Stabilize ids by deduplicating
   const stableIds = useMemo(() => {
     const unique = Array.from(new Set(ids));
     return unique;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [idsString]);
+  }, [JSON.stringify(ids)]);
   
   useEffect(() => {
     (async () => {
