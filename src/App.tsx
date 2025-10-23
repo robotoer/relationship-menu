@@ -15,6 +15,7 @@ import { decodeData, encodeData } from "./data-encoder";
 import { MenuComparison } from "./model/compare";
 import { useDocuments, useStorage } from "./providers/Storage";
 import { calculateIpfsHash } from "./ipfs";
+import { compareMenus } from "./data-comparer";
 
 /**
  * A component that wraps the LibraryPage component and provides the necessary data.
@@ -27,14 +28,35 @@ const WrappedLibraryPage = () => {
   >([]);
   useEffect(() => {
     (async () => {
-      setDocuments(
-        await Promise.all(
+      try {
+        const results = await Promise.allSettled(
           Object.values(documentsMap).map(async (document) => ({
             ...document,
             id: await calculateIpfsHash(document),
           }))
-        )
-      );
+        );
+        
+        // Filter successful results and log failures
+        const successfulDocs = results
+          .map((result, index) => {
+            if (result.status === 'fulfilled') {
+              return result.value;
+            } else {
+              console.error(
+                `Failed to hash document ${Object.values(documentsMap)[index]?.title || 'unknown'}:`,
+                result.reason
+              );
+              return null;
+            }
+          })
+          .filter((doc): doc is RelationshipMenuDocument & { id: string } => doc !== null);
+        
+        setDocuments(successfulDocs);
+      } catch (error) {
+        console.error('Error processing documents:', error);
+        // Set empty array on unexpected errors
+        setDocuments([]);
+      }
     })();
   }, [documentsMap]);
   return <LibraryPage menus={documents} />;
@@ -169,7 +191,6 @@ const WrappedMenuPage = () => {
  * @returns The wrapped ComparePage component.
  */
 const WrappedComparePage = () => {
-  const comparison = {} as MenuComparison;
   const [params, setParams] = useSearchParams();
   const ids = useMemo(() => params.getAll("encoded"), [params]);
   const documents = useDocuments(...ids);
@@ -177,6 +198,19 @@ const WrappedComparePage = () => {
     () => documents.map((doc) => doc?.title || ""),
     [documents]
   );
+  
+  // Compute the comparison from decoded documents
+  const comparison = useMemo(() => {
+    if (documents.length === 0 || documents.every((doc) => !doc)) {
+      return {} as MenuComparison;
+    }
+    
+    const decodedMenus: RelationshipMenu[] = documents
+      .filter((doc): doc is RelationshipMenuDocument => doc !== undefined)
+      .map((doc) => decodeData(doc.encoded));
+    
+    return compareMenus(decodedMenus);
+  }, [documents]);
 
   return (
     <ComparePage
