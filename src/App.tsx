@@ -29,8 +29,9 @@ const WrappedLibraryPage = () => {
   useEffect(() => {
     (async () => {
       try {
+        const documentsList = Object.values(documentsMap);
         const results = await Promise.allSettled(
-          Object.values(documentsMap).map(async (document) => ({
+          documentsList.map(async (document) => ({
             ...document,
             id: await calculateIpfsHash(document),
           }))
@@ -43,13 +44,13 @@ const WrappedLibraryPage = () => {
               return result.value;
             } else {
               console.error(
-                `Failed to hash document ${Object.values(documentsMap)[index]?.title || 'unknown'}:`,
+                `Failed to hash document ${documentsList[index]?.title || 'unknown'}:`,
                 result.reason
               );
-              return null;
+              return undefined;
             }
           })
-          .filter((doc): doc is RelationshipMenuDocument & { id: string } => doc !== null);
+          .filter((doc): doc is RelationshipMenuDocument & { id: string } => doc !== undefined);
         
         setDocuments(successfulDocs);
       } catch (error) {
