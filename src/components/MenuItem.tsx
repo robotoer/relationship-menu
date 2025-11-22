@@ -43,11 +43,13 @@ export const MenuItem = ({
   item,
   value,
   onChange,
+  onDelete,
 }: {
   id?: string;
   item: string;
   value?: RelationshipMenuItemValue;
   onChange: (value: Partial<RelationshipMenuItem>) => void;
+  onDelete: () => void;
 }) => {
   return (
     <div className="menu-item">
@@ -58,7 +60,7 @@ export const MenuItem = ({
         }
         className={value || "unknown"}
       >
-        <option value={undefined}>---</option>
+        <option value="">---</option>
         <option value="must-have">Must Have</option>
         <option value="like-to-have">Like to Have</option>
         <option value="maybe">Maybe</option>
@@ -71,6 +73,9 @@ export const MenuItem = ({
           onChange={(e) => onChange({ item: e.target.value })}
         />
       </label>
+      <button className="delete-button" onClick={onDelete}>
+        Delete
+      </button>
     </div>
   );
 };
