@@ -330,4 +330,143 @@ test.describe("Share Link Loading", () => {
       await context2.close();
     }
   });
+
+  test("library tile link loads menu with correct content", async ({
+    browser,
+  }) => {
+    const context = await browser.newContext({ storageState: undefined });
+    const page = await context.newPage();
+
+    try {
+      // Create a menu
+      await page.goto("/menu");
+      await page.waitForLoadState("networkidle");
+      await expect(page.locator("input.menu-title")).toBeVisible({
+        timeout: 15000,
+      });
+
+      await page.fill("input.menu-title", "Library Round-Trip");
+      const groupIdx = await addGroup(page, "Favorites");
+      await page.waitForTimeout(500);
+
+      const group = getGroup(page, groupIdx);
+
+      await addItemToGroup(page, group, "Movie nights");
+      await setItemPreference(page, group, "must-have");
+
+      await addItemToGroup(page, group, "Cooking together");
+      await setItemPreference(page, group, "like-to-have");
+
+      await page.waitForTimeout(1000);
+
+      // Navigate to Library
+      await page.click('a:has-text("Library")');
+      await page.waitForURL("/");
+      await page.waitForTimeout(1000);
+
+      // Verify the menu tile appears
+      const tile = page.locator(".menu-tile").filter({ hasText: "Library Round-Trip" });
+      await expect(tile).toBeVisible({ timeout: 10000 });
+
+      // Click the View link on the tile
+      await tile.locator('a:has-text("View")').click();
+      await page.waitForURL("**/menu**");
+      await page.waitForLoadState("networkidle");
+      await page.waitForTimeout(2000);
+
+      // Verify the menu loaded correctly
+      const loadedTitle = await page.locator("input.menu-title").inputValue();
+      expect(loadedTitle).toBe("Library Round-Trip");
+
+      // Verify group
+      const loadedGroup = getGroup(page, 0);
+      const groupTitle = await loadedGroup
+        .locator("input.new-group-title")
+        .inputValue();
+      expect(groupTitle).toBe("Favorites");
+
+      // Verify items
+      const items = loadedGroup.locator("input.menu-item-input");
+      expect(await items.nth(0).inputValue()).toBe("Movie nights");
+      expect(await items.nth(1).inputValue()).toBe("Cooking together");
+
+      // Verify preferences
+      const selects = loadedGroup.locator(".menu-item select");
+      expect(await selects.nth(0).inputValue()).toBe("must-have");
+      expect(await selects.nth(1).inputValue()).toBe("like-to-have");
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("share link from tab 1 loads correctly in tab 2 of same browser", async ({
+    browser,
+  }) => {
+    const context = await browser.newContext({ storageState: undefined });
+    const page1 = await context.newPage();
+    const page2 = await context.newPage();
+
+    try {
+      // Tab 1: Create a menu
+      await page1.goto("/menu");
+      await expect(page1.locator("input.menu-title")).toBeVisible({
+        timeout: 30000,
+      });
+
+      await page1.fill("input.menu-title", "Same Browser Menu");
+      const groupIdx = await addGroup(page1, "Activities");
+      await page1.waitForTimeout(500);
+
+      const group = getGroup(page1, groupIdx);
+
+      await addItemToGroup(page1, group, "Hiking");
+      await setItemPreference(page1, group, "must-have");
+
+      await addItemToGroup(page1, group, "Gaming");
+      await setItemPreference(page1, group, "maybe");
+
+      await page1.waitForTimeout(1000);
+
+      // Get the share URL
+      const shareInputs = page1.locator("input.share-input");
+      await expect(shareInputs.first()).toBeVisible({ timeout: 10000 });
+      const shareUrl = await shareInputs.nth(0).inputValue();
+      expect(shareUrl).toContain("/menu?encoded=");
+
+      // Tab 2: Open the share link (same browser context = shared localStorage)
+      // Use domcontentloaded instead of networkidle because the IPFS node
+      // keeps making peer discovery requests that prevent networkidle.
+      // The share link data is fully self-contained in the URL and loads synchronously.
+      const urlObj = new URL(shareUrl);
+      await page2.goto(urlObj.pathname + urlObj.search, {
+        waitUntil: "domcontentloaded",
+      });
+      await expect(page2.locator("input.menu-title")).toBeVisible({
+        timeout: 30000,
+      });
+      await page2.waitForTimeout(2000);
+
+      // Verify title
+      const title2 = await page2.locator("input.menu-title").inputValue();
+      expect(title2).toBe("Same Browser Menu");
+
+      // Verify group
+      const group2 = getGroup(page2, 0);
+      expect(
+        await group2.locator("input.new-group-title").inputValue()
+      ).toBe("Activities");
+
+      // Verify items
+      const items2 = group2.locator("input.menu-item-input");
+      expect(await items2.nth(0).inputValue()).toBe("Hiking");
+      expect(await items2.nth(1).inputValue()).toBe("Gaming");
+
+      // Verify preferences
+      const selects2 = group2.locator(".menu-item select");
+      expect(await selects2.nth(0).inputValue()).toBe("must-have");
+      expect(await selects2.nth(1).inputValue()).toBe("maybe");
+    } finally {
+      await context.close();
+    }
+  });
 });

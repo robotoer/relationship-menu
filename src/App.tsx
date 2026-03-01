@@ -14,7 +14,6 @@ import { MenuPage } from "./pages/Menu";
 import { decodeData, encodeData } from "./data-encoder";
 import { MenuComparison } from "./model/compare";
 import { useDocuments, useStorage } from "./providers/Storage";
-import { calculateIpfsHash } from "./ipfs";
 import { compareMenus } from "./data-comparer";
 
 /**
@@ -23,43 +22,14 @@ import { compareMenus } from "./data-comparer";
  */
 const WrappedLibraryPage = () => {
   const { documents: documentsMap } = useStorage();
-  const [documents, setDocuments] = useState<
-    (RelationshipMenuDocument & { id: string })[]
-  >([]);
-  useEffect(() => {
-    (async () => {
-      try {
-        const documentsList = Object.values(documentsMap);
-        const results = await Promise.allSettled(
-          documentsList.map(async (document) => ({
-            ...document,
-            id: await calculateIpfsHash(document),
-          }))
-        );
-        
-        // Filter successful results and log failures
-        const successfulDocs = results
-          .map((result, index) => {
-            if (result.status === 'fulfilled') {
-              return result.value;
-            } else {
-              console.error(
-                `Failed to hash document ${documentsList[index]?.title || 'unknown'}:`,
-                result.reason
-              );
-              return undefined;
-            }
-          })
-          .filter((doc): doc is RelationshipMenuDocument & { id: string } => doc !== undefined);
-        
-        setDocuments(successfulDocs);
-      } catch (error) {
-        console.error('Error processing documents:', error);
-        // Set empty array on unexpected errors
-        setDocuments([]);
-      }
-    })();
-  }, [documentsMap]);
+  const documents = useMemo(
+    () =>
+      Object.values(documentsMap).map((doc) => ({
+        ...doc,
+        id: `${encodeData(doc.title)}:${doc.encoded}`,
+      })),
+    [documentsMap]
+  );
   return <LibraryPage menus={documents} />;
 };
 
@@ -80,7 +50,10 @@ const WrappedMenuPage = () => {
   // Memoize encodedRaw to use as stable dependency
   const encodedRaw = useMemo(() => params.get("encoded"), [params]);
 
-  // Decode menu data directly from the URL encoded parameter on initial load:
+  // Decode menu data from the URL encoded parameter on initial load.
+  // Supports two formats:
+  // 1. "titleEncoded:menuEncoded" — self-contained link (all data in URL)
+  // 2. A document ID (CID or title) — looked up from storage
   useEffect(() => {
     if (!encodedRaw || loadedFromUrl.current) {
       return;
@@ -89,25 +62,45 @@ const WrappedMenuPage = () => {
     // pako-compressed base64 strings. Base64 uses [A-Za-z0-9+/=] so ":"
     // is a safe delimiter.
     const colonIndex = encodedRaw.indexOf(":");
-    if (colonIndex === -1) {
-      return;
-    }
-    try {
-      const titlePart = encodedRaw.slice(0, colonIndex);
-      const menuPart = encodedRaw.slice(colonIndex + 1);
-      const decodedTitle = decodeData(titlePart);
-      const decodedMenu = decodeData(menuPart);
-      if (decodedTitle !== undefined && decodedTitle !== null) {
-        setTitle(decodedTitle);
+    if (colonIndex !== -1) {
+      // Format 1: self-contained "titleEncoded:menuEncoded"
+      try {
+        const titlePart = encodedRaw.slice(0, colonIndex);
+        const menuPart = encodedRaw.slice(colonIndex + 1);
+        const decodedTitle = decodeData(titlePart);
+        const decodedMenu = decodeData(menuPart);
+        if (decodedTitle !== undefined && decodedTitle !== null) {
+          setTitle(decodedTitle);
+        }
+        if (decodedMenu && typeof decodedMenu === "object") {
+          setMenu(decodedMenu);
+        }
+        loadedFromUrl.current = true;
+      } catch (e) {
+        console.error("Failed to decode menu from URL:", e);
       }
-      if (decodedMenu && typeof decodedMenu === "object") {
-        setMenu(decodedMenu);
-      }
-      loadedFromUrl.current = true;
-    } catch (e) {
-      console.error("Failed to decode menu from URL:", e);
+    } else {
+      // Format 2: document ID lookup (CID or title)
+      (async () => {
+        try {
+          const docs = await storage.getDocuments(encodedRaw);
+          const doc = docs[encodedRaw];
+          if (doc) {
+            setTitle(doc.title);
+            const decodedMenu = decodeData(doc.encoded);
+            if (decodedMenu && typeof decodedMenu === "object") {
+              setMenu(decodedMenu);
+            }
+            loadedFromUrl.current = true;
+          } else {
+            console.warn(`Document not found for ID: ${encodedRaw}`);
+          }
+        } catch (e) {
+          console.error("Failed to fetch document by ID:", e);
+        }
+      })();
     }
-  }, [encodedRaw]);
+  }, [encodedRaw, storage]);
   // Save the menu to the browser local storage:
   useEffect(() => {
     (async () => {
