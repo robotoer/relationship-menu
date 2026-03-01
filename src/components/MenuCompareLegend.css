@@ -22,7 +22,30 @@
   white-space: nowrap;
 }
 
+.legend-titles-mobile {
+  display: none;
+}
+
 .legend-title-outer {
   width: 32px;
   height: 100px;
+}
+
+@media (max-width: 768px) {
+  .legend-titles-mobile {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    width: 100%;
+    font-size: 0.875rem;
+  }
+
+  .legend-title-outer {
+    display: none;
+  }
+
+  .menu-compare-legend {
+    flex-direction: column;
+    padding: 0.5rem;
+  }
 }

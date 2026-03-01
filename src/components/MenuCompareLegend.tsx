@@ -12,6 +12,11 @@ import "./MenuCompareLegend.css";
 export const MenuCompareLegend = ({ titles }: { titles: string[] }) => {
   return (
     <div className="menu-compare-legend">
+      <div className="legend-titles-mobile">
+        {titles.map((title, index) => (
+          <span key={index}>{title}</span>
+        ))}
+      </div>
       {titles.map((title, index) => (
         <div className="legend-title-outer" key={index}>
           <div className="legend-title">

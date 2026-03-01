@@ -10,3 +10,10 @@
   margin: 0.5rem;
   transition: transform 0.2s;
 }
+
+@media (max-width: 640px) {
+  .menu-group {
+    padding: 0.5rem;
+    margin: 0.25rem;
+  }
+}

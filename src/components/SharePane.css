@@ -9,3 +9,20 @@
 .share-input {
   width: 100%;
 }
+
+@media (max-width: 640px) {
+  .share-input-container {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .share-button {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .share-input {
+    width: 100%;
+    box-sizing: border-box;
+  }
+}
