@@ -39,4 +39,5 @@ yarn-error.log*
 .aider*
 
 /test-results/
+/playwright-report/
 e2e/test-results.json
