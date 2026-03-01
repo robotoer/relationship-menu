@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 import { Routes, Route, useLocation, useSearchParams } from "react-router-dom";
 import { Navbar } from "./components/Navbar";
@@ -70,34 +70,44 @@ const WrappedLibraryPage = () => {
  * @returns The wrapped MenuPage component.
  */
 const WrappedMenuPage = () => {
-  const { storage, documents } = useStorage();
+  const { storage } = useStorage();
   const [title, setTitle] = useState("");
   const [menu, setMenu] = useState<RelationshipMenu>({});
+  const loadedFromUrl = useRef(false);
   // Get path paremeters from react-router-dom:
   const [params, setParams] = useSearchParams();
-  
+
   // Memoize encodedRaw to use as stable dependency
   const encodedRaw = useMemo(() => params.get("encoded"), [params]);
-  
-  // Sync the encoded data with the menu state when params or documents change:
+
+  // Decode menu data directly from the URL encoded parameter on initial load:
   useEffect(() => {
-    if (!encodedRaw) {
+    if (!encodedRaw || loadedFromUrl.current) {
       return;
     }
-    const document = documents[encodedRaw];
-    if (!document) {
+    // The encoded format is "titleEncoded:menuEncoded" where both parts are
+    // pako-compressed base64 strings. Base64 uses [A-Za-z0-9+/=] so ":"
+    // is a safe delimiter.
+    const colonIndex = encodedRaw.indexOf(":");
+    if (colonIndex === -1) {
       return;
     }
-
-    const { title, encoded } = document;
-
-    if (encoded) {
-      setMenu(decodeData(encoded));
+    try {
+      const titlePart = encodedRaw.slice(0, colonIndex);
+      const menuPart = encodedRaw.slice(colonIndex + 1);
+      const decodedTitle = decodeData(titlePart);
+      const decodedMenu = decodeData(menuPart);
+      if (decodedTitle !== undefined && decodedTitle !== null) {
+        setTitle(decodedTitle);
+      }
+      if (decodedMenu && typeof decodedMenu === "object") {
+        setMenu(decodedMenu);
+      }
+      loadedFromUrl.current = true;
+    } catch (e) {
+      console.error("Failed to decode menu from URL:", e);
     }
-    if (title !== undefined && title !== null) {
-      setTitle(title);
-    }
-  }, [encodedRaw, documents]);
+  }, [encodedRaw]);
   // Save the menu to the browser local storage:
   useEffect(() => {
     (async () => {
@@ -133,7 +143,10 @@ const WrappedMenuPage = () => {
     }
     return template;
   }, [menu]);
-  const templateEncoded = useMemo(() => encodeData(template), [template]);
+  const templateEncoded = useMemo(
+    () => `${encodeData(title)}:${encodeData(template)}`,
+    [title, template]
+  );
 
   return (
     <MenuPage
