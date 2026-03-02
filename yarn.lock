@@ -7492,7 +7492,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"blockstore-core@npm:^4.4.0, blockstore-core@npm:^4.4.1":
+"blockstore-core@npm:^4.0.0, blockstore-core@npm:^4.4.0, blockstore-core@npm:^4.4.1":
   version: 4.4.1
   resolution: "blockstore-core@npm:4.4.1"
   dependencies:
@@ -7506,6 +7506,19 @@ __metadata:
     it-pushable: "npm:^3.2.3"
     multiformats: "npm:^13.0.1"
   checksum: 10c0/eda7a8d6fd5e9a1efce5ead3e700493199eb56f0d0de2f00bb1d547c9633d1f400cdc4912ffd43d22195b88285cc7f1c4a837dda786e4a44a6f2251c34166f82
+  languageName: node
+  linkType: hard
+
+"blockstore-idb@npm:1.1.8":
+  version: 1.1.8
+  resolution: "blockstore-idb@npm:1.1.8"
+  dependencies:
+    blockstore-core: "npm:^4.0.0"
+    idb: "npm:^8.0.0"
+    interface-blockstore: "npm:^5.0.0"
+    interface-store: "npm:^5.0.0"
+    multiformats: "npm:^13.0.1"
+  checksum: 10c0/07db6f0a3cb79e18d6e4782d0403cd3ffcffd382730c9b1cfca19a0c7234617570d688e38e4717f8afa1bc0c1f9c1ac1c9a9bedeab6fa5b589b6473e9b4bdd88
   languageName: node
   linkType: hard
 
@@ -8680,7 +8693,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"datastore-core@npm:^9.2.9":
+"datastore-core@npm:^9.0.0, datastore-core@npm:^9.2.9":
   version: 9.2.9
   resolution: "datastore-core@npm:9.2.9"
   dependencies:
@@ -8697,6 +8710,19 @@ __metadata:
     it-sort: "npm:^3.0.4"
     it-take: "npm:^3.0.4"
   checksum: 10c0/cf03367c330dc6a593aa29a18d9bc17d91a955e9ee6ff828b2dc7fe30c8c2b44262b2926f56c80222115828a236646dadc29fdedf9c076ab7ec72c06c55147f1
+  languageName: node
+  linkType: hard
+
+"datastore-idb@npm:2.1.9":
+  version: 2.1.9
+  resolution: "datastore-idb@npm:2.1.9"
+  dependencies:
+    datastore-core: "npm:^9.0.0"
+    idb: "npm:^8.0.0"
+    interface-datastore: "npm:^8.0.0"
+    it-filter: "npm:^3.0.4"
+    it-sort: "npm:^3.0.4"
+  checksum: 10c0/9156b3aff394107fcdcc3f8c76d4fcf2769df90aebd022e5117733b9f4feadf175a45b5afc7c6eb0f96ab131fbdda41cf6de537bfcbd18f897b308ac216cad58
   languageName: node
   linkType: hard
 
@@ -11303,6 +11329,13 @@ __metadata:
   version: 7.1.1
   resolution: "idb@npm:7.1.1"
   checksum: 10c0/72418e4397638797ee2089f97b45fc29f937b830bc0eb4126f4a9889ecf10320ceacf3a177fe5d7ffaf6b4fe38b20bbd210151549bfdc881db8081eed41c870d
+  languageName: node
+  linkType: hard
+
+"idb@npm:^8.0.0":
+  version: 8.0.3
+  resolution: "idb@npm:8.0.3"
+  checksum: 10c0/421cd9a3281b7564528857031cc33fd9e95753f8191e483054cb25d1ceea7303a0d1462f4f69f5b41606f0f066156999e067478abf2460dfcf9cab80dae2a2b2
   languageName: node
   linkType: hard
 
@@ -16930,7 +16963,9 @@ __metadata:
     "@types/prop-types": "npm:^15"
     "@types/react": "npm:^18.3.28"
     "@types/react-dom": "npm:^18.3.7"
+    blockstore-idb: "npm:1.1.8"
     chromatic: "npm:^11.29.0"
+    datastore-idb: "npm:2.1.9"
     env-cmd: "npm:^10.1.0"
     eslint-plugin-storybook: "npm:^0.11.6"
     helia: "npm:^4.2.6"

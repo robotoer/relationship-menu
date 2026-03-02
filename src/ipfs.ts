@@ -1,4 +1,6 @@
 import { json, JSON as HeliaJSON } from "@helia/json";
+import { IDBBlockstore } from "blockstore-idb";
+import { IDBDatastore } from "datastore-idb";
 import { createHelia, Helia } from "helia";
 // NOTE: Importing from `multiformats` seems to break jest. This is a known issue with the library.
 import { CID } from "multiformats/cid";
@@ -86,8 +88,8 @@ const ipfsSaveDocuments =
       const cid = await helJson.add(doc);
       ids.push(cid.toString());
       
-      // Add to localStorage with a timestamp to track when it was shared
-      localStorage.setItem(`menu:${cid.toString()}`, new Date().toISOString());
+      // Add to localStorage with document JSON as a fallback in case IndexedDB is cleared
+      localStorage.setItem(`menu:${cid.toString()}`, JSON.stringify(doc));
       console.log(`Saved document with id: ${cid.toString()}`);
     }
     return ids;
@@ -111,6 +113,16 @@ const ipfsGetDocuments = (helJson: HeliaJSON) => async (id?: string) => {
               })
               .catch((error) => {
                 console.error(`Failed to get document with id: ${id}`, error);
+                // Fall back to localStorage JSON if Helia fetch fails
+                const rawValue = localStorage.getItem(`menu:${id}`);
+                if (rawValue) {
+                  try {
+                    const doc = JSON.parse(rawValue);
+                    if (doc && doc.title && doc.encoded) {
+                      return [id, doc] as [string, RelationshipMenuDocument];
+                    }
+                  } catch { /* not JSON, old timestamp format */ }
+                }
                 return null;
               })
           );
@@ -123,7 +135,13 @@ const ipfsGetDocuments = (helJson: HeliaJSON) => async (id?: string) => {
     const results = await Promise.all(promises);
     // Filter out null results
     const validResults = results.filter((r): r is [string, RelationshipMenuDocument] => r !== null);
-    return Object.fromEntries(validResults);
+    // Deduplicate by title — multiple CIDs may point to different versions
+    // of the same menu. Keep the last one (most recently saved).
+    const byTitle: { [title: string]: RelationshipMenuDocument } = {};
+    for (const [, doc] of validResults) {
+      byTitle[doc.title] = doc;
+    }
+    return byTitle;
   }
   
   try {
@@ -133,17 +151,27 @@ const ipfsGetDocuments = (helJson: HeliaJSON) => async (id?: string) => {
     // This will attempt to fetch from the P2P network
     const doc = await helJson.get<RelationshipMenuDocument>(cid);
     
-    // If we successfully fetched it from the network, store it locally
+    // If we successfully fetched it from the network, store it locally as JSON fallback
     if (doc) {
-      localStorage.setItem(`menu:${id}`, new Date().toISOString());
+      localStorage.setItem(`menu:${id}`, JSON.stringify(doc));
       console.log(`Retrieved and stored document with id: ${id} from network`);
     }
-    
+
     return {
       [id]: doc,
     };
   } catch (error) {
     console.error(`Failed to get document with id: ${id} from network`, error);
+    // Fall back to localStorage JSON if Helia fetch fails
+    const rawValue = localStorage.getItem(`menu:${id}`);
+    if (rawValue) {
+      try {
+        const doc = JSON.parse(rawValue);
+        if (doc && doc.title && doc.encoded) {
+          return { [id]: doc };
+        }
+      } catch { /* not JSON, old timestamp format */ }
+    }
     return {};
   }
 };
@@ -165,7 +193,13 @@ export const createIpfsStorage = async (): Promise<Storage> => {
   // - Bootstrap peer discovery
   // - DHT for content routing
   // - Circuit relay for NAT traversal
-  const helia = await createHelia();
+  const blockstore = new IDBBlockstore('helia-blocks');
+  const datastore = new IDBDatastore('helia-data');
+
+  await blockstore.open();
+  await datastore.open();
+
+  const helia = await createHelia({ blockstore, datastore });
   
   heliaInstance = helia;
   
