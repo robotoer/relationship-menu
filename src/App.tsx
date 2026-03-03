@@ -7,13 +7,12 @@ import { AboutPage } from "./pages/About";
 import { ComparePage } from "./pages/Compare";
 import {
   RelationshipMenu,
-  RelationshipMenuDocument,
   RelationshipMenuItem,
 } from "./model/menu";
 import { MenuPage } from "./pages/Menu";
 import { decodeData, encodeData } from "./data-encoder";
 import { MenuComparison } from "./model/compare";
-import { useDocuments, useStorage } from "./providers/Storage";
+import { useStorage } from "./providers/Storage";
 import { compareMenus } from "./data-comparer";
 
 /**
@@ -195,41 +194,71 @@ const WrappedMenuPage = () => {
 /**
  * A wrapped component for the ComparePage.
  *
+ * Decodes self-contained slugs (titleEncoded:menuEncoded format) directly
+ * rather than looking them up from storage, so compare links work across
+ * browsers without needing shared storage.
+ *
  * @returns The wrapped ComparePage component.
  */
 const WrappedComparePage = () => {
   const [params, setParams] = useSearchParams();
-  const ids = useMemo(() => params.getAll("encoded"), [params]);
-  const documents = useDocuments(...ids);
-  const titles = useMemo(
-    () => documents.map((doc) => doc?.title || ""),
-    [documents]
+  const encodedList = useMemo(
+    () => params.getAll("encoded").filter(Boolean),
+    [params]
   );
-  
-  // Compute the comparison from decoded documents
+
+  // Show comparison automatically when loading with 2+ encoded params (shared link)
+  const [showComparison, setShowComparison] = useState(
+    encodedList.length >= 2
+  );
+
+  // Decode each encoded param into title + menu
+  const decoded = useMemo(() => {
+    return encodedList.map((encoded) => {
+      try {
+        const colonIndex = encoded.indexOf(":");
+        if (colonIndex !== -1) {
+          const titlePart = encoded.slice(0, colonIndex);
+          const menuPart = encoded.slice(colonIndex + 1);
+          const title = decodeData(titlePart) as string;
+          const menu = decodeData(menuPart) as RelationshipMenu;
+          return { title, menu };
+        }
+      } catch (e) {
+        console.error("Failed to decode compare slug:", e);
+      }
+      return null;
+    });
+  }, [encodedList]);
+
+  const titles = useMemo(
+    () => decoded.map((d) => d?.title || ""),
+    [decoded]
+  );
+
   const comparison = useMemo(() => {
-    if (documents.length === 0 || documents.every((doc) => !doc)) {
-      return {} as MenuComparison;
-    }
-    
-    const decodedMenus: RelationshipMenu[] = documents
-      .filter((doc): doc is RelationshipMenuDocument => doc !== undefined)
-      .map((doc) => decodeData(doc.encoded));
-    
-    return compareMenus(decodedMenus);
-  }, [documents]);
+    const validMenus = decoded
+      .filter(
+        (d): d is { title: string; menu: RelationshipMenu } => d !== null
+      )
+      .map((d) => d.menu);
+
+    if (validMenus.length === 0) return {} as MenuComparison;
+    return compareMenus(validMenus);
+  }, [decoded]);
 
   return (
     <ComparePage
       comparison={comparison}
       titles={titles}
-      encoded={params.getAll("encoded")}
-      onChangeCompared={
-        // Update the page query params
-        (encoded) => {
-          setParams({ encoded });
-        }
-      }
+      encoded={encodedList}
+      showComparison={showComparison}
+      onChangeCompared={(encoded) => {
+        const newParams = new URLSearchParams();
+        encoded.forEach((e) => newParams.append("encoded", e));
+        setParams(newParams);
+      }}
+      onCompare={() => setShowComparison(true)}
     />
   );
 };
