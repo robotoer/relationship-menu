@@ -5,29 +5,36 @@ import "./CompareSection.css";
  * <CompareSection /> is a component that displays a list of encoded relationship menus for comparison.
  *
  * The currently filled out inputs should be shown first with an empty input at the end for adding new menus.
+ * A Compare button triggers the comparison display when 2+ menus are entered.
  *
  * @component
  * @param {Object} props - The component props.
  * @param {string[]} props.titles - The titles of the menus.
  * @param {string[]} props.menus - The menu items to compare.
  * @param {function} props.onChange - The callback function triggered when the menus change.
+ * @param {function} props.onCompare - The callback function triggered when the Compare button is clicked.
+ * @param {boolean} props.canCompare - Whether there are enough menus to compare.
  * @returns {JSX.Element} The rendered CompareSection component.
  */
 export const CompareSection = ({
   titles,
   menus,
   onChange,
+  onCompare,
+  canCompare,
 }: {
   titles: string[];
   menus: string[];
   onChange: (menus: string[]) => void;
+  onCompare: () => void;
+  canCompare: boolean;
 }) => {
   return (
     <div className="compare-section">
       {menus.map((menu, index) => (
         <CompareInput
           key={index}
-          label={`Menu ${index + 1}`}
+          label={titles[index] || `Menu ${index + 1}`}
           value={menu}
           onChange={(value) => {
             if (!value) {
@@ -47,6 +54,13 @@ export const CompareSection = ({
           onChange([...menus, value]);
         }}
       />
+      <button
+        className="compare-button"
+        onClick={onCompare}
+        disabled={!canCompare}
+      >
+        Compare
+      </button>
     </div>
   );
 };

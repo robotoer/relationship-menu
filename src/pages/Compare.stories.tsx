@@ -52,6 +52,8 @@ export const Default: Story = {
       ],
     },
     encoded: ["", ""],
+    showComparison: true,
     onChangeCompared: () => {},
+    onCompare: () => {},
   },
 };
