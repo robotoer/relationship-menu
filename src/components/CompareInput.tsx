@@ -22,7 +22,7 @@ export const CompareInput = ({
     <div className="compare-input">
       <label>{label}</label>
       <input
-        value={value}
+        value={value ?? ""}
         onChange={(e) => onChange(e.target.value)}
         // className={value || "unknown"}
       />

@@ -500,6 +500,13 @@ test.describe("Compare Feature", () => {
           .locator("input")
           .inputValue();
         expect(filledValue).toBe(slug);
+
+        // The new empty input should be cleared of text
+        const newEmptyValue = await compareInputs
+          .last()
+          .locator("input")
+          .inputValue();
+        expect(newEmptyValue).toBe("");
       } finally {
         await context.close();
       }
@@ -541,6 +548,13 @@ test.describe("Compare Feature", () => {
         // Should now have 3 inputs: 2 filled + 1 new empty
         const compareInputs = page.locator(".compare-input");
         await expect(compareInputs).toHaveCount(3);
+
+        // The new empty input should be cleared of text
+        const newEmptyValue = await compareInputs
+          .last()
+          .locator("input")
+          .inputValue();
+        expect(newEmptyValue).toBe("");
       } finally {
         await context.close();
       }
