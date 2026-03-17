@@ -7,13 +7,12 @@ import { AboutPage } from "./pages/About";
 import { ComparePage } from "./pages/Compare";
 import {
   RelationshipMenu,
-  RelationshipMenuDocument,
   RelationshipMenuItem,
 } from "./model/menu";
 import { MenuPage } from "./pages/Menu";
 import { decodeData, encodeData } from "./data-encoder";
 import { MenuComparison } from "./model/compare";
-import { useDocuments, useStorage } from "./providers/Storage";
+import { useStorage } from "./providers/Storage";
 import { compareMenus } from "./data-comparer";
 
 /**
@@ -195,41 +194,89 @@ const WrappedMenuPage = () => {
 /**
  * A wrapped component for the ComparePage.
  *
+ * Decodes self-contained slugs (titleEncoded:menuEncoded format) directly
+ * rather than looking them up from storage, so compare links work across
+ * browsers without needing shared storage.
+ *
  * @returns The wrapped ComparePage component.
  */
 const WrappedComparePage = () => {
   const [params, setParams] = useSearchParams();
-  const ids = useMemo(() => params.getAll("encoded"), [params]);
-  const documents = useDocuments(...ids);
-  const titles = useMemo(
-    () => documents.map((doc) => doc?.title || ""),
-    [documents]
+  const encodedList = useMemo(
+    () => params.getAll("encoded").filter(Boolean),
+    [params]
   );
-  
-  // Compute the comparison from decoded documents
+
+  // Show comparison automatically when loading with 2+ encoded params (shared link)
+  const [showComparison, setShowComparison] = useState(
+    encodedList.length >= 2
+  );
+
+  // Keep showComparison in sync with the current encoded list (URL state)
+  useEffect(() => {
+    setShowComparison(encodedList.length >= 2);
+  }, [encodedList]);
+
+  // Decode each encoded param into title + menu, preserving the original encoded string
+  const decoded = useMemo(() => {
+    return encodedList.map((enc) => {
+      try {
+        const colonIndex = enc.indexOf(":");
+        if (colonIndex !== -1) {
+          const titlePart = enc.slice(0, colonIndex);
+          const menuPart = enc.slice(colonIndex + 1);
+          const title = decodeData(titlePart) as string;
+          const menu = decodeData(menuPart) as RelationshipMenu;
+          return { title, menu, encoded: enc };
+        }
+      } catch (e) {
+        console.error("Failed to decode compare slug:", e);
+      }
+      return null;
+    });
+  }, [encodedList]);
+
+  // Filter to only successfully decoded entries so titles, encoded, and comparison
+  // all come from the same set and column counts stay aligned.
+  const validDecoded = useMemo(
+    () =>
+      decoded.filter(
+        (
+          d
+        ): d is { title: string; menu: RelationshipMenu; encoded: string } =>
+          d !== null
+      ),
+    [decoded]
+  );
+
+  const titles = useMemo(
+    () => validDecoded.map((d) => d.title),
+    [validDecoded]
+  );
+
+  const validEncoded = useMemo(
+    () => validDecoded.map((d) => d.encoded),
+    [validDecoded]
+  );
+
   const comparison = useMemo(() => {
-    if (documents.length === 0 || documents.every((doc) => !doc)) {
-      return {} as MenuComparison;
-    }
-    
-    const decodedMenus: RelationshipMenu[] = documents
-      .filter((doc): doc is RelationshipMenuDocument => doc !== undefined)
-      .map((doc) => decodeData(doc.encoded));
-    
-    return compareMenus(decodedMenus);
-  }, [documents]);
+    const menus = validDecoded.map((d) => d.menu);
+    if (menus.length === 0) return {} as MenuComparison;
+    return compareMenus(menus);
+  }, [validDecoded]);
 
   return (
     <ComparePage
       comparison={comparison}
       titles={titles}
-      encoded={params.getAll("encoded")}
-      onChangeCompared={
-        // Update the page query params
-        (encoded) => {
-          setParams({ encoded });
-        }
-      }
+      encoded={validEncoded}
+      showComparison={showComparison}
+      onChangeCompared={(encoded) => {
+        const newParams = new URLSearchParams();
+        encoded.forEach((e) => newParams.append("encoded", e));
+        setParams(newParams);
+      }}
+      onCompare={() => setShowComparison(true)}
     />
   );
 };

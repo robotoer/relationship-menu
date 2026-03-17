@@ -289,12 +289,12 @@ test.describe("Compare Feature", () => {
         const inputCount = await compareInputs.count();
         expect(inputCount).toBe(3);
 
-        // Verify labels "Menu 1", "Menu 2", "Menu 3"
+        // Verify labels show the decoded menu titles; last slot is the empty "add new" input
         await expect(compareInputs.nth(0).locator("label")).toHaveText(
-          "Menu 1"
+          "Menu Alpha"
         );
         await expect(compareInputs.nth(1).locator("label")).toHaveText(
-          "Menu 2"
+          "Menu Beta"
         );
         await expect(compareInputs.nth(2).locator("label")).toHaveText(
           "Menu 3"
@@ -335,8 +335,8 @@ test.describe("Compare Feature", () => {
           expect(firstRowHtml).toContain("must-have");
           expect(firstRowHtml).toContain("off-limits");
 
-          // Verify item name is visible in the .menu-item> element
-          const firstItemName = firstRow.locator(".menu-item\\>");
+          // Verify item name is visible in the .menu-item element
+          const firstItemName = firstRow.locator(".menu-item");
           await expect(firstItemName).toContainText("Exclusivity");
 
           // Verify color-coded boxes on second item (Cohabitation)
@@ -347,7 +347,7 @@ test.describe("Compare Feature", () => {
           expect(secondRowHtml).toContain("maybe");
 
           // Verify second item name
-          const secondItemName = secondRow.locator(".menu-item\\>");
+          const secondItemName = secondRow.locator(".menu-item");
           await expect(secondItemName).toContainText("Cohabitation");
 
           // Verify legend shows both menu titles
@@ -414,15 +414,15 @@ test.describe("Compare Feature", () => {
         const compareInputs = page.locator(".compare-input");
         await expect(compareInputs).toHaveCount(4);
 
-        // Labels should be Menu 1, Menu 2, Menu 3, Menu 4
+        // Labels should show the decoded menu titles; last slot is the empty "add new" input
         await expect(compareInputs.nth(0).locator("label")).toHaveText(
-          "Menu 1"
+          "Triple A"
         );
         await expect(compareInputs.nth(1).locator("label")).toHaveText(
-          "Menu 2"
+          "Triple B"
         );
         await expect(compareInputs.nth(2).locator("label")).toHaveText(
-          "Menu 3"
+          "Triple C"
         );
         await expect(compareInputs.nth(3).locator("label")).toHaveText(
           "Menu 4"
@@ -880,28 +880,35 @@ test.describe("Compare Feature", () => {
             ".compare-page-grid .menu-item-compare"
           );
           const itemCount = await compareItems.count();
-          expect(itemCount).toBe(2);
+          // compareMenus now matches by item name, so all unique items from both menus appear:
+          // Reading (in both), Cooking (A only), Gaming (B only) = 3 rows
+          expect(itemCount).toBe(3);
 
-          // First row should have both colors present
+          // First row (Reading) should have both colors present
           const firstRow = compareItems.first();
           const firstRowHtml = await firstRow.innerHTML();
           expect(firstRowHtml).toContain("must-have");
           expect(firstRowHtml).toContain("off-limits");
 
-          // Second row has index-1 items from both menus
-          // Menu A's "Cooking" (like-to-have) and Menu B's "Gaming" (maybe)
+          // Second row is Cooking (only in Menu A)
           const secondRow = compareItems.nth(1);
           const secondRowHtml = await secondRow.innerHTML();
           expect(secondRowHtml).toContain("like-to-have");
-          expect(secondRowHtml).toContain("maybe");
+
+          // Third row is Gaming (only in Menu B)
+          const thirdRow = compareItems.nth(2);
+          const thirdRowHtml = await thirdRow.innerHTML();
+          expect(thirdRowHtml).toContain("maybe");
 
           // Verify item names appear in the rows
-          const firstItemName = firstRow.locator(".menu-item\\>");
+          const firstItemName = firstRow.locator(".menu-item");
           await expect(firstItemName).toContainText("Reading");
 
-          // The second item name uses the first menu's item at index 1
-          const secondItemName = secondRow.locator(".menu-item\\>");
+          const secondItemName = secondRow.locator(".menu-item");
           await expect(secondItemName).toContainText("Cooking");
+
+          const thirdItemName = thirdRow.locator(".menu-item");
+          await expect(thirdItemName).toContainText("Gaming");
         } else {
           console.log(
             "NOTE: Comparison grid did not render -- cannot verify overlapping items."
@@ -1475,11 +1482,11 @@ test.describe("Compare Feature", () => {
           const itemCount = await compareItems.count();
           expect(itemCount).toBe(3);
 
-          // The item name is in a div with class "menu-item>" (note the > character)
+          // The item name is in a div with class "menu-item"
           // Verify each item name is present in the row
-          const row0Name = compareItems.nth(0).locator(".menu-item\\>");
-          const row1Name = compareItems.nth(1).locator(".menu-item\\>");
-          const row2Name = compareItems.nth(2).locator(".menu-item\\>");
+          const row0Name = compareItems.nth(0).locator(".menu-item");
+          const row1Name = compareItems.nth(1).locator(".menu-item");
+          const row2Name = compareItems.nth(2).locator(".menu-item");
 
           await expect(row0Name).toContainText("Movie nights");
           await expect(row1Name).toContainText("Cooking together");

@@ -23,7 +23,7 @@ export const MenuItemCompare = ({
       {menuItems.map((menuItem, itemIndex) => (
         <div key={itemIndex} className={menuItem || "unknown"}></div>
       ))}
-      <div className="menu-item>">{item}</div>
+      <div className="menu-item">{item}</div>
     </div>
   );
 };
