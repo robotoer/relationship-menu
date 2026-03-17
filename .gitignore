@@ -41,3 +41,4 @@ yarn-error.log*
 /test-results/
 /playwright-report/
 e2e/test-results.json
+package-lock.json
