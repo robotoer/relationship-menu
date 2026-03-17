@@ -50,4 +50,50 @@ describe("LocalStorage", () => {
     expect(documents["Doc1"]).toEqual(doc1);
     expect(documents["Doc2"]).toEqual(doc2);
   });
+
+  test("should read IPFS-format JSON entries from localStorage", async () => {
+    // Simulate IPFS storage saving a document with a CID key and JSON value
+    const doc: RelationshipMenuDocument = {
+      title: "IPFS Menu",
+      encoded: "ipfs-encoded-content",
+    };
+    localStorage.setItem(
+      "menu:bafyreigdmqpykrgxyaxtlafqpqhzrusn5nugbkjf3iy2grdiqbpnb2jcri",
+      JSON.stringify(doc)
+    );
+
+    const documents = await storage.getDocuments();
+
+    expect(documents["IPFS Menu"]).toEqual(doc);
+  });
+
+  test("should read both raw and JSON format entries", async () => {
+    // Raw format (localStorage save)
+    localStorage.setItem("menu:Raw Menu", "raw-encoded-content");
+    // JSON format (IPFS save)
+    localStorage.setItem(
+      "menu:bafyreigdmqpykrgxyaxtlafqpqhzrusn5nugbkjf3iy2grdiqbpnb2jcri",
+      JSON.stringify({ title: "IPFS Menu", encoded: "ipfs-encoded-content" })
+    );
+
+    const documents = await storage.getDocuments();
+
+    expect(documents["Raw Menu"]).toEqual({
+      title: "Raw Menu",
+      encoded: "raw-encoded-content",
+    });
+    expect(documents["IPFS Menu"]).toEqual({
+      title: "IPFS Menu",
+      encoded: "ipfs-encoded-content",
+    });
+  });
+
+  test("should ignore non-menu localStorage entries", async () => {
+    localStorage.setItem("other-key", "other-value");
+    localStorage.setItem("menu:My Menu", "encoded-data");
+
+    const documents = await storage.getDocuments();
+
+    expect(Object.keys(documents)).toEqual(["My Menu"]);
+  });
 });

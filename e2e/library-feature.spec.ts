@@ -142,11 +142,11 @@ async function createAdditionalMenu(
 /**
  * Comprehensive E2E Tests for the Library Feature
  *
- * IMPORTANT: The app uses IPFS (Helia) as its storage backend. Each page load
- * creates a new Helia node, so menus saved in one page load are NOT accessible
- * from another. Menus are available in the Library only within the same React
- * session via StorageProvider's in-memory documents map. All multi-menu tests
- * must stay within the same React session (client-side navigation only).
+ * The app uses IPFS (Helia) as its primary storage backend, with localStorage
+ * as an immediate fallback. The StorageProvider loads documents from localStorage
+ * on startup so menus are available in the Library immediately, even before
+ * the IPFS node finishes initializing. All multi-menu tests stay within the
+ * same React session (client-side navigation only) for consistency.
  */
 test.describe("Library Feature", () => {
   // ─── Basic Display ────────────────────────────────────────────────────

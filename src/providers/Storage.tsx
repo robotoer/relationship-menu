@@ -5,7 +5,7 @@ import React, {
   useEffect,
   useMemo,
 } from "react";
-import { Storage } from "../storage";
+import { Storage, createLocalStorage } from "../storage";
 import { RelationshipMenuDocument } from "../model/menu";
 
 type StorageContextType = {
@@ -33,18 +33,20 @@ export const StorageProvider: React.FC<{
   const [documents, setDocuments] = useState<{
     [id: string]: RelationshipMenuDocument;
   }>({});
-  const [awaitedStorage, setAwaitedStorage] = useState<Storage>({
-    ready: () => false,
-    getDocuments: async () => ({}),
-    saveDocuments: async () => [],
-    clear: async () => {},
-  });
+  const [awaitedStorage, setAwaitedStorage] = useState<Storage>(
+    createLocalStorage()
+  );
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | undefined>();
 
   useEffect(() => {
     (async () => {
-      setAwaitedStorage(await Promise.resolve(storage));
+      try {
+        setAwaitedStorage(await Promise.resolve(storage));
+      } catch (e) {
+        console.error("Failed to initialize storage, using localStorage fallback:", e);
+        // Keep using the localStorage fallback already set as the initial state
+      }
     })();
   }, [storage]);
 

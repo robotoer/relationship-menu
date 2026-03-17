@@ -39,6 +39,21 @@ const localStorageGetDocuments = async (id?: string) => {
     if (key && key.startsWith("menu:")) {
       const value = localStorage.getItem(key);
       if (value) {
+        // Try to parse as JSON first (IPFS format stores {title, encoded} as JSON)
+        try {
+          const parsed = JSON.parse(value);
+          if (
+            parsed &&
+            typeof parsed.title === "string" &&
+            typeof parsed.encoded === "string"
+          ) {
+            documents[parsed.title] = parsed;
+            continue;
+          }
+        } catch {
+          // Not JSON — fall through to raw format
+        }
+        // Raw format: key suffix is the title, value is the encoded menu data
         const title = key.slice(5);
         const document: RelationshipMenuDocument = {
           title,
