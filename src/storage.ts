@@ -104,6 +104,7 @@ export const localStorageDeleteDocument = async (title: string) => {
             isJsonMenu = true;
             if (parsed.title === title) {
               localStorage.removeItem(key);
+              continue;
             }
           }
         } catch {

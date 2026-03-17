@@ -133,14 +133,13 @@ describe("LocalStorage", () => {
   });
 
   test("should not delete a CID-keyed JSON entry whose title differs from the requested title", async () => {
-    // Simulate: a menu titled "someCID" exists as a raw entry,
-    // and a CID-keyed IPFS entry at menu:someCID belongs to a different menu.
+    // Simulate: a CID-keyed IPFS entry at menu:someCID belongs to a different menu.
     const cidKey = "menu:someCID";
     localStorage.setItem(
       cidKey,
       JSON.stringify({ title: "Actual IPFS Menu", encoded: "ipfs-data" })
     );
-    // Also add a raw entry for "someCID"
+    // Also add a raw entry with a different title
     localStorage.setItem("menu:rawTitle", "raw-data");
 
     await storage.deleteDocument("someCID");
@@ -155,6 +154,29 @@ describe("LocalStorage", () => {
     expect(documents["rawTitle"]).toEqual({
       title: "rawTitle",
       encoded: "raw-data",
+    });
+    // "someCID" should not appear as a document (no raw entry with that title existed)
+    expect(documents["someCID"]).toBeUndefined();
+  });
+
+  test("should delete raw entry when CID-keyed JSON entry has a different title at the same key", async () => {
+    // A CID-keyed JSON entry at menu:someCID belongs to "Actual IPFS Menu"
+    localStorage.setItem(
+      "menu:someCID",
+      JSON.stringify({ title: "Actual IPFS Menu", encoded: "ipfs-data" })
+    );
+    // A raw entry for "MyMenu" that should be deletable
+    localStorage.setItem("menu:MyMenu", "my-encoded-data");
+
+    await storage.deleteDocument("MyMenu");
+    const documents = await storage.getDocuments();
+
+    // The raw entry should be deleted
+    expect(documents["MyMenu"]).toBeUndefined();
+    // The CID-keyed JSON entry should remain
+    expect(documents["Actual IPFS Menu"]).toEqual({
+      title: "Actual IPFS Menu",
+      encoded: "ipfs-data",
     });
   });
 });
