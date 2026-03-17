@@ -121,6 +121,9 @@ export const MenuPage = ({
                   }
                 />
               }
+              onDelete={() =>
+                onChange({ kind: "group", oldGroup: group })
+              }
             >
               {menu[group].map((item, itemIndex) => (
                 <MenuItem
