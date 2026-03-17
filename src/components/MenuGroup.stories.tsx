@@ -22,6 +22,6 @@ export const WithDeleteButton: Story = {
   args: {
     title: <h2>Menu Group</h2>,
     children: "Menu Group Content",
-    onDelete: () => alert("Delete group"),
+    onDelete: () => {},
   },
 };

@@ -124,6 +124,7 @@ export const MenuPage = ({
               onDelete={() =>
                 onChange({ kind: "group", oldGroup: group })
               }
+              deleteAriaLabel={`Delete group: ${group}`}
             >
               {menu[group].map((item, itemIndex) => (
                 <MenuItem
