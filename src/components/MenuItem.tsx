@@ -75,6 +75,7 @@ export const MenuItem = ({
       </label>
       {onDelete && (
         <button
+          type="button"
           className="menu-item-delete"
           onClick={onDelete}
           aria-label="Delete item"
