@@ -11,11 +11,11 @@
   margin-top: 0.5rem;
 }
 
-.menu-item {
+.menu-item-compare .menu-item {
   margin-left: 0.5rem;
 }
 
-.unknown {
+.menu-item-compare .unknown {
   flex: none;
   background-color: grey;
   color: white;
@@ -23,7 +23,7 @@
   height: 32px;
 }
 
-.must-have {
+.menu-item-compare .must-have {
   flex: none;
   background-color: blue;
   color: white;
@@ -31,7 +31,7 @@
   height: 32px;
 }
 
-.like-to-have {
+.menu-item-compare .like-to-have {
   flex: none;
   background-color: green;
   color: white;
@@ -39,7 +39,7 @@
   height: 32px;
 }
 
-.maybe {
+.menu-item-compare .maybe {
   flex: none;
   background-color: yellow;
   color: black;
@@ -47,7 +47,7 @@
   height: 32px;
 }
 
-.off-limits {
+.menu-item-compare .off-limits {
   flex: none;
   background-color: red;
   color: white;
@@ -62,11 +62,11 @@
     margin: 0.25rem;
   }
 
-  .unknown,
-  .must-have,
-  .like-to-have,
-  .maybe,
-  .off-limits {
+  .menu-item-compare .unknown,
+  .menu-item-compare .must-have,
+  .menu-item-compare .like-to-have,
+  .menu-item-compare .maybe,
+  .menu-item-compare .off-limits {
     width: 24px;
     height: 24px;
   }
