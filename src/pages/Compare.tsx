@@ -41,7 +41,7 @@ export const ComparePage = ({
         menus={encoded}
         onChange={onChangeCompared}
         onCompare={onCompare}
-        canCompare={encoded.length >= 2}
+        canCompare={encoded.filter((e) => e.trim().length > 0).length >= 2}
       />
       {showComparison && (
         <div className="compare-page-grid">

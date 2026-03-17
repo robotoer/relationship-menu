@@ -212,17 +212,22 @@ const WrappedComparePage = () => {
     encodedList.length >= 2
   );
 
-  // Decode each encoded param into title + menu
+  // Keep showComparison in sync with the current encoded list (URL state)
+  useEffect(() => {
+    setShowComparison(encodedList.length >= 2);
+  }, [encodedList]);
+
+  // Decode each encoded param into title + menu, preserving the original encoded string
   const decoded = useMemo(() => {
-    return encodedList.map((encoded) => {
+    return encodedList.map((enc) => {
       try {
-        const colonIndex = encoded.indexOf(":");
+        const colonIndex = enc.indexOf(":");
         if (colonIndex !== -1) {
-          const titlePart = encoded.slice(0, colonIndex);
-          const menuPart = encoded.slice(colonIndex + 1);
+          const titlePart = enc.slice(0, colonIndex);
+          const menuPart = enc.slice(colonIndex + 1);
           const title = decodeData(titlePart) as string;
           const menu = decodeData(menuPart) as RelationshipMenu;
-          return { title, menu };
+          return { title, menu, encoded: enc };
         }
       } catch (e) {
         console.error("Failed to decode compare slug:", e);
@@ -231,27 +236,40 @@ const WrappedComparePage = () => {
     });
   }, [encodedList]);
 
-  const titles = useMemo(
-    () => decoded.map((d) => d?.title || ""),
+  // Filter to only successfully decoded entries so titles, encoded, and comparison
+  // all come from the same set and column counts stay aligned.
+  const validDecoded = useMemo(
+    () =>
+      decoded.filter(
+        (
+          d
+        ): d is { title: string; menu: RelationshipMenu; encoded: string } =>
+          d !== null
+      ),
     [decoded]
   );
 
-  const comparison = useMemo(() => {
-    const validMenus = decoded
-      .filter(
-        (d): d is { title: string; menu: RelationshipMenu } => d !== null
-      )
-      .map((d) => d.menu);
+  const titles = useMemo(
+    () => validDecoded.map((d) => d.title),
+    [validDecoded]
+  );
 
-    if (validMenus.length === 0) return {} as MenuComparison;
-    return compareMenus(validMenus);
-  }, [decoded]);
+  const validEncoded = useMemo(
+    () => validDecoded.map((d) => d.encoded),
+    [validDecoded]
+  );
+
+  const comparison = useMemo(() => {
+    const menus = validDecoded.map((d) => d.menu);
+    if (menus.length === 0) return {} as MenuComparison;
+    return compareMenus(menus);
+  }, [validDecoded]);
 
   return (
     <ComparePage
       comparison={comparison}
       titles={titles}
-      encoded={encodedList}
+      encoded={validEncoded}
       showComparison={showComparison}
       onChangeCompared={(encoded) => {
         const newParams = new URLSearchParams();
