@@ -36,6 +36,7 @@ const MenuItemInput = ({
  * @param {string} item - The text content of the menu item.
  * @param {RelationshipMenuItemValue} value - The value of the menu item.
  * @param {(value: Partial<RelationshipMenuItem>) => void} onChange - The callback function triggered when the menu item value changes.
+ * @param {() => void} [onDelete] - Optional callback triggered when the delete button is clicked. When provided, a delete button is rendered next to the item.
  * @returns {JSX.Element} The rendered menu item component.
  */
 export const MenuItem = ({

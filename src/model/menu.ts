@@ -16,6 +16,7 @@ export type RelationshipMenuItemValue =
  * Represents a relationship menu item.
  */
 export type RelationshipMenuItem = {
+  id?: string;
   item: string;
   value?: RelationshipMenuItemValue;
 };
