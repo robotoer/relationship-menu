@@ -93,22 +93,28 @@ export const StorageProvider: React.FC<{
           setSaving(false);
         }
       },
-      deleteDocument: awaitedStorage.deleteDocument,
+      deleteDocument: async (title: string) => {
+        await awaitedStorage.deleteDocument(title);
+        setDocuments((prev) => {
+          const next = { ...prev };
+          delete next[title];
+          return next;
+        });
+      },
       clear: awaitedStorage.clear,
     }),
     [awaitedStorage]
-  );  const deleteDocument = async (title: string) => {
-    await awaitedStorage.deleteDocument(title);
-    setDocuments((prev) => {
-      const next = { ...prev };
-      delete next[title];
-      return next;
-    });
-  };
+  );
 
   return (
     <StorageContext.Provider
-      value={{ storage: wrappedStorage, documents, saving, saveError, deleteDocument }}
+      value={{
+        storage: wrappedStorage,
+        documents,
+        saving,
+        saveError,
+        deleteDocument: wrappedStorage.deleteDocument,
+      }}
     >
       {children}
     </StorageContext.Provider>

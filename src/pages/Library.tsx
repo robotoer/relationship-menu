@@ -23,8 +23,16 @@ export const LibraryPage = ({
   onDelete,
 }: {
   menus: (RelationshipMenuDocument & { id: string })[];
-  onDelete?: (title: string) => void;
+  onDelete?: (title: string) => void | Promise<void>;
 }) => {
+  const handleDelete = async (title: string) => {
+    try {
+      await onDelete?.(title);
+    } catch (e) {
+      console.error("Failed to delete menu:", e);
+    }
+  };
+
   return (
     <div className="library">
       {menus.map((menu) => (
@@ -37,7 +45,7 @@ export const LibraryPage = ({
           {onDelete && (
             <button
               className="delete-menu-button"
-              onClick={() => onDelete(menu.title)}
+              onClick={() => handleDelete(menu.title)}
               aria-label={`Delete ${menu.title}`}
             >
               Delete

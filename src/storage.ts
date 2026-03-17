@@ -87,22 +87,29 @@ const localStorageSaveDocuments = async (
 };
 
 export const localStorageDeleteDocument = async (title: string) => {
-  // Remove by raw key format (direct lookup)
-  localStorage.removeItem(`menu:${title}`);
-  // JSON-format entries use CID-based keys (e.g. menu:bafyrei...) so we must
-  // scan to find entries whose parsed title matches.
   for (let i = localStorage.length - 1; i >= 0; i--) {
     const key = localStorage.key(i);
     if (key && key.startsWith("menu:")) {
       const value = localStorage.getItem(key);
       if (value) {
+        // Try JSON format first (IPFS entries use CID-based keys with JSON values)
         try {
           const parsed = JSON.parse(value);
-          if (parsed && parsed.title === title) {
+          if (
+            parsed &&
+            typeof parsed.title === "string" &&
+            typeof parsed.encoded === "string" &&
+            parsed.title === title
+          ) {
             localStorage.removeItem(key);
+            continue;
           }
         } catch {
-          // Not JSON, skip
+          // Not JSON — fall through to raw format
+        }
+        // Raw format: key suffix is the title, value is the encoded menu data
+        if (key === `menu:${title}`) {
+          localStorage.removeItem(key);
         }
       }
     }
