@@ -32,7 +32,8 @@
   transition: color 0.2s, background-color 0.2s;
 }
 
-.menu-group-delete:hover {
+.menu-group-delete:hover,
+.menu-group-delete:focus-visible {
   color: #e53e3e;
   background-color: #fee2e2;
 }

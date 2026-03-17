@@ -25,6 +25,7 @@ export const MenuGroup = ({
         {title}
         {onDelete && (
           <button
+            type="button"
             className="menu-group-delete"
             onClick={onDelete}
             aria-label="Delete group"
