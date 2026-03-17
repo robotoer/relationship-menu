@@ -4,11 +4,46 @@
   gap: 1rem;
   overflow-x: auto;
   padding: 1rem;
+  align-items: flex-end;
+}
+
+.compare-button {
+  padding: 0.5rem 2rem;
+  font-size: 1rem;
+  font-weight: bold;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  height: fit-content;
+}
+
+.compare-button:hover:not(:disabled) {
+  background-color: #0056b3;
+}
+
+.compare-button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
 }
 
 /* Media query to make the flexbox wrap */
 @media (max-width: 768px) {
   .compare-section {
     flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 640px) {
+  .compare-section {
+    flex-direction: column;
+    padding: 0.5rem;
+    align-items: stretch;
+  }
+
+  .compare-button {
+    width: 100%;
   }
 }

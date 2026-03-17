@@ -59,3 +59,13 @@
 .menu-item label {
   width: 100%;
 }
+
+@media (max-width: 640px) {
+  .menu-item select {
+    width: 70px;
+  }
+
+  .menu-item {
+    gap: 0.25rem;
+  }
+}

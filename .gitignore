@@ -37,3 +37,8 @@ yarn-error.log*
 *.env
 !example.env
 .aider*
+
+/test-results/
+/playwright-report/
+e2e/test-results.json
+package-lock.json

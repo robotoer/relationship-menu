@@ -1,56 +1,119 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 import { Routes, Route, useLocation, useSearchParams } from "react-router-dom";
 import { Navbar } from "./components/Navbar";
 import { LibraryPage } from "./pages/Library";
 import { AboutPage } from "./pages/About";
 import { ComparePage } from "./pages/Compare";
-import { RelationshipMenu, RelationshipMenuItem } from "./model/menu";
+import {
+  RelationshipMenu,
+  RelationshipMenuItem,
+} from "./model/menu";
 import { MenuPage } from "./pages/Menu";
 import { decodeData, encodeData } from "./data-encoder";
 import { MenuComparison } from "./model/compare";
-import { compareMenus } from "./data-comparer";
 import { useStorage } from "./providers/Storage";
+import { compareMenus } from "./data-comparer";
 
+/**
+ * A component that wraps the LibraryPage component and provides the necessary data.
+ * @returns The wrapped LibraryPage component.
+ */
 const WrappedLibraryPage = () => {
   const { documents: documentsMap } = useStorage();
-  const documents = useMemo(() => Object.values(documentsMap), [documentsMap]);
+  const documents = useMemo(
+    () =>
+      Object.values(documentsMap).map((doc) => ({
+        ...doc,
+        id: `${encodeData(doc.title)}:${doc.encoded}`,
+      })),
+    [documentsMap]
+  );
   return <LibraryPage menus={documents} />;
 };
 
+/**
+ * A wrapped version of the MenuPage component that handles state management and data encoding/decoding.
+ * It uses react-router-dom to get path parameters and syncs the encoded data with the menu state.
+ * The menu is saved to the browser's local storage and query parameters are updated as the menu or title changes.
+ * @returns The wrapped MenuPage component.
+ */
 const WrappedMenuPage = () => {
   const { storage } = useStorage();
   const [title, setTitle] = useState("");
   const [menu, setMenu] = useState<RelationshipMenu>({});
+  const loadedFromUrl = useRef(false);
   // Get path paremeters from react-router-dom:
   const [params, setParams] = useSearchParams();
-  // Sync the encoded data with the menu state only on first load (to prevent infinite loop):
+
+  // Memoize encodedRaw to use as stable dependency
+  const encodedRaw = useMemo(() => params.get("encoded"), [params]);
+
+  // Decode menu data from the URL encoded parameter on initial load.
+  // Supports two formats:
+  // 1. "titleEncoded:menuEncoded" — self-contained link (all data in URL)
+  // 2. A document ID (CID or title) — looked up from storage
   useEffect(() => {
-    const encodedRaw = params.get("encoded");
-    const [encodedTitle, encoded] = encodedRaw?.split(":") ?? [
-      undefined,
-      undefined,
-    ];
-    if (encoded) {
-      setMenu(decodeData(encoded));
-    }
-    if (encodedTitle) {
-      setTitle(decodeData(encodedTitle));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  // Save the menu to the browser local storage:
-  useEffect(() => {
-    // Don't save empty menus:
-    if (Object.keys(menu).length === 0) {
+    if (!encodedRaw || loadedFromUrl.current) {
       return;
     }
+    // The encoded format is "titleEncoded:menuEncoded" where both parts are
+    // pako-compressed base64 strings. Base64 uses [A-Za-z0-9+/=] so ":"
+    // is a safe delimiter.
+    const colonIndex = encodedRaw.indexOf(":");
+    if (colonIndex !== -1) {
+      // Format 1: self-contained "titleEncoded:menuEncoded"
+      try {
+        const titlePart = encodedRaw.slice(0, colonIndex);
+        const menuPart = encodedRaw.slice(colonIndex + 1);
+        const decodedTitle = decodeData(titlePart);
+        const decodedMenu = decodeData(menuPart);
+        if (decodedTitle !== undefined && decodedTitle !== null) {
+          setTitle(decodedTitle);
+        }
+        if (decodedMenu && typeof decodedMenu === "object") {
+          setMenu(decodedMenu);
+        }
+        loadedFromUrl.current = true;
+      } catch (e) {
+        console.error("Failed to decode menu from URL:", e);
+      }
+    } else {
+      // Format 2: document ID lookup (CID or title)
+      (async () => {
+        try {
+          const docs = await storage.getDocuments(encodedRaw);
+          const doc = docs[encodedRaw];
+          if (doc) {
+            setTitle(doc.title);
+            const decodedMenu = decodeData(doc.encoded);
+            if (decodedMenu && typeof decodedMenu === "object") {
+              setMenu(decodedMenu);
+            }
+            loadedFromUrl.current = true;
+          } else {
+            console.warn(`Document not found for ID: ${encodedRaw}`);
+          }
+        } catch (e) {
+          console.error("Failed to fetch document by ID:", e);
+        }
+      })();
+    }
+  }, [encodedRaw, storage]);
+  // Save the menu to the browser local storage:
+  useEffect(() => {
+    (async () => {
+      // Don't save empty menus:
+      if (Object.keys(menu).length === 0) {
+        return;
+      }
 
-    const value = encodeData(menu);
-    storage.saveDocuments({
-      title,
-      encoded: value,
-    });
+      const value = encodeData(menu);
+      await storage.saveDocuments({
+        title,
+        encoded: value,
+      });
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [menu]); // We are purpusely not saving when the title changes to avoid creating a new document unnecessarily.
   // Update query parameters as menu or title changes:
@@ -72,7 +135,10 @@ const WrappedMenuPage = () => {
     }
     return template;
   }, [menu]);
-  const templateEncoded = useMemo(() => encodeData(template), [template]);
+  const templateEncoded = useMemo(
+    () => `${encodeData(title)}:${encodeData(template)}`,
+    [title, template]
+  );
 
   return (
     <MenuPage
@@ -125,62 +191,92 @@ const WrappedMenuPage = () => {
   );
 };
 
+/**
+ * A wrapped component for the ComparePage.
+ *
+ * Decodes self-contained slugs (titleEncoded:menuEncoded format) directly
+ * rather than looking them up from storage, so compare links work across
+ * browsers without needing shared storage.
+ *
+ * @returns The wrapped ComparePage component.
+ */
 const WrappedComparePage = () => {
-  const [comparison, setComparison] = useState({} as MenuComparison);
-  const [titles, setTitles] = useState([] as string[]);
   const [params, setParams] = useSearchParams();
-  const [encoded, encodedTitles] = useMemo(
-    () => params.getAll("encoded")?.map((x) => x.split(":")[0]),
+  const encodedList = useMemo(
+    () => params.getAll("encoded").filter(Boolean),
     [params]
   );
 
-  // Load comparison documents from query parameters:
+  // Show comparison automatically when loading with 2+ encoded params (shared link)
+  const [showComparison, setShowComparison] = useState(
+    encodedList.length >= 2
+  );
+
+  // Keep showComparison in sync with the current encoded list (URL state)
   useEffect(() => {
-    const encodedRaw = params.get("encoded");
-    const encoded = params.getAll("encoded")?.flatMap((x) => {
+    setShowComparison(encodedList.length >= 2);
+  }, [encodedList]);
+
+  // Decode each encoded param into title + menu, preserving the original encoded string
+  const decoded = useMemo(() => {
+    return encodedList.map((enc) => {
       try {
-        return [x.split(":")[1]];
-      } catch (e) {
-        console.error("Failed to decode menu:", x);
-        return [];
-      }
-    });
-    const encodedTitles = params.getAll("encoded")?.flatMap((x) => {
-      try {
-        return [x.split(":")[0]];
-      } catch (e) {
-        console.error("Failed to decode menu:", x);
-        return [];
-      }
-    });
-    if (encodedRaw) {
-      const decoded = encoded.flatMap((x) => {
-        try {
-          return [decodeData(x) as RelationshipMenu];
-        } catch (e) {
-          console.error("Failed to decode menu:", x);
-          return [];
+        const colonIndex = enc.indexOf(":");
+        if (colonIndex !== -1) {
+          const titlePart = enc.slice(0, colonIndex);
+          const menuPart = enc.slice(colonIndex + 1);
+          const title = decodeData(titlePart) as string;
+          const menu = decodeData(menuPart) as RelationshipMenu;
+          return { title, menu, encoded: enc };
         }
-      });
-      const comparison = compareMenus(decoded);
-      setComparison(comparison);
-    }
-    if (encodedTitles) {
-      setTitles(encodedTitles.map(decodeData));
-    }
-  }, [encoded, encodedTitles, params]);
+      } catch (e) {
+        console.error("Failed to decode compare slug:", e);
+      }
+      return null;
+    });
+  }, [encodedList]);
+
+  // Filter to only successfully decoded entries so titles, encoded, and comparison
+  // all come from the same set and column counts stay aligned.
+  const validDecoded = useMemo(
+    () =>
+      decoded.filter(
+        (
+          d
+        ): d is { title: string; menu: RelationshipMenu; encoded: string } =>
+          d !== null
+      ),
+    [decoded]
+  );
+
+  const titles = useMemo(
+    () => validDecoded.map((d) => d.title),
+    [validDecoded]
+  );
+
+  const validEncoded = useMemo(
+    () => validDecoded.map((d) => d.encoded),
+    [validDecoded]
+  );
+
+  const comparison = useMemo(() => {
+    const menus = validDecoded.map((d) => d.menu);
+    if (menus.length === 0) return {} as MenuComparison;
+    return compareMenus(menus);
+  }, [validDecoded]);
 
   return (
     <ComparePage
       comparison={comparison}
       titles={titles}
-      encoded={params.getAll("encoded")}
-      onChangeCompared={
-        // Update the page query params
-        (encoded) => {
-          setParams({ encoded });
-        }
-      }
+      encoded={validEncoded}
+      showComparison={showComparison}
+      onChangeCompared={(encoded) => {
+        const newParams = new URLSearchParams();
+        encoded.forEach((e) => newParams.append("encoded", e));
+        setParams(newParams);
+      }}
+      onCompare={() => setShowComparison(true)}
     />
   );
 };

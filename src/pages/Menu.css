@@ -59,3 +59,23 @@
 .menu-compare {
   padding-right: 1rem;
 }
+
+@media (max-width: 640px) {
+  .menu-page {
+    grid-template-columns: 1fr;
+  }
+
+  .menu-title-container {
+    flex-direction: column;
+  }
+
+  .menu-title-container > *:first-child {
+    width: 100%;
+  }
+
+  .menu-compare {
+    padding-right: 0;
+    padding-top: 0.25rem;
+    padding-bottom: 0.5rem;
+  }
+}

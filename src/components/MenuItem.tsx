@@ -1,6 +1,15 @@
 import "./MenuItem.css";
 import { RelationshipMenuItem, RelationshipMenuItemValue } from "../model/menu";
 
+/**
+ * A custom input component for menu items.
+ *
+ * @component
+ * @param {React.DetailedHTMLProps<React.InputHTMLAttributes<HTMLInputElement>, HTMLInputElement>} props - The input element props.
+ * @param {string} props.className - The class name for the input element.
+ * @param {string} props.placeholder - The placeholder text for the input element.
+ * @returns {JSX.Element} The rendered input element.
+ */
 const MenuItemInput = ({
   className,
   placeholder,
@@ -22,6 +31,12 @@ const MenuItemInput = ({
  *
  * If the colored box is clicked, a dropdown should appear with the options for the user to change
  * their preference.
+ *
+ * @param {string} id - The ID of the menu item.
+ * @param {string} item - The text content of the menu item.
+ * @param {RelationshipMenuItemValue} value - The value of the menu item.
+ * @param {(value: Partial<RelationshipMenuItem>) => void} onChange - The callback function triggered when the menu item value changes.
+ * @returns {JSX.Element} The rendered menu item component.
  */
 export const MenuItem = ({
   id,

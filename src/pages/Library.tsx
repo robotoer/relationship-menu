@@ -7,13 +7,20 @@ import "./Library.css";
 import { MenuTile } from "../components/MenuTile";
 import { RelationshipMenuDocument } from "../model/menu";
 import { Link } from "react-router-dom";
-import { encodeData } from "../data-encoder";
 import { RandomAvatar } from "react-random-avatars";
 
+/**
+ * Renders the Library page, displaying a list of relationship menus.
+ *
+ * @component
+ * @param {Object} props - The component props.
+ * @param {RelationshipMenuDocument[]} props.menus - The array of relationship menus to display.
+ * @returns {JSX.Element} The rendered Library page.
+ */
 export const LibraryPage = ({
   menus,
 }: {
-  menus: RelationshipMenuDocument[];
+  menus: (RelationshipMenuDocument & { id: string })[];
 }) => {
   return (
     <div className="library">
@@ -22,7 +29,7 @@ export const LibraryPage = ({
           key={menu.encoded}
           title={menu.title}
           image={<RandomAvatar name={menu.title} size={150} />}
-          link={`/menu?encoded=${encodeURIComponent(`${encodeData(menu.title)}:${menu.encoded}`)}`}
+          link={`/menu?encoded=${encodeURIComponent(menu.id)}`}
         />
       ))}
 
