@@ -11,6 +11,33 @@
   transition: transform 0.2s;
 }
 
+.menu-group-header {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.menu-group-header > *:first-child {
+  flex: 1;
+}
+
+.menu-group-delete {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #666;
+  font-size: 1.25rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  transition: color 0.2s, background-color 0.2s;
+}
+
+.menu-group-delete:hover,
+.menu-group-delete:focus-visible {
+  color: #e53e3e;
+  background-color: #fee2e2;
+}
+
 @media (max-width: 640px) {
   .menu-group {
     padding: 0.5rem;
