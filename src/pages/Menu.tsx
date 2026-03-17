@@ -165,8 +165,8 @@ export const MenuPage = ({
                       const inputs = groupEl.querySelectorAll('input.menu-item-input');
                       // The second-to-last input is the newly added item
                       // (last one is the empty "New item" row)
-                      const newItemInput = inputs[inputs.length - 2] as HTMLInputElement;
-                      if (newItemInput) {
+                      if (inputs.length >= 2) {
+                        const newItemInput = inputs[inputs.length - 2] as HTMLInputElement;
                         newItemInput.focus();
                       }
                     }
