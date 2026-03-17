@@ -36,7 +36,7 @@ export const LibraryPage = ({
   return (
     <div className="library">
       {menus.map((menu) => (
-        <div key={menu.encoded} className="menu-tile-wrapper">
+        <div key={menu.title} className="menu-tile-wrapper">
           <MenuTile
             title={menu.title}
             image={<RandomAvatar name={menu.title} size={150} />}

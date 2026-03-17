@@ -91,24 +91,26 @@ export const localStorageDeleteDocument = async (title: string) => {
     const key = localStorage.key(i);
     if (key && key.startsWith("menu:")) {
       const value = localStorage.getItem(key);
-      if (value) {
+      if (value !== null) {
         // Try JSON format first (IPFS entries use CID-based keys with JSON values)
+        let isJsonMenu = false;
         try {
           const parsed = JSON.parse(value);
           if (
             parsed &&
             typeof parsed.title === "string" &&
-            typeof parsed.encoded === "string" &&
-            parsed.title === title
+            typeof parsed.encoded === "string"
           ) {
-            localStorage.removeItem(key);
-            continue;
+            isJsonMenu = true;
+            if (parsed.title === title) {
+              localStorage.removeItem(key);
+            }
           }
         } catch {
           // Not JSON — fall through to raw format
         }
-        // Raw format: key suffix is the title, value is the encoded menu data
-        if (key === `menu:${title}`) {
+        // Raw format: only when value is not a valid JSON menu document
+        if (!isJsonMenu && key === `menu:${title}`) {
           localStorage.removeItem(key);
         }
       }

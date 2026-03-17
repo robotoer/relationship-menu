@@ -131,4 +131,30 @@ describe("LocalStorage", () => {
       encoded: "other-encoded-content",
     });
   });
+
+  test("should not delete a CID-keyed JSON entry whose title differs from the requested title", async () => {
+    // Simulate: a menu titled "someCID" exists as a raw entry,
+    // and a CID-keyed IPFS entry at menu:someCID belongs to a different menu.
+    const cidKey = "menu:someCID";
+    localStorage.setItem(
+      cidKey,
+      JSON.stringify({ title: "Actual IPFS Menu", encoded: "ipfs-data" })
+    );
+    // Also add a raw entry for "someCID"
+    localStorage.setItem("menu:rawTitle", "raw-data");
+
+    await storage.deleteDocument("someCID");
+    const documents = await storage.getDocuments();
+
+    // The CID-keyed JSON entry should NOT have been deleted (its title is different)
+    expect(documents["Actual IPFS Menu"]).toEqual({
+      title: "Actual IPFS Menu",
+      encoded: "ipfs-data",
+    });
+    // The raw entry should still exist (title doesn't match)
+    expect(documents["rawTitle"]).toEqual({
+      title: "rawTitle",
+      encoded: "raw-data",
+    });
+  });
 });
