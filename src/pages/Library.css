@@ -6,6 +6,29 @@
   padding: 1rem;
 }
 
+.menu-tile-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.delete-menu-button {
+  min-height: 44px;
+  margin-top: 0.5rem;
+  padding: 0.25rem 1rem;
+  background-color: white;
+  color: #d32f2f;
+  border: 1px solid #d32f2f;
+  border-radius: 5px;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.delete-menu-button:hover {
+  background-color: #d32f2f;
+  color: white;
+}
+
 .create-menu {
   display: flex;
   justify-content: center;

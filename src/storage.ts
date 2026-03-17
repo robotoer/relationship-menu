@@ -23,6 +23,13 @@ export type Storage = {
   saveDocuments(...docs: RelationshipMenuDocument[]): Promise<string[]>;
 
   /**
+   * Deletes a single RelationshipMenuDocument from the storage by title.
+   * @param title - The title of the document to delete.
+   * @returns A Promise that resolves when the document is deleted.
+   */
+  deleteDocument(title: string): Promise<void>;
+
+  /**
    * Clears all RelationshipMenuDocuments from the storage.
    * @returns A Promise that resolves when the storage is cleared.
    */
@@ -79,6 +86,28 @@ const localStorageSaveDocuments = async (
   return ids;
 };
 
+const localStorageDeleteDocument = async (title: string) => {
+  // Remove by raw key format
+  localStorage.removeItem(`menu:${title}`);
+  // Also scan for JSON-format entries whose title matches
+  for (let i = localStorage.length - 1; i >= 0; i--) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith("menu:")) {
+      const value = localStorage.getItem(key);
+      if (value) {
+        try {
+          const parsed = JSON.parse(value);
+          if (parsed && parsed.title === title) {
+            localStorage.removeItem(key);
+          }
+        } catch {
+          // Not JSON, skip
+        }
+      }
+    }
+  }
+};
+
 const localStorageClear = async () => {
   localStorage.clear();
 };
@@ -92,12 +121,7 @@ export const createLocalStorage = (): Storage => {
     ready: () => true,
     getDocuments: localStorageGetDocuments,
     saveDocuments: localStorageSaveDocuments,
-    // saveDocuments: (...docs) =>
-    //   new Promise((resolve) =>
-    //     debounce(() => resolve(localStorageSaveDocuments(...docs)), 5000, {
-    //       leading: true,
-    //     })
-    //   ),
+    deleteDocument: localStorageDeleteDocument,
     clear: localStorageClear,
   };
 };

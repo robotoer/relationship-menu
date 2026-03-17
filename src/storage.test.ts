@@ -96,4 +96,39 @@ describe("LocalStorage", () => {
 
     expect(Object.keys(documents)).toEqual(["My Menu"]);
   });
+
+  test("should delete a single document by title (raw format)", async () => {
+    const doc1: RelationshipMenuDocument = {
+      title: "Doc1",
+      encoded: "encoded-content-1",
+    };
+    const doc2: RelationshipMenuDocument = {
+      title: "Doc2",
+      encoded: "encoded-content-2",
+    };
+
+    await storage.saveDocuments(doc1, doc2);
+    await storage.deleteDocument("Doc1");
+    const documents = await storage.getDocuments();
+
+    expect(documents["Doc1"]).toBeUndefined();
+    expect(documents["Doc2"]).toEqual(doc2);
+  });
+
+  test("should delete a single document by title (JSON format)", async () => {
+    localStorage.setItem(
+      "menu:bafyreigdmqpykrgxyaxtlafqpqhzrusn5nugbkjf3iy2grdiqbpnb2jcri",
+      JSON.stringify({ title: "IPFS Menu", encoded: "ipfs-encoded-content" })
+    );
+    localStorage.setItem("menu:Other Menu", "other-encoded-content");
+
+    await storage.deleteDocument("IPFS Menu");
+    const documents = await storage.getDocuments();
+
+    expect(documents["IPFS Menu"]).toBeUndefined();
+    expect(documents["Other Menu"]).toEqual({
+      title: "Other Menu",
+      encoded: "other-encoded-content",
+    });
+  });
 });

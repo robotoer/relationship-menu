@@ -88,6 +88,7 @@ export const Default: Story = {
         } as RelationshipMenu),
       },
     ],
+    onDelete: (title: string) => alert(`Delete: ${title}`),
   },
 };
 
