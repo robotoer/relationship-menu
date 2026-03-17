@@ -32,9 +32,9 @@ const MenuItemInput = ({
  * If the colored box is clicked, a dropdown should appear with the options for the user to change
  * their preference.
  *
- * @param {string} id - The ID of the menu item.
+ * @param {string} [id] - Optional DOM id for the input element. Omitted for the "new item" row.
  * @param {string} item - The text content of the menu item.
- * @param {RelationshipMenuItemValue} value - The value of the menu item.
+ * @param {RelationshipMenuItemValue} [value] - Optional preference value. When omitted the selector shows "---".
  * @param {(value: Partial<RelationshipMenuItem>) => void} onChange - The callback function triggered when the menu item value changes.
  * @param {() => void} [onDelete] - Optional callback triggered when the delete button is clicked. When provided, a delete button is rendered next to the item.
  * @returns {JSX.Element} The rendered menu item component.

@@ -21,8 +21,8 @@ const generateItemId = (): string => `item_${++_nextItemId}`;
 
 /** Assigns stable IDs to any menu items that don't already have one. */
 const ensureItemIds = (menu: RelationshipMenu): RelationshipMenu => {
-  const result: RelationshipMenu = {};
-  for (const group in menu) {
+  const result: RelationshipMenu = Object.create(null);
+  for (const group of Object.keys(menu)) {
     result[group] = menu[group].map((item) => ({
       ...item,
       id: item.id || generateItemId(),
@@ -33,8 +33,8 @@ const ensureItemIds = (menu: RelationshipMenu): RelationshipMenu => {
 
 /** Strips `id` fields from every item so encoded data stays backward-compatible. */
 const stripMenuIds = (menu: RelationshipMenu): RelationshipMenu => {
-  const result: RelationshipMenu = {};
-  for (const group in menu) {
+  const result: RelationshipMenu = Object.create(null);
+  for (const group of Object.keys(menu)) {
     result[group] = menu[group].map(({ id: _, ...rest }) => rest);
   }
   return result;
@@ -201,7 +201,7 @@ const WrappedMenuPage = () => {
               newMenu[group] = newMenu[group].filter((_, index) => index !== itemIndex);
             } else if (itemIndex === newMenu[group].length) {
               // Add a new item to the group:
-              newMenu[group] = [...newMenu[group], { ...(value as RelationshipMenuItem), id: generateItemId() }];
+              newMenu[group] = [...newMenu[group], { item: "", ...value, id: generateItemId() } as RelationshipMenuItem];
             } else if (itemIndex >= 0 && itemIndex < newMenu[group].length) {
               newMenu[group] = newMenu[group].map((item, index) =>
                 index === itemIndex ? { ...item, ...value } : item
