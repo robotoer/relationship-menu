@@ -43,11 +43,13 @@ export const MenuItem = ({
   item,
   value,
   onChange,
+  onDelete,
 }: {
   id?: string;
   item: string;
   value?: RelationshipMenuItemValue;
   onChange: (value: Partial<RelationshipMenuItem>) => void;
+  onDelete?: () => void;
 }) => {
   return (
     <div className="menu-item">
@@ -71,6 +73,16 @@ export const MenuItem = ({
           onChange={(e) => onChange({ item: e.target.value })}
         />
       </label>
+      {onDelete && (
+        <button
+          className="menu-item-delete"
+          onClick={onDelete}
+          aria-label="Delete item"
+          title="Delete item"
+        >
+          ✕
+        </button>
+      )}
     </div>
   );
 };

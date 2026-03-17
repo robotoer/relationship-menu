@@ -170,8 +170,11 @@ const WrappedMenuPage = () => {
           } else if (change.kind === "item") {
             const { group, itemIndex, value } = change;
             const newMenu = { ...menu };
-            // Add a new item to the group if the itemIndex is out of bounds:
-            if (itemIndex === newMenu[group].length) {
+            if (value === undefined && itemIndex >= 0 && itemIndex < newMenu[group].length) {
+              // Delete the item from the group:
+              newMenu[group] = newMenu[group].filter((_, index) => index !== itemIndex);
+            } else if (itemIndex === newMenu[group].length) {
+              // Add a new item to the group if the itemIndex is out of bounds:
               newMenu[group].push(value as RelationshipMenuItem);
             } else if (itemIndex >= 0 && itemIndex < newMenu[group].length) {
               newMenu[group] = newMenu[group].map((item, index) =>

@@ -135,6 +135,9 @@ export const MenuPage = ({
                   onChange={(value) =>
                     onChange({ kind: "item", group, itemIndex, value })
                   }
+                  onDelete={() =>
+                    onChange({ kind: "item", group, itemIndex })
+                  }
                 />
               ))}
 
