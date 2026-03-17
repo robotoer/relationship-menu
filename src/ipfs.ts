@@ -6,7 +6,7 @@ import { createHelia, Helia } from "helia";
 import { CID } from "multiformats/cid";
 import { code, encode } from "multiformats/codecs/json";
 import { sha256 } from "multiformats/hashes/sha2";
-import { Storage } from "./storage";
+import { Storage, localStorageDeleteDocument } from "./storage";
 import { RelationshipMenuDocument } from "./model/menu";
 
 // Global reference to the Helia instance for monitoring
@@ -241,27 +241,7 @@ export const createIpfsStorage = async (): Promise<Storage> => {
     ready: () => true,
     getDocuments,
     saveDocuments,
-    deleteDocument: async (title: string) => {
-      // Remove from localStorage (where IPFS also persists documents)
-      for (let i = localStorage.length - 1; i >= 0; i--) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith("menu:")) {
-          const value = localStorage.getItem(key);
-          if (value) {
-            try {
-              const parsed = JSON.parse(value);
-              if (parsed && parsed.title === title) {
-                localStorage.removeItem(key);
-              }
-            } catch {
-              if (key === `menu:${title}`) {
-                localStorage.removeItem(key);
-              }
-            }
-          }
-        }
-      }
-    },
+    deleteDocument: localStorageDeleteDocument,
     clear: ipfsClear,
   };
 };

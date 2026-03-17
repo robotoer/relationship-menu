@@ -97,10 +97,8 @@ export const StorageProvider: React.FC<{
       clear: awaitedStorage.clear,
     }),
     [awaitedStorage]
-  );
-
-  const deleteDocument = async (title: string) => {
-    await wrappedStorage.deleteDocument(title);
+  );  const deleteDocument = async (title: string) => {
+    await awaitedStorage.deleteDocument(title);
     setDocuments((prev) => {
       const next = { ...prev };
       delete next[title];

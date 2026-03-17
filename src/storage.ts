@@ -86,10 +86,11 @@ const localStorageSaveDocuments = async (
   return ids;
 };
 
-const localStorageDeleteDocument = async (title: string) => {
-  // Remove by raw key format
+export const localStorageDeleteDocument = async (title: string) => {
+  // Remove by raw key format (direct lookup)
   localStorage.removeItem(`menu:${title}`);
-  // Also scan for JSON-format entries whose title matches
+  // JSON-format entries use CID-based keys (e.g. menu:bafyrei...) so we must
+  // scan to find entries whose parsed title matches.
   for (let i = localStorage.length - 1; i >= 0; i--) {
     const key = localStorage.key(i);
     if (key && key.startsWith("menu:")) {
