@@ -6,7 +6,7 @@ import { createHelia, Helia } from "helia";
 import { CID } from "multiformats/cid";
 import { code, encode } from "multiformats/codecs/json";
 import { sha256 } from "multiformats/hashes/sha2";
-import { Storage } from "./storage";
+import { Storage, localStorageDeleteDocument } from "./storage";
 import { RelationshipMenuDocument } from "./model/menu";
 
 // Global reference to the Helia instance for monitoring
@@ -241,6 +241,10 @@ export const createIpfsStorage = async (): Promise<Storage> => {
     ready: () => true,
     getDocuments,
     saveDocuments,
+    // Note: deletion only removes the localStorage pointer entries (menu:* keys).
+    // The underlying Helia/IndexedDB blockstore and datastore content is not removed,
+    // so disk space used by IPFS blocks will not be reclaimed.
+    deleteDocument: localStorageDeleteDocument,
     clear: ipfsClear,
   };
 };

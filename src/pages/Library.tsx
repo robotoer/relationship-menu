@@ -15,22 +15,43 @@ import { RandomAvatar } from "react-random-avatars";
  * @component
  * @param {Object} props - The component props.
  * @param {RelationshipMenuDocument[]} props.menus - The array of relationship menus to display.
+ * @param {function} [props.onDelete] - Optional callback to delete a menu by title.
  * @returns {JSX.Element} The rendered Library page.
  */
 export const LibraryPage = ({
   menus,
+  onDelete,
 }: {
   menus: (RelationshipMenuDocument & { id: string })[];
+  onDelete?: (title: string) => void | Promise<void>;
 }) => {
+  const handleDelete = async (title: string) => {
+    try {
+      await onDelete?.(title);
+    } catch (e) {
+      console.error("Failed to delete menu:", e);
+    }
+  };
+
   return (
     <div className="library">
       {menus.map((menu) => (
-        <MenuTile
-          key={menu.encoded}
-          title={menu.title}
-          image={<RandomAvatar name={menu.title} size={150} />}
-          link={`/menu?encoded=${encodeURIComponent(menu.id)}`}
-        />
+        <div key={menu.title} className="menu-tile-wrapper">
+          <MenuTile
+            title={menu.title}
+            image={<RandomAvatar name={menu.title} size={150} />}
+            link={`/menu?encoded=${encodeURIComponent(menu.id)}`}
+          />
+          {onDelete && (
+            <button
+              className="delete-menu-button"
+              onClick={() => handleDelete(menu.title)}
+              aria-label={`Delete ${menu.title}`}
+            >
+              Delete
+            </button>
+          )}
+        </div>
       ))}
 
       {/* Add a button to create a new menu */}

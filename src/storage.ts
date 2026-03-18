@@ -23,6 +23,15 @@ export type Storage = {
   saveDocuments(...docs: RelationshipMenuDocument[]): Promise<string[]>;
 
   /**
+   * Deletes all RelationshipMenuDocument entries matching the given title from the storage.
+   * This may remove multiple entries when the same title exists under different keys
+   * (e.g., a raw localStorage entry and one or more CID-keyed IPFS entries).
+   * @param title - The title of the document(s) to delete.
+   * @returns A Promise that resolves when all matching entries are deleted.
+   */
+  deleteDocument(title: string): Promise<void>;
+
+  /**
    * Clears all RelationshipMenuDocuments from the storage.
    * @returns A Promise that resolves when the storage is cleared.
    */
@@ -79,6 +88,39 @@ const localStorageSaveDocuments = async (
   return ids;
 };
 
+export const localStorageDeleteDocument = async (title: string) => {
+  for (let i = localStorage.length - 1; i >= 0; i--) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith("menu:")) {
+      const value = localStorage.getItem(key);
+      if (value !== null) {
+        // Try JSON format first (IPFS entries use CID-based keys with JSON values)
+        let isJsonMenu = false;
+        try {
+          const parsed = JSON.parse(value);
+          if (
+            parsed &&
+            typeof parsed.title === "string" &&
+            typeof parsed.encoded === "string"
+          ) {
+            isJsonMenu = true;
+            if (parsed.title === title) {
+              localStorage.removeItem(key);
+              continue;
+            }
+          }
+        } catch {
+          // Not JSON — fall through to raw format
+        }
+        // Raw format: only when value is not a valid JSON menu document
+        if (!isJsonMenu && key === `menu:${title}`) {
+          localStorage.removeItem(key);
+        }
+      }
+    }
+  }
+};
+
 const localStorageClear = async () => {
   localStorage.clear();
 };
@@ -92,12 +134,7 @@ export const createLocalStorage = (): Storage => {
     ready: () => true,
     getDocuments: localStorageGetDocuments,
     saveDocuments: localStorageSaveDocuments,
-    // saveDocuments: (...docs) =>
-    //   new Promise((resolve) =>
-    //     debounce(() => resolve(localStorageSaveDocuments(...docs)), 5000, {
-    //       leading: true,
-    //     })
-    //   ),
+    deleteDocument: localStorageDeleteDocument,
     clear: localStorageClear,
   };
 };

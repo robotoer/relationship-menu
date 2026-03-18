@@ -14,6 +14,8 @@ type StorageContextType = {
 
   saving: boolean;
   saveError?: string;
+
+  deleteDocument: (title: string) => Promise<void>;
 };
 
 const StorageContext = createContext<StorageContextType | undefined>(undefined);
@@ -91,6 +93,14 @@ export const StorageProvider: React.FC<{
           setSaving(false);
         }
       },
+      deleteDocument: async (title: string) => {
+        await awaitedStorage.deleteDocument(title);
+        setDocuments((prev) => {
+          const next = { ...prev };
+          delete next[title];
+          return next;
+        });
+      },
       clear: awaitedStorage.clear,
     }),
     [awaitedStorage]
@@ -98,7 +108,13 @@ export const StorageProvider: React.FC<{
 
   return (
     <StorageContext.Provider
-      value={{ storage: wrappedStorage, documents, saving, saveError }}
+      value={{
+        storage: wrappedStorage,
+        documents,
+        saving,
+        saveError,
+        deleteDocument: wrappedStorage.deleteDocument,
+      }}
     >
       {children}
     </StorageContext.Provider>

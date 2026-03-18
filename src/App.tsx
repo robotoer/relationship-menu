@@ -45,7 +45,7 @@ const stripMenuIds = (menu: RelationshipMenu): RelationshipMenu => {
  * @returns The wrapped LibraryPage component.
  */
 const WrappedLibraryPage = () => {
-  const { documents: documentsMap } = useStorage();
+  const { documents: documentsMap, deleteDocument } = useStorage();
   const documents = useMemo(
     () =>
       Object.values(documentsMap).map((doc) => ({
@@ -54,7 +54,7 @@ const WrappedLibraryPage = () => {
       })),
     [documentsMap]
   );
-  return <LibraryPage menus={documents} />;
+  return <LibraryPage menus={documents} onDelete={deleteDocument} />;
 };
 
 /**
