@@ -107,9 +107,8 @@ describe("Navbar", () => {
     const mobileLinks = document.querySelector(".navbar-mobile-links");
     expect(mobileLinks).toBeInTheDocument();
     const mobileLink = mobileLinks!.querySelector("a");
-    if (mobileLink) {
-      fireEvent.click(mobileLink);
-    }
+    expect(mobileLink).toBeTruthy();
+    fireEvent.click(mobileLink!);
     expect(hamburger).toHaveAttribute("aria-expanded", "false");
   });
 

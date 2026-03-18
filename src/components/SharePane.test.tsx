@@ -38,12 +38,23 @@ describe("SharePane", () => {
 
   it("should copy value to clipboard when Copy button is clicked", () => {
     const writeText = jest.fn().mockResolvedValue(undefined);
-    Object.assign(navigator, {
-      clipboard: { writeText },
+    const originalClipboard = navigator.clipboard;
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      writable: true,
+      configurable: true,
     });
 
-    render(<SharePane value="copy-me" />);
-    fireEvent.click(screen.getByText("Copy"));
-    expect(writeText).toHaveBeenCalledWith("copy-me");
+    try {
+      render(<SharePane value="copy-me" />);
+      fireEvent.click(screen.getByText("Copy"));
+      expect(writeText).toHaveBeenCalledWith("copy-me");
+    } finally {
+      Object.defineProperty(navigator, "clipboard", {
+        value: originalClipboard,
+        writable: true,
+        configurable: true,
+      });
+    }
   });
 });
