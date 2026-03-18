@@ -5,8 +5,10 @@
 import '@testing-library/jest-dom';
 
 // Polyfill TextEncoder/TextDecoder for jsdom (required by react-router v7)
-if (typeof global.TextEncoder === 'undefined') {
-  const { TextEncoder, TextDecoder } = require('util');
-  global.TextEncoder = TextEncoder;
-  global.TextDecoder = TextDecoder;
+const util = require('util');
+if (typeof globalThis.TextEncoder === 'undefined') {
+  (globalThis as any).TextEncoder = util.TextEncoder;
+}
+if (typeof globalThis.TextDecoder === 'undefined') {
+  (globalThis as any).TextDecoder = util.TextDecoder;
 }
