@@ -241,6 +241,9 @@ export const createIpfsStorage = async (): Promise<Storage> => {
     ready: () => true,
     getDocuments,
     saveDocuments,
+    // Note: deletion only removes the localStorage pointer entries (menu:* keys).
+    // The underlying Helia/IndexedDB blockstore and datastore content is not removed,
+    // so disk space used by IPFS blocks will not be reclaimed.
     deleteDocument: localStorageDeleteDocument,
     clear: ipfsClear,
   };

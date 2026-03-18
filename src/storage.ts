@@ -23,9 +23,11 @@ export type Storage = {
   saveDocuments(...docs: RelationshipMenuDocument[]): Promise<string[]>;
 
   /**
-   * Deletes a single RelationshipMenuDocument from the storage by title.
-   * @param title - The title of the document to delete.
-   * @returns A Promise that resolves when the document is deleted.
+   * Deletes all RelationshipMenuDocument entries matching the given title from the storage.
+   * This may remove multiple entries when the same title exists under different keys
+   * (e.g., a raw localStorage entry and one or more CID-keyed IPFS entries).
+   * @param title - The title of the document(s) to delete.
+   * @returns A Promise that resolves when all matching entries are deleted.
    */
   deleteDocument(title: string): Promise<void>;
 
