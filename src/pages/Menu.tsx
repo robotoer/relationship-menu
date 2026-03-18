@@ -128,12 +128,15 @@ export const MenuPage = ({
             >
               {menu[group].map((item, itemIndex) => (
                 <MenuItem
-                  id={`menu-item-input-${groupEncoded}-${itemIndex}`}
-                  key={itemIndex}
+                  id={`menu-item-input-${groupEncoded}-${item.id || itemIndex}`}
+                  key={item.id || itemIndex}
                   item={item.item}
                   value={item.value}
                   onChange={(value) =>
                     onChange({ kind: "item", group, itemIndex, value })
+                  }
+                  onDelete={() =>
+                    onChange({ kind: "item", group, itemIndex })
                   }
                 />
               ))}
@@ -156,17 +159,16 @@ export const MenuPage = ({
 
                     await new Promise((resolve) => setTimeout(resolve, 0));
 
-                    const query = `#menu-item-input-${groupEncoded}-${menu[group].length - 1}`;
-                    // Focus on the new item input field after adding a new item:
-                    const newItemInput = document.querySelector(
-                      query
-                    ) as HTMLInputElement;
-                    if (newItemInput) {
-                      newItemInput.focus();
-                    } else {
-                      console.error(
-                        `Could not find new item input field to focus on: ${query}`
-                      );
+                    // Focus on the last real item input in the group after adding:
+                    const groupEl = document.getElementById(`menu-group-input-${groupEncoded}`)?.closest('.menu-group');
+                    if (groupEl) {
+                      const inputs = groupEl.querySelectorAll('input.menu-item-input');
+                      // The second-to-last input is the newly added item
+                      // (last one is the empty "New item" row)
+                      if (inputs.length >= 2) {
+                        const newItemInput = inputs[inputs.length - 2] as HTMLInputElement;
+                        newItemInput.focus();
+                      }
                     }
                   })();
                 }}

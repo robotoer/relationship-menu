@@ -50,3 +50,12 @@ export const OffLimits: Story = {
     onChange: () => {},
   },
 };
+
+export const WithDelete: Story = {
+  args: {
+    item: "Deletable Item",
+    value: "must-have",
+    onChange: () => {},
+    onDelete: () => {},
+  },
+};

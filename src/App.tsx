@@ -15,6 +15,31 @@ import { MenuComparison } from "./model/compare";
 import { useStorage } from "./providers/Storage";
 import { compareMenus } from "./data-comparer";
 
+/** Counter for generating unique item IDs within a page session. */
+let _nextItemId = 0;
+const generateItemId = (): string => `item_${++_nextItemId}`;
+
+/** Assigns stable IDs to any menu items that don't already have one. */
+const ensureItemIds = (menu: RelationshipMenu): RelationshipMenu => {
+  const result: RelationshipMenu = Object.create(null);
+  for (const group of Object.keys(menu)) {
+    result[group] = menu[group].map((item) => ({
+      ...item,
+      id: item.id || generateItemId(),
+    }));
+  }
+  return result;
+};
+
+/** Strips `id` fields from every item so encoded data stays backward-compatible. */
+const stripMenuIds = (menu: RelationshipMenu): RelationshipMenu => {
+  const result: RelationshipMenu = Object.create(null);
+  for (const group of Object.keys(menu)) {
+    result[group] = menu[group].map(({ id: _, ...rest }) => rest);
+  }
+  return result;
+};
+
 /**
  * A component that wraps the LibraryPage component and provides the necessary data.
  * @returns The wrapped LibraryPage component.
@@ -72,7 +97,7 @@ const WrappedMenuPage = () => {
           setTitle(decodedTitle);
         }
         if (decodedMenu && typeof decodedMenu === "object") {
-          setMenu(decodedMenu);
+          setMenu(ensureItemIds(decodedMenu));
         }
         loadedFromUrl.current = true;
       } catch (e) {
@@ -88,7 +113,7 @@ const WrappedMenuPage = () => {
             setTitle(doc.title);
             const decodedMenu = decodeData(doc.encoded);
             if (decodedMenu && typeof decodedMenu === "object") {
-              setMenu(decodedMenu);
+              setMenu(ensureItemIds(decodedMenu));
             }
             loadedFromUrl.current = true;
           } else {
@@ -108,7 +133,7 @@ const WrappedMenuPage = () => {
         return;
       }
 
-      const value = encodeData(menu);
+      const value = encodeData(stripMenuIds(menu));
       await storage.saveDocuments({
         title,
         encoded: value,
@@ -118,13 +143,14 @@ const WrappedMenuPage = () => {
   }, [menu]); // We are purpusely not saving when the title changes to avoid creating a new document unnecessarily.
   // Update query parameters as menu or title changes:
   useEffect(() => {
-    const menuEncoded = encodeData(menu);
+    const strippedMenu = stripMenuIds(menu);
+    const menuEncoded = encodeData(strippedMenu);
     const menuTitleEncoded = encodeData(title);
     setParams({ encoded: `${menuTitleEncoded}:${menuEncoded}` });
   }, [menu, title, setParams]);
 
   const menuEncoded = useMemo(
-    () => `${encodeData(title)}:${encodeData(menu)}`,
+    () => `${encodeData(title)}:${encodeData(stripMenuIds(menu))}`,
     [menu, title]
   );
   const template = useMemo(() => {
@@ -170,9 +196,12 @@ const WrappedMenuPage = () => {
           } else if (change.kind === "item") {
             const { group, itemIndex, value } = change;
             const newMenu = { ...menu };
-            // Add a new item to the group if the itemIndex is out of bounds:
-            if (itemIndex === newMenu[group].length) {
-              newMenu[group].push(value as RelationshipMenuItem);
+            if (value === undefined && itemIndex >= 0 && itemIndex < newMenu[group].length) {
+              // Delete the item from the group:
+              newMenu[group] = newMenu[group].filter((_, index) => index !== itemIndex);
+            } else if (itemIndex === newMenu[group].length) {
+              // Add a new item to the group:
+              newMenu[group] = [...newMenu[group], { item: "", ...value, id: generateItemId() } as RelationshipMenuItem];
             } else if (itemIndex >= 0 && itemIndex < newMenu[group].length) {
               newMenu[group] = newMenu[group].map((item, index) =>
                 index === itemIndex ? { ...item, ...value } : item

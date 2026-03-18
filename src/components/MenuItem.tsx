@@ -32,10 +32,11 @@ const MenuItemInput = ({
  * If the colored box is clicked, a dropdown should appear with the options for the user to change
  * their preference.
  *
- * @param {string} id - The ID of the menu item.
+ * @param {string} [id] - Optional DOM id for the input element. Omitted for the "new item" row.
  * @param {string} item - The text content of the menu item.
- * @param {RelationshipMenuItemValue} value - The value of the menu item.
+ * @param {RelationshipMenuItemValue} [value] - Optional preference value. When omitted the selector shows "---".
  * @param {(value: Partial<RelationshipMenuItem>) => void} onChange - The callback function triggered when the menu item value changes.
+ * @param {() => void} [onDelete] - Optional callback triggered when the delete button is clicked. When provided, a delete button is rendered next to the item.
  * @returns {JSX.Element} The rendered menu item component.
  */
 export const MenuItem = ({
@@ -43,11 +44,13 @@ export const MenuItem = ({
   item,
   value,
   onChange,
+  onDelete,
 }: {
   id?: string;
   item: string;
   value?: RelationshipMenuItemValue;
   onChange: (value: Partial<RelationshipMenuItem>) => void;
+  onDelete?: () => void;
 }) => {
   return (
     <div className="menu-item">
@@ -71,6 +74,17 @@ export const MenuItem = ({
           onChange={(e) => onChange({ item: e.target.value })}
         />
       </label>
+      {onDelete && (
+        <button
+          type="button"
+          className="menu-item-delete"
+          onClick={onDelete}
+          aria-label="Delete item"
+          title="Delete item"
+        >
+          ✕
+        </button>
+      )}
     </div>
   );
 };
