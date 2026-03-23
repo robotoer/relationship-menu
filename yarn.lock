@@ -4874,12 +4874,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@storybook/addon-onboarding@npm:^8.6.17":
-  version: 8.6.17
-  resolution: "@storybook/addon-onboarding@npm:8.6.17"
+"@storybook/addon-onboarding@npm:^10.3.1":
+  version: 10.3.1
+  resolution: "@storybook/addon-onboarding@npm:10.3.1"
   peerDependencies:
-    storybook: ^8.6.17
-  checksum: 10c0/6c4c12cb2104f926b6a1943d5c60d26028a8a692fe4d26132fcffaf19fd01d4809816b9954b43ab0162e98581d6a2b6231601ba150400f52127f151cdb9a9e21
+    storybook: ^10.3.1
+  checksum: 10c0/0f2dad7c25fc5b88f16e3789750de55ffe05b7e18b9fa23dab50acc70a32d9b9a5ed05b8d6533ce8979e832f02bc9fdd39a87389d60cbe828569745e56a332e5
   languageName: node
   linkType: hard
 
@@ -16925,7 +16925,7 @@ __metadata:
     "@storybook/addon-essentials": "npm:^8.6.17"
     "@storybook/addon-interactions": "npm:^8.6.17"
     "@storybook/addon-links": "npm:^8.6.17"
-    "@storybook/addon-onboarding": "npm:^8.6.17"
+    "@storybook/addon-onboarding": "npm:^10.3.1"
     "@storybook/blocks": "npm:^8.6.17"
     "@storybook/preset-create-react-app": "npm:^8.6.17"
     "@storybook/react": "npm:^8.6.17"
