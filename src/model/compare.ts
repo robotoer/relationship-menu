@@ -1,11 +1,19 @@
 import { RelationshipMenuItemValue } from "./menu";
 
 /**
+ * One menu's answer for a compared item:
+ * - a preference value when one was selected,
+ * - `undefined` when the item is on that menu but has no preference selected,
+ * - `null` when the item is not on that menu at all.
+ */
+export type ComparedMenuItemValue = RelationshipMenuItemValue | null | undefined;
+
+/**
  * Represents a compared menu item.
  */
 export type ComparedMenuItem = {
   item: string;
-  values: (RelationshipMenuItemValue | undefined)[];
+  values: ComparedMenuItemValue[];
 };
 
 /**

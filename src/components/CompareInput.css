@@ -7,8 +7,19 @@
   align-items: center;
 
   width: 100%;
+  min-width: 0;
 }
 
 .compare-input input {
   width: calc(100% - 2rem);
+}
+
+.compare-input-invalid input {
+  border-color: #c00;
+  outline-color: #c00;
+}
+
+.compare-input-error {
+  color: #c00;
+  font-size: 0.8rem;
 }

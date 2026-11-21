@@ -6,48 +6,64 @@ import { ComparedMenuItem, MenuComparison } from "./model/compare";
 import { RelationshipMenu } from "./model/menu";
 
 /**
- * Creates a case-insensitive ID from a menu item name for matching across menus.
+ * Creates a case-insensitive ID from a menu item's (or group's) text, ignoring the
+ * selected preference, so the same item can be matched across menus.
  */
-const itemId = (item: string): string => item.toLowerCase().trim();
+export const itemId = (item: string): string =>
+  (item || "").trim().replace(/\s+/g, " ").toLowerCase();
 
 /**
  * Compares multiple RelationshipMenu objects and returns a MenuComparison object.
- * Items are matched across menus by case-insensitive item name rather than index,
- * so menus with disparate items are compared correctly.
+ *
+ * Groups and items are matched across menus by case-insensitive text rather than
+ * position, so menus with different or reordered items compare correctly. The
+ * display text is taken from the first menu that contains the group/item.
+ *
+ * Each item's `values` has one entry per menu: the selected preference, `undefined`
+ * when the item is on that menu without a preference, or `null` when the item is
+ * not on that menu at all. Items with blank text are ignored.
+ *
  * @param menus An array of RelationshipMenu objects to compare.
  * @returns A MenuComparison object representing the comparison result.
  */
 export const compareMenus = (menus: RelationshipMenu[]): MenuComparison => {
-  const comparison: MenuComparison = {};
+  // group id -> display name, in first-seen order
+  const groupNames = new Map<string, string>();
+  // group id -> (item id -> compared item), in first-seen order
+  const groupItems = new Map<string, Map<string, ComparedMenuItem>>();
 
-  // Collect all group names across all menus
-  const allGroups = new Set<string>();
-  menus.forEach((menu) => {
-    Object.keys(menu).forEach((group) => allGroups.add(group));
-  });
+  menus.forEach((menu, menuIndex) => {
+    Object.entries(menu || {}).forEach(([group, items]) => {
+      const groupKey = itemId(group);
+      if (!groupNames.has(groupKey)) {
+        groupNames.set(groupKey, group);
+        groupItems.set(groupKey, new Map());
+      }
+      const itemMap = groupItems.get(groupKey)!;
 
-  // For each group, match items by case-insensitive name
-  allGroups.forEach((group) => {
-    const itemMap = new Map<string, ComparedMenuItem>();
-    const itemOrder: string[] = [];
-
-    menus.forEach((menu, menuIndex) => {
-      const items = menu[group] || [];
-      items.forEach((item) => {
-        const id = itemId(item.item);
-        if (!itemMap.has(id)) {
-          itemMap.set(id, {
-            item: item.item,
-            values: new Array(menus.length).fill(undefined),
-          });
-          itemOrder.push(id);
+      (Array.isArray(items) ? items : []).forEach((item) => {
+        const key = itemId(item?.item);
+        if (!key) {
+          return;
         }
-        itemMap.get(id)!.values[menuIndex] = item.value;
+        if (!itemMap.has(key)) {
+          itemMap.set(key, {
+            item: item.item.trim(),
+            values: new Array(menus.length).fill(null),
+          });
+        }
+        const compared = itemMap.get(key)!;
+        // If an item appears twice in the same menu, keep the first answer given.
+        if (!compared.values[menuIndex]) {
+          compared.values[menuIndex] = item.value || undefined;
+        }
       });
     });
-
-    comparison[group] = itemOrder.map((id) => itemMap.get(id)!);
   });
 
+  const comparison: MenuComparison = {};
+  groupNames.forEach((name, groupKey) => {
+    comparison[name] = Array.from(groupItems.get(groupKey)!.values());
+  });
   return comparison;
 };

@@ -15,44 +15,50 @@
   margin-left: 0.5rem;
 }
 
-.menu-item-compare .unknown {
+/* Color swatches, shared by comparison rows and the color key on the compare page. */
+.menu-item-compare .unknown,
+.menu-item-compare .absent,
+.menu-item-compare .must-have,
+.menu-item-compare .like-to-have,
+.menu-item-compare .maybe,
+.menu-item-compare .off-limits,
+.compare-key-swatch {
   flex: none;
+  box-sizing: border-box;
+  width: 32px;
+  height: 32px;
+}
+
+.menu-item-compare .unknown,
+.compare-key-swatch.unknown {
   background-color: grey;
-  color: white;
-  width: 32px;
-  height: 32px;
 }
 
-.menu-item-compare .must-have {
-  flex: none;
+/* Item is not on this person's menu at all: hollow, dashed box. */
+.menu-item-compare .absent,
+.compare-key-swatch.absent {
+  background-color: transparent;
+  border: 2px dashed #999;
+}
+
+.menu-item-compare .must-have,
+.compare-key-swatch.must-have {
   background-color: blue;
-  color: white;
-  width: 32px;
-  height: 32px;
 }
 
-.menu-item-compare .like-to-have {
-  flex: none;
+.menu-item-compare .like-to-have,
+.compare-key-swatch.like-to-have {
   background-color: green;
-  color: white;
-  width: 32px;
-  height: 32px;
 }
 
-.menu-item-compare .maybe {
-  flex: none;
+.menu-item-compare .maybe,
+.compare-key-swatch.maybe {
   background-color: yellow;
-  color: black;
-  width: 32px;
-  height: 32px;
 }
 
-.menu-item-compare .off-limits {
-  flex: none;
+.menu-item-compare .off-limits,
+.compare-key-swatch.off-limits {
   background-color: red;
-  color: white;
-  width: 32px;
-  height: 32px;
 }
 
 @media (max-width: 640px) {
@@ -63,10 +69,12 @@
   }
 
   .menu-item-compare .unknown,
+  .menu-item-compare .absent,
   .menu-item-compare .must-have,
   .menu-item-compare .like-to-have,
   .menu-item-compare .maybe,
-  .menu-item-compare .off-limits {
+  .menu-item-compare .off-limits,
+  .compare-key-swatch {
     width: 24px;
     height: 24px;
   }

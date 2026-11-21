@@ -5,6 +5,31 @@
   padding: 1rem;
 }
 
+.compare-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+  list-style: none;
+  margin: 0;
+  padding: 0 1rem;
+  font-size: 0.875rem;
+}
+
+.compare-key li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.compare-key .compare-key-swatch {
+  width: 16px;
+  height: 16px;
+}
+
+.compare-empty {
+  padding: 0 1rem;
+}
+
 /* Media queries for grid-template-columns */
 @media all and (max-width: 800px) {
   .compare-page-grid {
@@ -15,5 +40,10 @@
 @media (max-width: 640px) {
   .compare-page-grid {
     grid-template-columns: 1fr;
+  }
+
+  .compare-key .compare-key-swatch {
+    width: 16px;
+    height: 16px;
   }
 }

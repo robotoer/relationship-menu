@@ -1,4 +1,5 @@
 import { test, expect, Page, Browser } from "@playwright/test";
+import { deflate } from "pako";
 
 // ---------------------------------------------------------------------------
 // Helper functions for creating menus in the Menu editor
@@ -714,14 +715,13 @@ test.describe("Compare Feature", () => {
         expect(url).toContain("/compare");
         expect(url).toContain("encoded=");
 
-        // Verify the slug is in the URL. React Router doesn't URI-encode the
-        // Link `to` prop, so the raw slug appears directly in the URL.
-        expect(url).toContain(menuSlug);
+        // Verify the slug survives the round trip. The link URI-encodes the slug,
+        // so base64 "+" characters are not turned into spaces.
+        expect(new URL(url).searchParams.get("encoded")).toBe(menuSlug);
 
-        // Verify compare inputs are present
-        const compareInputs = page.locator(".compare-input");
-        const inputCount = await compareInputs.count();
-        expect(inputCount).toBeGreaterThanOrEqual(1);
+        // Verify the slug lands in the first compare input
+        const compareInputs = page.locator(".compare-input input");
+        await expect(compareInputs.first()).toHaveValue(menuSlug);
       } finally {
         await context.close();
       }
@@ -1513,6 +1513,117 @@ test.describe("Compare Feature", () => {
       } finally {
         await context.close();
       }
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // Compare button, editing, and item matching
+  // -----------------------------------------------------------------------
+
+  test.describe("Compare Button and Editing", () => {
+    // Build slugs the same way the app does (pako + base64), without the UI.
+    const encode = (data: unknown) =>
+      Buffer.from(deflate(JSON.stringify(data))).toString("base64");
+    const slugFor = (title: string, menu: object) =>
+      `${encode(title)}:${encode(menu)}`;
+
+    const alice = slugFor("Alice", {
+      Physical: [
+        { item: "Kissing", value: "must-have" },
+        { item: "Hugging", value: "like-to-have" },
+      ],
+      Emotional: [{ item: "Trust" }],
+    });
+    const bob = slugFor("Bob", {
+      Physical: [
+        { item: "hugging", value: "maybe" },
+        { item: "Dancing", value: "off-limits" },
+      ],
+      emotional: [{ item: "TRUST", value: "must-have" }],
+    });
+    const inputs = (page: Page) => page.locator(".compare-input input");
+
+    test("comparison only appears after clicking Compare", async ({ page }) => {
+      await page.goto("/compare");
+      await inputs(page).last().fill(alice);
+      await expect(page.locator(".compare-button")).toBeDisabled();
+      await inputs(page).last().fill(bob);
+      await expect(page.locator(".compare-button")).toBeEnabled();
+      await expect(page.locator(".compare-page-grid")).toHaveCount(0);
+
+      await page.locator(".compare-button").click();
+      await expect(page.locator(".compare-page-grid")).toBeVisible();
+      await expect(page.locator(".compare-key")).toBeVisible();
+    });
+
+    test("typing a slug keeps every character and focus", async ({ page }) => {
+      await page.goto("/compare");
+      await inputs(page).last().click();
+      await page.keyboard.type(alice);
+      await expect(inputs(page)).toHaveCount(2);
+      await expect(inputs(page).first()).toHaveValue(alice);
+      await expect(inputs(page).first()).toBeFocused();
+      await expect(inputs(page).last()).toHaveValue("");
+      await expect(page.locator(".compare-input label").first()).toHaveText(
+        "Alice"
+      );
+    });
+
+    test("editing a slug keeps the input and shows an error", async ({
+      page,
+    }) => {
+      await page.goto(
+        `/compare?encoded=${encodeURIComponent(alice)}&encoded=${encodeURIComponent(bob)}`
+      );
+      await expect(page.locator(".compare-page-grid")).toBeVisible();
+
+      const second = inputs(page).nth(1);
+      await second.click();
+      await page.keyboard.press("End");
+      await page.keyboard.type("!");
+      await expect(inputs(page)).toHaveCount(3);
+      await expect(inputs(page).nth(1)).toHaveValue(`${bob}!`);
+      await expect(page.locator(".compare-input-error")).toBeVisible();
+      await expect(page.locator(".compare-page-grid")).toHaveCount(0);
+
+      await page.keyboard.press("Backspace");
+      await expect(inputs(page).nth(1)).toHaveValue(bob);
+      await expect(page.locator(".compare-input-error")).toHaveCount(0);
+      await expect(page.locator(".compare-page-grid")).toBeVisible();
+    });
+
+    test("a pasted share link is accepted", async ({ page }) => {
+      await page.goto("/compare");
+      await inputs(page)
+        .last()
+        .fill(`http://localhost:3099/menu?encoded=${encodeURIComponent(alice)}`);
+      await expect(inputs(page).first()).toHaveValue(alice);
+      await expect(page.locator(".compare-input label").first()).toHaveText(
+        "Alice"
+      );
+    });
+
+    test("items and groups match case-insensitively; missing items are distinct", async ({
+      page,
+    }) => {
+      await page.goto(
+        `/compare?encoded=${encodeURIComponent(alice)}&encoded=${encodeURIComponent(bob)}`
+      );
+      const grid = page.locator(".compare-page-grid");
+      await expect(grid).toBeVisible();
+      // Physical: Kissing, Hugging (merged), Dancing. Emotional: Trust (merged).
+      await expect(grid.locator(".menu-item-compare")).toHaveCount(4);
+      await expect(grid.locator("h2")).toHaveText(["Physical", "Emotional"]);
+
+      const cell = (name: string) => grid.getByRole("img", { name });
+      await expect(cell("Alice: Must Have")).toHaveCount(1);
+      await expect(cell("Bob: Maybe")).toHaveCount(1);
+      // Kissing is not on Bob's menu; Dancing is not on Alice's.
+      await expect(cell("Bob: Not on this menu")).toHaveCount(1);
+      await expect(cell("Alice: Not on this menu")).toHaveCount(1);
+      // Alice has Trust without a preference.
+      await expect(cell("Alice: No preference")).toHaveCount(1);
+      await expect(cell("Bob: Must Have")).toHaveCount(1);
     });
   });
 });

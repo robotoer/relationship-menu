@@ -14,6 +14,11 @@ import { decodeData, encodeData } from "./data-encoder";
 import { MenuComparison } from "./model/compare";
 import { useStorage } from "./providers/Storage";
 import { compareMenus } from "./data-comparer";
+import {
+  DecodedCompareSlug,
+  decodeCompareSlug,
+  normalizeCompareEntry,
+} from "./compare-slug";
 
 /** Counter for generating unique item IDs within a page session. */
 let _nextItemId = 0;
@@ -220,6 +225,10 @@ const WrappedMenuPage = () => {
   );
 };
 
+/** Whether a list of compare entries contains at least two valid menus. */
+const opensCompared = (entries: string[]) =>
+  entries.filter((entry) => decodeCompareSlug(entry) !== null).length >= 2;
+
 /**
  * A wrapped component for the ComparePage.
  *
@@ -227,85 +236,100 @@ const WrappedMenuPage = () => {
  * rather than looking them up from storage, so compare links work across
  * browsers without needing shared storage.
  *
+ * The entries being edited live in local state so typing is applied synchronously
+ * (React Router applies search param updates as a deferred transition, which makes a
+ * URL-controlled input drop keystrokes). Edits are mirrored into the URL with
+ * `history.replaceState` so the page stays shareable; navigations from elsewhere
+ * (links, back/forward) still reset the entries from the URL.
+ *
  * @returns The wrapped ComparePage component.
  */
 const WrappedComparePage = () => {
-  const [params, setParams] = useSearchParams();
-  const encodedList = useMemo(
-    () => params.getAll("encoded").filter(Boolean),
+  const [params] = useSearchParams();
+  // Changes on every router navigation (but not on our own replaceState calls).
+  const { key: navigationKey } = useLocation();
+  const paramEntries = useMemo(
+    () => params.getAll("encoded").filter((e) => e.trim().length > 0),
     [params]
   );
 
-  // Show comparison automatically when loading with 2+ encoded params (shared link)
-  const [showComparison, setShowComparison] = useState(
-    encodedList.length >= 2
+  // Every entry the user has typed, including ones that don't decode (yet), so that
+  // inputs never disappear while being typed or edited.
+  const [encodedList, setEncodedList] = useState(paramEntries);
+
+  // The comparison is shown when the user clicks Compare. A compare link that already
+  // contains 2+ valid menus (e.g. a shared link) opens straight to the comparison.
+  const [compareClicked, setCompareClicked] = useState(() =>
+    opensCompared(paramEntries)
   );
 
-  // Keep showComparison in sync with the current encoded list (URL state)
   useEffect(() => {
-    setShowComparison(encodedList.length >= 2);
-  }, [encodedList]);
+    setEncodedList(paramEntries);
+    setCompareClicked(opensCompared(paramEntries));
+  }, [paramEntries, navigationKey]);
 
-  // Decode each encoded param into title + menu, preserving the original encoded string
-  const decoded = useMemo(() => {
-    return encodedList.map((enc) => {
-      try {
-        const colonIndex = enc.indexOf(":");
-        if (colonIndex !== -1) {
-          const titlePart = enc.slice(0, colonIndex);
-          const menuPart = enc.slice(colonIndex + 1);
-          const title = decodeData(titlePart) as string;
-          const menu = decodeData(menuPart) as RelationshipMenu;
-          return { title, menu, encoded: enc };
-        }
-      } catch (e) {
-        console.error("Failed to decode compare slug:", e);
-      }
-      return null;
-    });
-  }, [encodedList]);
+  const updateEntries = (entries: string[]) => {
+    const normalized = entries.map((entry) =>
+      // Store pasted share links as plain slugs once they decode.
+      decodeCompareSlug(entry) ? normalizeCompareEntry(entry) : entry
+    );
+    setEncodedList(normalized);
+    const newParams = new URLSearchParams();
+    normalized.forEach((entry) => newParams.append("encoded", entry));
+    const query = newParams.toString();
+    window.history.replaceState(
+      window.history.state,
+      "",
+      `${window.location.pathname}${query ? `?${query}` : ""}`
+    );
+  };
 
-  // Filter to only successfully decoded entries so titles, encoded, and comparison
-  // all come from the same set and column counts stay aligned.
-  const validDecoded = useMemo(
+  // Decode each entry; null for entries that aren't a valid slug or share link.
+  const decoded = useMemo(
+    () => encodedList.map((entry) => decodeCompareSlug(entry)),
+    [encodedList]
+  );
+
+  const valid = useMemo(
+    () => decoded.filter((d): d is DecodedCompareSlug => d !== null),
+    [decoded]
+  );
+
+  // Label for each input: the decoded menu title, if any.
+  const inputTitles = useMemo(
+    () => decoded.map((d) => d?.title || ""),
+    [decoded]
+  );
+
+  const errors = useMemo(
     () =>
-      decoded.filter(
-        (
-          d
-        ): d is { title: string; menu: RelationshipMenu; encoded: string } =>
-          d !== null
+      decoded.map((d) =>
+        d ? undefined : "Not a valid menu slug or share link"
       ),
     [decoded]
   );
 
-  const titles = useMemo(
-    () => validDecoded.map((d) => d.title),
-    [validDecoded]
-  );
-
-  const validEncoded = useMemo(
-    () => validDecoded.map((d) => d.encoded),
-    [validDecoded]
-  );
+  // One column per successfully decoded menu, in input order.
+  const legendTitles = useMemo(() => valid.map((d) => d.title), [valid]);
 
   const comparison = useMemo(() => {
-    const menus = validDecoded.map((d) => d.menu);
-    if (menus.length === 0) return {} as MenuComparison;
-    return compareMenus(menus);
-  }, [validDecoded]);
+    if (valid.length === 0) return {} as MenuComparison;
+    return compareMenus(valid.map((d) => d.menu));
+  }, [valid]);
+
+  const canCompare = valid.length >= 2;
 
   return (
     <ComparePage
       comparison={comparison}
-      titles={titles}
-      encoded={validEncoded}
-      showComparison={showComparison}
-      onChangeCompared={(encoded) => {
-        const newParams = new URLSearchParams();
-        encoded.forEach((e) => newParams.append("encoded", e));
-        setParams(newParams);
-      }}
-      onCompare={() => setShowComparison(true)}
+      titles={inputTitles}
+      encoded={encodedList}
+      errors={errors}
+      legendTitles={legendTitles}
+      showComparison={compareClicked && canCompare}
+      canCompare={canCompare}
+      onChangeCompared={updateEntries}
+      onCompare={() => setCompareClicked(true)}
     />
   );
 };

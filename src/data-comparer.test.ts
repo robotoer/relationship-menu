@@ -70,9 +70,9 @@ describe("data-comparer", () => {
       const comparison = compareMenus([menu1, menu2]);
       expect(comparison).toEqual({
         Physical: [
-          { item: "Kissing", values: ["must-have", undefined] },
+          { item: "Kissing", values: ["must-have", null] },
           { item: "Hugging", values: ["like-to-have", "maybe"] },
-          { item: "Traveling", values: [undefined, "off-limits"] },
+          { item: "Traveling", values: [null, "off-limits"] },
         ],
       } as MenuComparison);
     });
@@ -102,10 +102,10 @@ describe("data-comparer", () => {
       const comparison = compareMenus([menu1, menu2]);
       expect(comparison).toEqual({
         Physical: [
-          { item: "Kissing", values: ["must-have", undefined] },
+          { item: "Kissing", values: ["must-have", null] },
         ],
         Emotional: [
-          { item: "Trust", values: [undefined, "like-to-have"] },
+          { item: "Trust", values: [null, "like-to-have"] },
         ],
       } as MenuComparison);
     });
@@ -133,11 +133,64 @@ describe("data-comparer", () => {
       const comparison = compareMenus([menu1, menu2, menu3]);
       expect(comparison).toEqual({
         Values: [
-          { item: "Honesty", values: ["must-have", "maybe", undefined] },
-          { item: "Loyalty", values: ["like-to-have", undefined, "off-limits"] },
-          { item: "Respect", values: [undefined, "must-have", "like-to-have"] },
+          { item: "Honesty", values: ["must-have", "maybe", null] },
+          { item: "Loyalty", values: ["like-to-have", null, "off-limits"] },
+          { item: "Respect", values: [null, "must-have", "like-to-have"] },
         ],
       } as MenuComparison);
+    });
+
+    it("should distinguish 'no preference' (undefined) from 'not on this menu' (null)", () => {
+      const comparison = compareMenus([
+        { Physical: [{ item: "Kissing" }] },
+        { Physical: [{ item: "Hugging", value: "maybe" }] },
+      ]);
+      expect(comparison.Physical).toEqual([
+        { item: "Kissing", values: [undefined, null] },
+        { item: "Hugging", values: [null, "maybe"] },
+      ]);
+    });
+
+    it("should match items ignoring extra whitespace and generated item ids", () => {
+      const comparison = compareMenus([
+        { a: [{ id: "item_1", item: "  Living   together ", value: "maybe" }] },
+        { a: [{ id: "item_1", item: "living together", value: "must-have" }] },
+      ]);
+      expect(comparison.a).toEqual([
+        { item: "Living   together", values: ["maybe", "must-have"] },
+      ]);
+    });
+
+    it("should not merge different items that happen to share a generated id", () => {
+      const comparison = compareMenus([
+        { a: [{ id: "item_1", item: "Kissing", value: "maybe" }] },
+        { a: [{ id: "item_1", item: "Dancing", value: "must-have" }] },
+      ]);
+      expect(comparison.a).toHaveLength(2);
+    });
+
+    it("should match group names case-insensitively", () => {
+      const comparison = compareMenus([
+        { Physical: [{ item: "Kissing", value: "maybe" }] },
+        { physical: [{ item: "kissing", value: "must-have" }] },
+      ]);
+      expect(comparison).toEqual({
+        Physical: [{ item: "Kissing", values: ["maybe", "must-have"] }],
+      });
+    });
+
+    it("should ignore items with blank text", () => {
+      const comparison = compareMenus([
+        { a: [{ item: "" }, { item: "   " }, { item: "Trust", value: "maybe" }] },
+        { a: [{ item: "Trust", value: "maybe" }] },
+      ]);
+      expect(comparison.a).toEqual([
+        { item: "Trust", values: ["maybe", "maybe"] },
+      ]);
+    });
+
+    it("should keep every group, even when empty", () => {
+      expect(compareMenus([{ Empty: [] }, {}])).toEqual({ Empty: [] });
     });
   });
 });

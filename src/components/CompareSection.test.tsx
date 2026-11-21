@@ -147,4 +147,65 @@ describe("CompareSection", () => {
     );
     expect(screen.getByText("Menu 1")).toBeInTheDocument();
   });
+
+  it("should keep the same input element (and focus) when the empty input becomes a new entry", () => {
+    const { rerender } = render(
+      <CompareSection
+        titles={[]}
+        menus={[]}
+        onChange={jest.fn()}
+        onCompare={jest.fn()}
+        canCompare={false}
+      />
+    );
+    const emptyInput = screen.getByRole("textbox");
+    emptyInput.focus();
+    rerender(
+      <CompareSection
+        titles={[]}
+        menus={["a"]}
+        onChange={jest.fn()}
+        onCompare={jest.fn()}
+        canCompare={false}
+      />
+    );
+    const inputs = screen.getAllByRole("textbox");
+    expect(inputs).toHaveLength(2);
+    expect(inputs[0]).toBe(emptyInput);
+    expect(inputs[0]).toHaveValue("a");
+    expect(inputs[0]).toHaveFocus();
+    expect(inputs[1]).toHaveValue("");
+  });
+
+  it("should show errors for invalid entries", () => {
+    render(
+      <CompareSection
+        titles={["Alice", ""]}
+        menus={["good", "bad"]}
+        errors={[undefined, "Not a valid menu slug or share link"]}
+        onChange={jest.fn()}
+        onCompare={jest.fn()}
+        canCompare={false}
+      />
+    );
+    expect(screen.getByDisplayValue("bad")).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByDisplayValue("good")).not.toHaveAttribute("aria-invalid");
+    expect(
+      screen.getByText("Not a valid menu slug or share link")
+    ).toBeInTheDocument();
+  });
+
+  it("should label inputs so they are reachable by label text", () => {
+    render(
+      <CompareSection
+        titles={["Alice"]}
+        menus={["encoded1"]}
+        onChange={jest.fn()}
+        onCompare={jest.fn()}
+        canCompare={false}
+      />
+    );
+    expect(screen.getByLabelText("Alice")).toHaveValue("encoded1");
+    expect(screen.getByLabelText("Menu 2")).toHaveValue("");
+  });
 });

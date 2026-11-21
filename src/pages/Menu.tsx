@@ -92,7 +92,10 @@ export const MenuPage = ({
           placeholder="Menu title"
           onChange={(e) => onChangeTitle(e.target.value)}
         />
-        <Link to={`/compare?encoded=${menuEncoded}`} className="menu-compare">
+        <Link
+          to={`/compare?encoded=${encodeURIComponent(menuEncoded)}`}
+          className="menu-compare"
+        >
           Compare
         </Link>
       </div>
