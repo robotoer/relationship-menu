@@ -1,7 +1,15 @@
-import { decodeCompareSlug, normalizeCompareEntry } from "./compare-slug";
+import {
+  decodeCompareSlug,
+  expandCompareEntry,
+  normalizeCompareEntry,
+} from "./compare-slug";
+import { compareMenus } from "./data-comparer";
 import { encodeData } from "./data-encoder";
+import { RelationshipMenu } from "./model/menu";
 
-const menu = { Physical: [{ item: "Kissing", value: "must-have" }] };
+const menu: RelationshipMenu = {
+  Physical: [{ item: "Kissing", value: "must-have" }],
+};
 
 /** Builds a slug whose base64 contains "+", which breaks unencoded query strings. */
 const slugWithPlus = () => {
@@ -46,5 +54,40 @@ describe("compare-slug", () => {
     ["link without a slug", "https://example.com/menu?encoded="],
   ])("returns null for %s", (_, value) => {
     expect(decodeCompareSlug(value)).toBeNull();
+  });
+
+  it("drops malformed items and unknown preferences instead of crashing", () => {
+    const crafted = `${encodeData("Mallory")}:${encodeData({
+      G: [
+        { item: 5 },
+        null,
+        "text",
+        { item: "Trust", value: "<script>" },
+        { item: "Kissing", value: "maybe" },
+      ],
+    })}`;
+    const decoded = decodeCompareSlug(crafted);
+    expect(decoded?.menu).toEqual({
+      G: [
+        { item: "Trust", value: undefined },
+        { item: "Kissing", value: "maybe" },
+      ],
+    });
+    expect(() => compareMenus([decoded!.menu, menu])).not.toThrow();
+  });
+
+  it("ignores a #fragment after the slug in a link", () => {
+    const link = `https://example.com/menu?encoded=${encodeURIComponent(slug)}#top`;
+    expect(decodeCompareSlug(link)).toEqual({ title: "Alice", menu });
+  });
+
+  it("expands a compare link holding several menus into one entry per menu", () => {
+    const other = `${encodeData("Bob")}:${encodeData(menu)}`;
+    const link = `https://example.com/compare?encoded=${encodeURIComponent(
+      slug
+    )}&encoded=${encodeURIComponent(other)}`;
+    expect(expandCompareEntry(link)).toEqual([slug, other]);
+    expect(expandCompareEntry(slug)).toEqual([slug]);
+    expect(expandCompareEntry("partial")).toEqual(["partial"]);
   });
 });

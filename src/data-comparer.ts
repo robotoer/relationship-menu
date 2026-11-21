@@ -10,7 +10,7 @@ import { RelationshipMenu } from "./model/menu";
  * selected preference, so the same item can be matched across menus.
  */
 export const itemId = (item: string): string =>
-  (item || "").trim().replace(/\s+/g, " ").toLowerCase();
+  (typeof item === "string" ? item : "").trim().replace(/\s+/g, " ").toLowerCase();
 
 /**
  * Compares multiple RelationshipMenu objects and returns a MenuComparison object.

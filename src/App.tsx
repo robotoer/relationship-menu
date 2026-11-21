@@ -17,6 +17,7 @@ import { compareMenus } from "./data-comparer";
 import {
   DecodedCompareSlug,
   decodeCompareSlug,
+  expandCompareEntry,
   normalizeCompareEntry,
 } from "./compare-slug";
 
@@ -269,7 +270,7 @@ const WrappedComparePage = () => {
   }, [paramEntries, navigationKey]);
 
   const updateEntries = (entries: string[]) => {
-    const normalized = entries.map((entry) =>
+    const normalized = entries.flatMap(expandCompareEntry).map((entry) =>
       // Store pasted share links as plain slugs once they decode.
       decodeCompareSlug(entry) ? normalizeCompareEntry(entry) : entry
     );
