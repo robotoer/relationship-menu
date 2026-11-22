@@ -13601,7 +13601,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"libp2p@npm:^1.3.0":
+"libp2p@npm:1.8.1":
   version: 1.8.1
   resolution: "libp2p@npm:1.8.1"
   dependencies:
@@ -13666,6 +13666,39 @@ __metadata:
     race-signal: "npm:^2.0.0"
     uint8arrays: "npm:^5.1.0"
   checksum: 10c0/341ef289b4e98d8583375cd9c6be99ca6fde53899e4e37305214aa665eb8d923cd43d7e9af32ce160419d1686c9db975ea3ef9a26bde73fbf44de05ddeb20406
+  languageName: node
+  linkType: hard
+
+"libp2p@patch:libp2p@npm%3A1.8.1#~/.yarn/patches/libp2p-npm-1.8.1-391f2ba9d6.patch":
+  version: 1.8.1
+  resolution: "libp2p@patch:libp2p@npm%3A1.8.1#~/.yarn/patches/libp2p-npm-1.8.1-391f2ba9d6.patch::version=1.8.1&hash=1945f4"
+  dependencies:
+    "@libp2p/crypto": "npm:^4.1.6"
+    "@libp2p/interface": "npm:^1.6.1"
+    "@libp2p/interface-internal": "npm:^1.3.1"
+    "@libp2p/logger": "npm:^4.0.17"
+    "@libp2p/multistream-select": "npm:^5.1.14"
+    "@libp2p/peer-collections": "npm:^5.2.6"
+    "@libp2p/peer-id": "npm:^4.2.1"
+    "@libp2p/peer-id-factory": "npm:^4.2.1"
+    "@libp2p/peer-store": "npm:^10.1.2"
+    "@libp2p/utils": "npm:^5.4.6"
+    "@multiformats/dns": "npm:^1.0.6"
+    "@multiformats/multiaddr": "npm:^12.2.3"
+    "@multiformats/multiaddr-matcher": "npm:^1.2.1"
+    any-signal: "npm:^4.1.1"
+    datastore-core: "npm:^9.2.9"
+    interface-datastore: "npm:^8.2.11"
+    it-merge: "npm:^3.0.5"
+    it-parallel: "npm:^3.0.7"
+    merge-options: "npm:^3.0.4"
+    multiformats: "npm:^13.1.0"
+    p-defer: "npm:^4.0.1"
+    progress-events: "npm:^1.0.0"
+    race-event: "npm:^1.3.0"
+    race-signal: "npm:^1.0.2"
+    uint8arrays: "npm:^5.1.0"
+  checksum: 10c0/2840b53ed61531835985aaad53b95972db0ef585bce011dc8373287cbc952e7a7a387134ff81051f9d8c13b8ce484ff061bd6df91f47812c7cf50a901876b845
   languageName: node
   linkType: hard
 

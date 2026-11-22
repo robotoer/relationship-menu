@@ -1,0 +1,39 @@
+diff --git a/dist/src/random-walk.js b/dist/src/random-walk.js
+index 73f868b8bf371ae1a177365853734c1ee8be06de..b0df323b7c00462b059a685bbef7218fc4401318 100644
+--- a/dist/src/random-walk.js
++++ b/dist/src/random-walk.js
+@@ -73,7 +73,26 @@ export class RandomWalk extends TypedEventEmitter {
+         Promise.resolve().then(async () => {
+             this.log('start walk');
+             // find peers until no more consumers are interested
++            // Back off between walk iterations that find no peers. Without this,
++            // when the routing table is empty (e.g. no bootstrap peer reachable)
++            // getClosestPeers completes synchronously-ish and this loop spins on
++            // microtasks forever, freezing the browser's main thread.
++            let backoff = 0;
+             while (this.walkers > 0) {
++                if (backoff > 0) {
++                    this.log('no peers found, backing off for %dms', backoff);
++                    await new Promise((resolve) => {
++                        const timeout = setTimeout(resolve, backoff);
++                        signal.addEventListener('abort', () => {
++                            clearTimeout(timeout);
++                            resolve();
++                        }, { once: true });
++                    });
++                    if (signal.aborted) {
++                        break;
++                    }
++                }
++                const foundBefore = found;
+                 try {
+                     const data = randomBytes(32);
+                     let s = Date.now();
+@@ -103,6 +122,7 @@ export class RandomWalk extends TypedEventEmitter {
+                         detail: err
+                     });
+                 }
++                backoff = found > foundBefore ? 0 : Math.min(Math.max(backoff * 2, 1000), 30000);
+             }
+             this.log('no walkers left, ended walk');
+         })
