@@ -7,13 +7,13 @@ import { AboutPage } from "./pages/About";
 import { ComparePage } from "./pages/Compare";
 import {
   RelationshipMenu,
-  RelationshipMenuItem,
 } from "./model/menu";
 import { MenuPage } from "./pages/Menu";
 import { decodeData, encodeData } from "./data-encoder";
 import { MenuComparison } from "./model/compare";
 import { useStorage } from "./providers/Storage";
 import { compareMenus } from "./data-comparer";
+import { applyMenuChange } from "./menu-editing";
 import {
   DecodedCompareSlug,
   decodeCompareSlug,
@@ -178,48 +178,9 @@ const WrappedMenuPage = () => {
       menu={menu}
       menuEncoded={menuEncoded}
       templateEncoded={templateEncoded}
-      onChange={
-        // Update the value of `menu` in the state:
-        (change) => {
-          if (change.kind === "group") {
-            const { oldGroup, newGroup } = change;
-            if (oldGroup && newGroup) {
-              const newMenu = { ...menu };
-              newMenu[newGroup] = newMenu[oldGroup];
-              delete newMenu[oldGroup];
-              setMenu(newMenu);
-            } else if (oldGroup) {
-              const newMenu = { ...menu };
-              delete newMenu[oldGroup];
-              setMenu(newMenu);
-            } else if (newGroup) {
-              const newMenu = { ...menu };
-              newMenu[newGroup] = [];
-              setMenu(newMenu);
-            } else {
-              console.error("Invalid group change:", change);
-            }
-          } else if (change.kind === "item") {
-            const { group, itemIndex, value } = change;
-            const newMenu = { ...menu };
-            if (value === undefined && itemIndex >= 0 && itemIndex < newMenu[group].length) {
-              // Delete the item from the group:
-              newMenu[group] = newMenu[group].filter((_, index) => index !== itemIndex);
-            } else if (itemIndex === newMenu[group].length) {
-              // Add a new item to the group:
-              newMenu[group] = [...newMenu[group], { item: "", ...value, id: generateItemId() } as RelationshipMenuItem];
-            } else if (itemIndex >= 0 && itemIndex < newMenu[group].length) {
-              newMenu[group] = newMenu[group].map((item, index) =>
-                index === itemIndex ? { ...item, ...value } : item
-              );
-            } else {
-              console.error("Invalid item change:", change);
-            }
-            setMenu(newMenu);
-          } else {
-            console.error("Invalid change:", change);
-          }
-        }
+      onChange={(change) =>
+        // Functional update so rapid edits (fast typing) never build on a stale menu.
+        setMenu((prev) => applyMenuChange(prev, change, generateItemId))
       }
       onChangeTitle={setTitle}
     />

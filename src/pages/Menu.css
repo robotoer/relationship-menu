@@ -79,3 +79,15 @@
     padding-bottom: 0.5rem;
   }
 }
+
+.group-title-error {
+  color: #c00;
+  font-size: 0.8rem;
+  /* Own line below the group name and delete button. */
+  order: 1;
+  flex-basis: 100%;
+}
+
+.menu-group-header:has(.group-title-error) {
+  flex-wrap: wrap;
+}
