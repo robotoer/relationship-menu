@@ -60,6 +60,10 @@ export default defineConfig({
         ...devices['Desktop Chrome'],
         // Enable WebRTC and related features
         launchOptions: {
+          // Allow pointing at a preinstalled browser (e.g. in sandboxed CI containers)
+          ...(process.env.PLAYWRIGHT_CHROMIUM_PATH
+            ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH }
+            : {}),
           args: [
             '--use-fake-ui-for-media-stream',
             '--use-fake-device-for-media-stream',
