@@ -1,8 +1,8 @@
 diff --git a/dist/src/random-walk.js b/dist/src/random-walk.js
-index 73f868b8bf371ae1a177365853734c1ee8be06de..b0df323b7c00462b059a685bbef7218fc4401318 100644
+index 73f868b8bf371ae1a177365853734c1ee8be06de..97634ab206fd971b8d7d474d383fe7167a650c75 100644
 --- a/dist/src/random-walk.js
 +++ b/dist/src/random-walk.js
-@@ -73,7 +73,26 @@ export class RandomWalk extends TypedEventEmitter {
+@@ -73,7 +73,34 @@ export class RandomWalk extends TypedEventEmitter {
          Promise.resolve().then(async () => {
              this.log('start walk');
              // find peers until no more consumers are interested
@@ -15,11 +15,19 @@ index 73f868b8bf371ae1a177365853734c1ee8be06de..b0df323b7c00462b059a685bbef7218f
 +                if (backoff > 0) {
 +                    this.log('no peers found, backing off for %dms', backoff);
 +                    await new Promise((resolve) => {
-+                        const timeout = setTimeout(resolve, backoff);
-+                        signal.addEventListener('abort', () => {
-+                            clearTimeout(timeout);
++                        if (signal.aborted) {
 +                            resolve();
-+                        }, { once: true });
++                            return;
++                        }
++                        // Remove the abort listener whichever way the wait ends,
++                        // so timed-out waits don't leave listeners on the signal.
++                        const done = () => {
++                            clearTimeout(timeout);
++                            signal.removeEventListener('abort', done);
++                            resolve();
++                        };
++                        const timeout = setTimeout(done, backoff);
++                        signal.addEventListener('abort', done);
 +                    });
 +                    if (signal.aborted) {
 +                        break;
@@ -29,7 +37,7 @@ index 73f868b8bf371ae1a177365853734c1ee8be06de..b0df323b7c00462b059a685bbef7218f
                  try {
                      const data = randomBytes(32);
                      let s = Date.now();
-@@ -103,6 +122,7 @@ export class RandomWalk extends TypedEventEmitter {
+@@ -103,6 +130,7 @@ export class RandomWalk extends TypedEventEmitter {
                          detail: err
                      });
                  }
