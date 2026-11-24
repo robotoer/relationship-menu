@@ -8,6 +8,7 @@ import { MenuItem } from "../components/MenuItem";
 import { RelationshipMenu, RelationshipMenuItem } from "../model/menu";
 import { ShareSection } from "../components/ShareSection";
 import { Link } from "react-router-dom";
+import { useLayoutEffect, useRef } from "react";
 
 /**
  * Renders an input element for the menu title.
@@ -84,6 +85,43 @@ export const MenuPage = ({
   ) => void;
   onChangeTitle: (title: string) => void;
 }) => {
+  // Where to move focus after the next commit, when typing into a "new item" or
+  // "new group" row creates a real item/group. Focusing in a layout effect runs in
+  // the same task as the keystroke that caused it; a setTimeout would let queued
+  // key events (which browsers handle before timers) land in the placeholder row
+  // and create extra items.
+  const pendingFocus = useRef<
+    { kind: "item"; groupEncoded: string } | { kind: "group"; groupEncoded: string } | null
+  >(null);
+  useLayoutEffect(() => {
+    const target = pendingFocus.current;
+    if (!target) {
+      return;
+    }
+    pendingFocus.current = null;
+    const groupInput = document.getElementById(
+      `menu-group-input-${target.groupEncoded}`
+    ) as HTMLInputElement | null;
+    if (!groupInput) {
+      console.error(
+        `Could not find group input field to focus on: menu-group-input-${target.groupEncoded}`
+      );
+      return;
+    }
+    if (target.kind === "group") {
+      groupInput.focus();
+      return;
+    }
+    const inputs = groupInput
+      .closest(".menu-group")
+      ?.querySelectorAll<HTMLInputElement>("input.menu-item-input");
+    // The second-to-last input is the newly added item
+    // (last one is the empty "New item" row)
+    if (inputs && inputs.length >= 2) {
+      inputs[inputs.length - 2].focus();
+    }
+  });
+
   return (
     <>
       <div className="menu-title-container">
@@ -149,28 +187,14 @@ export const MenuPage = ({
                 item=""
                 value={undefined}
                 onChange={(value) => {
-                  (async () => {
-                    onChange({
-                      kind: "item",
-                      group,
-                      itemIndex: menu[group].length,
-                      value,
-                    });
-
-                    await new Promise((resolve) => setTimeout(resolve, 0));
-
-                    // Focus on the last real item input in the group after adding:
-                    const groupEl = document.getElementById(`menu-group-input-${groupEncoded}`)?.closest('.menu-group');
-                    if (groupEl) {
-                      const inputs = groupEl.querySelectorAll('input.menu-item-input');
-                      // The second-to-last input is the newly added item
-                      // (last one is the empty "New item" row)
-                      if (inputs.length >= 2) {
-                        const newItemInput = inputs[inputs.length - 2] as HTMLInputElement;
-                        newItemInput.focus();
-                      }
-                    }
-                  })();
+                  // Focus the newly added item once it has rendered:
+                  pendingFocus.current = { kind: "item", groupEncoded };
+                  onChange({
+                    kind: "item",
+                    group,
+                    itemIndex: menu[group].length,
+                    value,
+                  });
                 }}
               />
             </MenuGroup>
@@ -182,29 +206,15 @@ export const MenuPage = ({
           title={
             <GroupTitle
               onChange={(e) => {
-                (async () => {
-                  const newGroup = e.target.value;
-                  onChange({ kind: "group", newGroup });
-                  // Clear the input field after adding a new group:
-                  e.target.value = "";
-
-                  await new Promise((resolve) => setTimeout(resolve, 0));
-
-                  const query = `#menu-group-input-${btoa(
-                    newGroup || ""
-                  ).replace(/=/g, "")}`;
-                  // Focus on the new group input field after adding a new group:
-                  const newGroupInput = document.querySelector(
-                    query
-                  ) as HTMLInputElement;
-                  if (newGroupInput) {
-                    newGroupInput.focus();
-                  } else {
-                    console.error(
-                      `Could not find new group input field to focus on: ${query}`
-                    );
-                  }
-                })();
+                const newGroup = e.target.value;
+                // Focus the new group's title input once it has rendered:
+                pendingFocus.current = {
+                  kind: "group",
+                  groupEncoded: btoa(newGroup || "").replace(/=/g, ""),
+                };
+                onChange({ kind: "group", newGroup });
+                // Clear the input field after adding a new group:
+                e.target.value = "";
               }}
             />
           }
