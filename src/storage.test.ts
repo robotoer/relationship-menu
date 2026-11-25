@@ -22,17 +22,15 @@ describe("LocalStorage", () => {
     expect(documents["Test Document"]).toEqual(doc);
   });
 
-  test("should clear all documents", async () => {
-    const doc: RelationshipMenuDocument = {
-      title: "Test Document",
-      encoded: "encoded-content",
-    };
-
-    await storage.saveDocuments(doc);
-    await storage.clear();
+  test("deleteDocument removes that menu and keeps the others", async () => {
+    await storage.saveDocuments(
+      { title: "Keep", encoded: "a" },
+      { title: "Remove", encoded: "b" }
+    );
+    await storage.deleteDocument("Remove");
     const documents = await storage.getDocuments();
 
-    expect(Object.keys(documents).length).toBe(0);
+    expect(Object.keys(documents)).toEqual(["Keep"]);
   });
 
   test("should retrieve documents by id", async () => {

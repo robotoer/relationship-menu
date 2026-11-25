@@ -1,104 +1,63 @@
-import React, {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  useMemo,
-} from "react";
+import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { Storage, createLocalStorage } from "../storage";
 import { RelationshipMenuDocument } from "../model/menu";
 
 type StorageContextType = {
   storage: Storage;
-  documents: { [id: string]: RelationshipMenuDocument };
-
-  saving: boolean;
-  saveError?: string;
-
+  /** Every saved menu, by title. Kept in step with saves and deletes. */
+  documents: { [title: string]: RelationshipMenuDocument };
   deleteDocument: (title: string) => Promise<void>;
 };
 
 const StorageContext = createContext<StorageContextType | undefined>(undefined);
 
 /**
- * A provider component that wraps the application and provides storage functionality.
- *
- * @component
- * @param {React.ReactNode} children - The child components to be wrapped by the provider.
- * @param {Storage} storage - The storage object used for storing documents.
- * @returns {React.ReactNode} The wrapped child components.
+ * Gives the app its menu storage (localStorage unless a `storage` is passed, e.g. in
+ * tests) and the list of saved menus, updated as menus are saved and deleted.
  */
 export const StorageProvider: React.FC<{
   children: React.ReactNode;
   storage?: Storage;
-}> = ({ children, storage }) => {
-  const [documents, setDocuments] = useState<{
-    [id: string]: RelationshipMenuDocument;
-  }>({});
-  const [awaitedStorage] = useState<Storage>(() => storage ?? createLocalStorage());
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | undefined>();
+}> = ({ children, storage: given }) => {
+  const [base] = useState<Storage>(() => given ?? createLocalStorage());
+  const [documents, setDocuments] = useState<StorageContextType["documents"]>({});
 
   useEffect(() => {
-    const fetchDocuments = async () => {
-      const docs = await awaitedStorage?.getDocuments?.();
-      if (docs) {
-        setDocuments(docs);
-      }
-    };
-    fetchDocuments();
-  }, [awaitedStorage]);
+    base.getDocuments().then(setDocuments);
+  }, [base]);
 
-  // Record the state of saving/saveError in the context:
-  const wrappedStorage: Storage = useMemo(
+  const storage: Storage = useMemo(
     () => ({
-      ready: awaitedStorage.ready,
-      getDocuments: awaitedStorage.getDocuments,
+      getDocuments: base.getDocuments,
       saveDocuments: async (...docs) => {
-        setSaving(true);
-        setSaveError(undefined);
         try {
-          const ids = await awaitedStorage.saveDocuments(...docs);
+          const ids = await base.saveDocuments(...docs);
           setDocuments((prev) => {
             // No prototype: titles are user text (e.g. "__proto__").
             const next: typeof prev = Object.assign(Object.create(null), prev);
-            for (const doc of docs) {
-              next[doc.title] = doc;
-            }
+            for (const doc of docs) next[doc.title] = doc;
             return next;
           });
           return ids;
-        } catch (e: any) {
+        } catch (e) {
           console.error("Error saving documents:", e);
-          setSaveError(e.message);
           return [];
-        } finally {
-          setSaving(false);
         }
       },
       deleteDocument: async (title: string) => {
-        await awaitedStorage.deleteDocument(title);
+        await base.deleteDocument(title);
         setDocuments((prev) => {
-          const next = { ...prev };
+          const next: typeof prev = Object.assign(Object.create(null), prev);
           delete next[title];
           return next;
         });
       },
-      clear: awaitedStorage.clear,
     }),
-    [awaitedStorage]
+    [base]
   );
 
   return (
-    <StorageContext.Provider
-      value={{
-        storage: wrappedStorage,
-        documents,
-        saving,
-        saveError,
-        deleteDocument: wrappedStorage.deleteDocument,
-      }}
-    >
+    <StorageContext.Provider value={{ storage, documents, deleteDocument: storage.deleteDocument }}>
       {children}
     </StorageContext.Provider>
   );
@@ -110,33 +69,4 @@ export const useStorage = (): StorageContextType => {
     throw new Error("useStorage must be used within a StorageProvider");
   }
   return context;
-};
-
-export const useDocuments = (
-  ...ids: string[]
-): (RelationshipMenuDocument | undefined)[] => {
-  const { storage, documents } = useStorage();
-  const [doc, setDoc] = useState<(RelationshipMenuDocument | undefined)[]>([]);
-  
-  // Stabilize ids by deduplicating
-  const stableIds = useMemo(() => {
-    const unique = Array.from(new Set(ids));
-    return unique;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [JSON.stringify(ids)]);
-  
-  useEffect(() => {
-    (async () => {
-      // Fetch all documents by calling getDocuments for each id
-      const fetchPromises = stableIds.map(async (id) => {
-        const fetchedDocs = await storage?.getDocuments?.(id);
-        return fetchedDocs && fetchedDocs[id] ? fetchedDocs[id] : documents[id];
-      });
-      
-      const results = await Promise.all(fetchPromises);
-      setDoc(results);
-    })();
-  }, [documents, storage, stableIds]);
-  
-  return doc;
 };
