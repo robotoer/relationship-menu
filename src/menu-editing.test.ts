@@ -139,4 +139,33 @@ describe("applyMenuChange", () => {
     const renamed = applyMenuChange(menu, { kind: "group", oldGroup: "A", newGroup: "B" }, gen);
     expect(Object.keys(renamed)).toEqual(["B", "__proto__"]);
   });
+
+  describe("ready-made groups", () => {
+    it("adds a new group with its items", () => {
+      const result = applyMenuChange(
+        { A: [] },
+        { kind: "insert-group", group: "Finances", items: ["Joint accounts", "Lending money"] },
+        gen
+      );
+      expect(Object.keys(result)).toEqual(["A", "Finances"]);
+      expect(result.Finances.map((i) => i.item)).toEqual(["Joint accounts", "Lending money"]);
+    });
+
+    it("only appends missing items to an existing group, keeping answers", () => {
+      const menu = { Finances: [{ id: "1", item: "joint ACCOUNTS", value: "maybe" as const }] };
+      const result = applyMenuChange(
+        menu,
+        { kind: "insert-group", group: "Finances", items: ["Joint accounts", "Lending money"] },
+        gen
+      );
+      expect(result.Finances).toEqual([
+        { id: "1", item: "joint ACCOUNTS", value: "maybe" },
+        { id: "generated", item: "Lending money" },
+      ]);
+      // Nothing new: unchanged.
+      expect(
+        applyMenuChange(result, { kind: "insert-group", group: "Finances", items: ["Lending money"] }, gen)
+      ).toBe(result);
+    });
+  });
 });

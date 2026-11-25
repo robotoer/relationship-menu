@@ -23,6 +23,7 @@ import { useStorage } from "./providers/Storage";
 import { compareMenus } from "./data-comparer";
 import { MenuChange, applyMenuChange } from "./menu-editing";
 import { useAutosave } from "./autosave";
+import { templateMenu } from "./templates";
 import {
   DecodedCompareSlug,
   decodeCompareSlug,
@@ -328,6 +329,13 @@ const WrappedMenuPage = () => {
       onChangeTitle={setTitle}
       person={person}
       onChangePerson={setPerson}
+      onUseTemplate={(template) => {
+        editMenu({ kind: "replace", menu: ensureItemIds(templateMenu(template)) });
+        if (title === "") {
+          const taken = Object.prototype.hasOwnProperty.call(documents, template.name);
+          setTitle(taken ? uniqueTitle(template.name, documents) : template.name);
+        }
+      }}
       saveStatus={titleTaken ? "title-taken" : saveState}
       notice={notice}
       onDismissNotice={() => setNotice(null)}

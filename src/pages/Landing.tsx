@@ -5,7 +5,7 @@
 
 import { Link } from "react-router-dom";
 import "./Landing.css";
-import { starterMenuPath } from "../starter-menu";
+import { MENU_TEMPLATES } from "../templates";
 
 const ANSWERS: { className: string; label: string; meaning: string }[] = [
   { className: "must-have", label: "Must have", meaning: "I need this to be happy." },
@@ -40,11 +40,11 @@ export const LandingPage = ({ savedCount = 0 }: { savedCount?: number }) => {
           include, so you can each say what you actually want, then see where you match.
         </p>
         <div className="landing-actions">
-          <Link className="button button-primary" to={starterMenuPath()}>
-            ▶ Start with the starter menu
+          <Link className="button button-primary" to="/menu">
+            ▶ Start a menu
           </Link>
-          <Link className="button" to="/menu">
-            Start from scratch
+          <Link className="button" to="/compare">
+            Compare menus
           </Link>
           {savedCount > 0 && (
             <Link className="button" to="/library">
@@ -100,9 +100,12 @@ export const LandingPage = ({ savedCount = 0 }: { savedCount?: number }) => {
           <li>
             <h3>Build your menu</h3>
             <p>
-              Start from the starter menu or a blank page. A menu is a list of groups
-              (like "Commitment") with items in each (like "Moving in together"). Add,
+              A menu is a list of groups (like "Commitment") with items in each (like
+              "Moving in together"). Start from a template or a blank page, then add,
               rename, reorder or delete anything.
+            </p>
+            <p className="landing-templates">
+              Templates: {MENU_TEMPLATES.map((t) => t.name).join(" · ")}.
             </p>
           </li>
           <li>
@@ -192,6 +195,17 @@ export const LandingPage = ({ savedCount = 0 }: { savedCount?: number }) => {
         </ul>
       </section>
 
+      <section className="landing-section" aria-labelledby="credits">
+        <h2 id="credits">Where the templates come from</h2>
+        <p>
+          The templates are written for this app. Their topics follow those covered by
+          well-known relationship menus, especially the Relationship Anarchy
+          Smorgasbord by Lyrica Lawrence and Heather Orr, and Amy Gahran's{" "}
+          <em>Stepping Off the Relationship Escalator</em>. Items are kept non-explicit;
+          add your own for anything more specific.
+        </p>
+      </section>
+
       <section className="landing-section landing-keys" aria-labelledby="keys">
         <h2 id="keys">Keyboard friendly</h2>
         <p>
@@ -204,7 +218,7 @@ export const LandingPage = ({ savedCount = 0 }: { savedCount?: number }) => {
       <section className="landing-cta">
         <h2>Ready, player one?</h2>
         <div className="landing-actions">
-          <Link className="button button-primary" to={starterMenuPath()}>
+          <Link className="button button-primary" to="/menu">
             ▶ Start
           </Link>
           <Link className="button" to="/compare">

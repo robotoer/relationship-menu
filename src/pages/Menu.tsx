@@ -11,7 +11,12 @@ import { MenuChange } from "../menu-editing";
 import { SaveState } from "../autosave";
 import { KeyAction, PREFERENCE_CYCLE, SEQUENCE_TIMEOUT_MS, resolveKey } from "../keyboard";
 import { KeyboardHelp } from "../components/KeyboardHelp";
-import { starterMenuPath } from "../starter-menu";
+import {
+  GROUP_TEMPLATES,
+  MENU_TEMPLATES,
+  MenuTemplate,
+  templateItemCount,
+} from "../templates";
 import { ShareSection } from "../components/ShareSection";
 import { Link } from "react-router-dom";
 
@@ -130,7 +135,7 @@ const PersonFields = ({
   <fieldset className="person-fields">
     <legend>Whose menu is this? (optional)</legend>
     <label>
-      <span>Name</span>
+      <span>Your name</span>
       <input
         value={person.name ?? ""}
         maxLength={60}
@@ -188,6 +193,7 @@ export const MenuPage = ({
   onDismissNotice,
   person,
   onChangePerson,
+  onUseTemplate,
 }: {
   title: string;
   menu: RelationshipMenu;
@@ -202,6 +208,7 @@ export const MenuPage = ({
   onDismissNotice?: () => void;
   person?: Person;
   onChangePerson?: (person: Person) => void;
+  onUseTemplate?: (template: MenuTemplate) => void;
 }) => {
   const groupNames = Object.keys(menu);
   // Key (and future id) of each group's "new item" row, by group name.
@@ -384,7 +391,7 @@ export const MenuPage = ({
     perform(action, row);
   };
   return (
-    <>
+    <div className="menu-editor">
       <h1 className="sr-only">Edit menu</h1>
       <div className="menu-title-container">
         <MenuTitle
@@ -433,16 +440,45 @@ export const MenuPage = ({
       )}
 
       {helpOpen && <KeyboardHelp onClose={() => setHelpOpen(false)} />}
-      {groupNames.length === 0 && (
-        <div className="menu-empty">
+      {groupNames.length === 0 && onUseTemplate && (
+        <section className="template-picker" aria-labelledby="template-picker-title">
+          <h2 id="template-picker-title">Pick a starting point</h2>
           <p>
-            Type a group name below to start (for example "Commitment"), or load a
-            ready-made list of common topics and edit it to fit.
+            Each template is a list of topics to answer. Rename, remove or add anything
+            afterwards.
           </p>
-          <Link className="button" to={starterMenuPath()}>
-            Load the starter menu
-          </Link>
-        </div>
+          <div className="template-cards">
+            {MENU_TEMPLATES.map((template) => (
+              <button
+                key={template.id}
+                type="button"
+                className="template-card"
+                onClick={() => onUseTemplate(template)}
+              >
+                <span className="template-card-name">{template.name}</span>
+                <span className="template-card-description">{template.description}</span>
+                <span className="template-card-count">
+                  {Object.keys(template.groups).length} groups · {templateItemCount(template)}{" "}
+                  items
+                </span>
+              </button>
+            ))}
+            <button
+              type="button"
+              className="template-card template-card-blank"
+              onClick={() =>
+                pageRef.current
+                  ?.querySelector<HTMLInputElement>('[data-row-key="new-group"] input')
+                  ?.focus()
+              }
+            >
+              <span className="template-card-name">Blank menu</span>
+              <span className="template-card-description">
+                Start from nothing and type your own groups and items.
+              </span>
+            </button>
+          </div>
+        </section>
       )}
       <div className="menu-page" ref={pageRef} onKeyDown={onKeyDown}>
         {/*
@@ -548,6 +584,28 @@ export const MenuPage = ({
           );
         })}
       </div>
+      <div className="group-adder">
+        <label>
+          <span>Add a ready-made group</span>
+          <select
+            value=""
+            onChange={(e) => {
+              const group = GROUP_TEMPLATES.find((g) => g.name === e.target.value);
+              if (group) {
+                onChange({ kind: "insert-group", group: group.name, items: group.items });
+              }
+            }}
+          >
+            <option value="">Choose a group…</option>
+            {GROUP_TEMPLATES.map((group) => (
+              <option key={group.name} value={group.name}>
+                {group.name}
+                {groupNames.includes(group.name) ? " (add missing items)" : ""}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
       <h2 className="menu-share-heading">Share your menu</h2>
       <ShareSection
         menuEncoded={menuEncoded}
@@ -555,6 +613,6 @@ export const MenuPage = ({
         templateEncoded={templateEncoded}
         templateUrl={`${window.location.protocol}//${window.location.host}/menu?encoded=${encodeURIComponent(templateEncoded)}`}
       />
-    </>
+    </div>
   );
 };

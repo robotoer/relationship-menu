@@ -20,8 +20,10 @@
 
 .menu-tile h2 {
   margin: 0;
-  font-size: 0.7rem;
-  overflow-wrap: anywhere;
+  font-size: 0.65rem;
+  overflow-wrap: break-word;
+  hyphens: auto;
+  min-width: 0;
 }
 .menu-tile h2.untitled {
   color: var(--c-slate);

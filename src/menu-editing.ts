@@ -15,6 +15,9 @@ import { RelationshipMenu, RelationshipMenuItem } from "./model/menu";
  * - `{ kind: "item", group, itemIndex }` (no `value`) deletes an item.
  * - `{ kind: "move-item", group, itemIndex, offset }` moves an item up (-1) or down (+1).
  * - `{ kind: "move-group", group, offset }` moves a group up (-1) or down (+1).
+ * - `{ kind: "insert-group", group, items }` adds a ready-made group; if a group with
+ *   that name exists, only the items it doesn't already have are appended.
+ * - `{ kind: "replace", menu }` replaces the whole menu (e.g. starting from a template).
  */
 export type MenuChange =
   | {
@@ -25,7 +28,9 @@ export type MenuChange =
     }
   | { kind: "group"; oldGroup?: string; newGroup?: string }
   | { kind: "move-item"; group: string; itemIndex: number; offset: number }
-  | { kind: "move-group"; group: string; offset: number };
+  | { kind: "move-group"; group: string; offset: number }
+  | { kind: "insert-group"; group: string; items: string[] }
+  | { kind: "replace"; menu: RelationshipMenu };
 
 /**
  * Returns the menu with `change` applied, without mutating `menu`.
@@ -41,6 +46,32 @@ export const applyMenuChange = (
   change: MenuChange,
   generateId: () => string
 ): RelationshipMenu => {
+  if (change.kind === "replace") {
+    return change.menu;
+  }
+
+  if (change.kind === "insert-group") {
+    const existing = Object.prototype.hasOwnProperty.call(menu, change.group)
+      ? menu[change.group]
+      : [];
+    const have = new Set(existing.map((item) => item.item.trim().toLowerCase()));
+    const added = change.items
+      .filter((item) => item.trim() && !have.has(item.trim().toLowerCase()))
+      .map((item) => ({ item, id: generateId() }));
+    if (added.length === 0 && existing.length > 0) return menu;
+    const result: RelationshipMenu = Object.create(null);
+    const define = (name: string, value: RelationshipMenu[string]) =>
+      Object.defineProperty(result, name, {
+        value,
+        enumerable: true,
+        writable: true,
+        configurable: true,
+      });
+    for (const name of Object.keys(menu)) define(name, menu[name]);
+    define(change.group, [...existing, ...added]);
+    return result;
+  }
+
   if (change.kind === "move-group") {
     const names = Object.keys(menu);
     const from = names.indexOf(change.group);
