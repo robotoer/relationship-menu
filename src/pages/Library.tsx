@@ -7,6 +7,7 @@ import "./Library.css";
 import { MenuTile } from "../components/MenuTile";
 import { RelationshipMenuDocument } from "../model/menu";
 import { Link } from "react-router-dom";
+import { useState } from "react";
 import { RandomAvatar } from "react-random-avatars";
 
 /**
@@ -25,7 +26,10 @@ export const LibraryPage = ({
   menus: (RelationshipMenuDocument & { id: string })[];
   onDelete?: (title: string) => void | Promise<void>;
 }) => {
+  // Title of the menu whose Delete was clicked and is waiting for confirmation.
+  const [confirming, setConfirming] = useState<string | null>(null);
   const handleDelete = async (title: string) => {
+    setConfirming(null);
     try {
       await onDelete?.(title);
     } catch (e) {
@@ -42,15 +46,34 @@ export const LibraryPage = ({
             image={<RandomAvatar name={menu.title} size={150} />}
             link={`/menu?encoded=${encodeURIComponent(menu.id)}`}
           />
-          {onDelete && (
-            <button
-              className="delete-menu-button"
-              onClick={() => handleDelete(menu.title)}
-              aria-label={`Delete ${menu.title}`}
-            >
-              Delete
-            </button>
-          )}
+          {onDelete &&
+            (confirming === menu.title ? (
+              <div className="delete-menu-confirm" role="group" aria-label="Confirm delete">
+                <span>Delete for good?</span>
+                <button
+                  className="delete-menu-button"
+                  onClick={() => handleDelete(menu.title)}
+                  aria-label={`Yes, delete ${menu.title || "Untitled menu"}`}
+                >
+                  Yes
+                </button>
+                <button
+                  className="delete-menu-cancel"
+                  onClick={() => setConfirming(null)}
+                  aria-label="Keep it"
+                >
+                  No
+                </button>
+              </div>
+            ) : (
+              <button
+                className="delete-menu-button"
+                onClick={() => setConfirming(menu.title)}
+                aria-label={`Delete ${menu.title || "Untitled menu"}`}
+              >
+                Delete
+              </button>
+            ))}
         </div>
       ))}
 

@@ -139,6 +139,8 @@ export const MenuPage = ({
   saveStatus,
   onUndo,
   onRedo,
+  notice,
+  onDismissNotice,
 }: {
   title: string;
   menu: RelationshipMenu;
@@ -149,6 +151,8 @@ export const MenuPage = ({
   saveStatus?: SaveStatus;
   onUndo?: () => void;
   onRedo?: () => void;
+  notice?: string | null;
+  onDismissNotice?: () => void;
 }) => {
   const groupNames = Object.keys(menu);
   // Key (and future id) of each group's "new item" row, by group name.
@@ -333,6 +337,16 @@ export const MenuPage = ({
           onChange={(e) => onChangeTitle(e.target.value)}
         />
         <SaveIndicator status={saveStatus} />
+        {onUndo && (
+          <button type="button" className="menu-undo" onClick={onUndo} title="Undo (u / Ctrl+Z)">
+            Undo
+          </button>
+        )}
+        {onRedo && (
+          <button type="button" className="menu-redo" onClick={onRedo} title="Redo (Ctrl+Y)">
+            Redo
+          </button>
+        )}
         <button
           type="button"
           className="keyboard-help-button"
@@ -348,6 +362,16 @@ export const MenuPage = ({
           Compare
         </Link>
       </div>
+      {notice && (
+        <div className="menu-notice" role="status">
+          <span>{notice}</span>
+          {onDismissNotice && (
+            <button type="button" onClick={onDismissNotice} aria-label="Dismiss notice">
+              ✕
+            </button>
+          )}
+        </div>
+      )}
       <ShareSection
         menuEncoded={menuEncoded}
         menuUrl={`${window.location.protocol}//${window.location.host}/menu?encoded=${encodeURIComponent(menuEncoded)}`}

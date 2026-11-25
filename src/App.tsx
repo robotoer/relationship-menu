@@ -64,6 +64,26 @@ const WrappedLibraryPage = () => {
   return <LibraryPage menus={documents} onDelete={deleteDocument} />;
 };
 
+/** Whether a stored encoded menu has the same groups, items and answers as `menu`. */
+const sameMenu = (encoded: string, menu: RelationshipMenu): boolean => {
+  try {
+    return (
+      JSON.stringify(stripMenuIds(decodeData(encoded))) ===
+      JSON.stringify(stripMenuIds(menu))
+    );
+  } catch {
+    return false;
+  }
+};
+
+/** "Title (2)", "Title (3)", ... — the first that isn't already a saved menu's title. */
+const uniqueTitle = (title: string, saved: { [title: string]: unknown }) => {
+  for (let n = 2; ; n++) {
+    const candidate = `${title || "Untitled"} (${n})`;
+    if (!Object.prototype.hasOwnProperty.call(saved, candidate)) return candidate;
+  }
+};
+
 /**
  * A wrapped version of the MenuPage component that handles state management and data encoding/decoding.
  * It uses react-router-dom to get path parameters and syncs the encoded data with the menu state.
@@ -129,72 +149,81 @@ const WrappedMenuPage = () => {
   // Get path paremeters from react-router-dom:
   const [params, setParams] = useSearchParams();
 
-  // Memoize encodedRaw to use as stable dependency
-  const encodedRaw = useMemo(() => params.get("encoded"), [params]);
+  // The link this page was opened with. Captured once: the URL is rewritten as the
+  // menu is edited, and must not be read back as a new menu to load.
+  const initialEncoded = useRef(params.get("encoded"));
+  // False until the opened link (if any) has been loaded.
+  const [loaded, setLoaded] = useState(!initialEncoded.current);
+  const [notice, setNotice] = useState<string | null>(null);
 
-  // Decode menu data from the URL encoded parameter on initial load.
-  // Supports two formats:
+  // Load the menu from the link. Two formats:
   // 1. "titleEncoded:menuEncoded" — self-contained link (all data in URL)
-  // 2. A document ID (CID or title) — looked up from storage
+  // 2. A document ID (CID or title) — looked up from storage (retried once
+  //    storage is ready, since IPFS starts asynchronously)
   useEffect(() => {
-    if (!encodedRaw || loadedFromUrl.current) {
-      return;
-    }
-    // The encoded format is "titleEncoded:menuEncoded" where both parts are
-    // pako-compressed base64 strings. Base64 uses [A-Za-z0-9+/=] so ":"
-    // is a safe delimiter.
-    const colonIndex = encodedRaw.indexOf(":");
-    if (colonIndex !== -1) {
-      // Format 1: self-contained "titleEncoded:menuEncoded"
+    const raw = initialEncoded.current;
+    if (!raw || loadedFromUrl.current) return;
+    const selfContained = raw.includes(":");
+    if (selfContained) loadedFromUrl.current = true;
+    let cancelled = false;
+    (async () => {
+      let opened: { title: string; menu: RelationshipMenu } | null = null;
       try {
-        const titlePart = encodedRaw.slice(0, colonIndex);
-        const menuPart = encodedRaw.slice(colonIndex + 1);
-        const decodedTitle = decodeData(titlePart);
-        const decodedMenu = decodeData(menuPart);
-        if (decodedTitle !== undefined && decodedTitle !== null) {
-          setTitle(decodedTitle);
-          ownedTitle.current = String(decodedTitle);
+        if (selfContained) {
+          opened = decodeCompareSlug(raw);
+        } else {
+          const doc = (await storage.getDocuments(raw))[raw];
+          const decoded = doc && decodeCompareSlug(`${encodeData(doc.title)}:${doc.encoded}`);
+          if (!decoded) return; // Not found yet: retry when storage changes.
+          loadedFromUrl.current = true;
+          opened = decoded;
         }
-        if (decodedMenu && typeof decodedMenu === "object") {
-          setMenu(ensureItemIds(decodedMenu));
-        }
-        loadedFromUrl.current = true;
       } catch (e) {
-        console.error("Failed to decode menu from URL:", e);
+        console.error("Failed to open menu link:", e);
       }
-    } else {
-      // Format 2: document ID lookup (CID or title)
-      (async () => {
-        try {
-          const docs = await storage.getDocuments(encodedRaw);
-          const doc = docs[encodedRaw];
-          if (doc) {
-            setTitle(doc.title);
-            ownedTitle.current = doc.title;
-            const decodedMenu = decodeData(doc.encoded);
-            if (decodedMenu && typeof decodedMenu === "object") {
-              setMenu(ensureItemIds(decodedMenu));
-            }
-            loadedFromUrl.current = true;
-          } else {
-            console.warn(`Document not found for ID: ${encodedRaw}`);
-          }
-        } catch (e) {
-          console.error("Failed to fetch document by ID:", e);
-        }
-      })();
-    }
-  }, [encodedRaw, storage]);
+      if (cancelled) return;
+      if (!opened) {
+        setNotice(
+          "This link couldn't be opened. It may have been cut off when it was copied; ask for it again."
+        );
+        setLoaded(true);
+        return;
+      }
+      // Opening a link must never replace a different menu you already saved under
+      // the same title (e.g. your partner's menu, or a template of your own menu):
+      // open it as a copy with a free title instead.
+      const saved = await storage.getDocuments();
+      if (cancelled) return;
+      const existing = saved[opened.title];
+      let openedTitle = opened.title;
+      if (existing && !sameMenu(existing.encoded, opened.menu)) {
+        openedTitle = uniqueTitle(opened.title, saved);
+        setNotice(
+          `You already have a menu called "${opened.title}", so this link was opened as "${openedTitle}". Rename it any time.`
+        );
+        ownedTitle.current = null;
+      } else {
+        ownedTitle.current = opened.title;
+      }
+      setTitle(openedTitle);
+      setMenu(ensureItemIds(opened.menu));
+      setLoaded(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storage]);
   // Save the menu (and its title) to storage, debounced, one save at a time.
   const titleTaken =
     title !== ownedTitle.current &&
     Object.prototype.hasOwnProperty.call(documents, title);
   const docToSave = useMemo(
     () =>
-      titleTaken || (title === "" && Object.keys(menu).length === 0)
+      !loaded || titleTaken || (title === "" && Object.keys(menu).length === 0)
         ? null
         : { title, encoded: encodeData(stripMenuIds(menu)) },
-    [title, menu, titleTaken]
+    [title, menu, titleTaken, loaded]
   );
   const saveState = useAutosave(docToSave, async (doc) => {
     await storage.saveDocuments(doc);
@@ -205,13 +234,16 @@ const WrappedMenuPage = () => {
     }
   });
 
-  // Update query parameters as menu or title changes:
+  // Keep the URL in sync with the menu so it can be bookmarked or reloaded. Replace
+  // the history entry rather than pushing one per edit, so Back leaves the editor.
   useEffect(() => {
-    const strippedMenu = stripMenuIds(menu);
-    const menuEncoded = encodeData(strippedMenu);
-    const menuTitleEncoded = encodeData(title);
-    setParams({ encoded: `${menuTitleEncoded}:${menuEncoded}` });
-  }, [menu, title, setParams]);
+    if (!loaded) return;
+    const encoded = `${encodeData(title)}:${encodeData(stripMenuIds(menu))}`;
+    if (params.get("encoded") !== encoded) {
+      setParams({ encoded }, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [menu, title, loaded]);
 
   const menuEncoded = useMemo(
     () => `${encodeData(title)}:${encodeData(stripMenuIds(menu))}`,
@@ -241,6 +273,8 @@ const WrappedMenuPage = () => {
       onRedo={redo}
       onChangeTitle={setTitle}
       saveStatus={titleTaken ? "title-taken" : saveState}
+      notice={notice}
+      onDismissNotice={() => setNotice(null)}
     />
   );
 };
