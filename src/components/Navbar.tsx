@@ -16,7 +16,8 @@ export const Navbar = ({
   links,
 }: {
   title: string;
-  links?: { to: string; text: string }[];
+  /** `state` is passed to the route (e.g. where a Support visit came from). */
+  links?: { to: string; text: string; state?: unknown }[];
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -39,18 +40,19 @@ export const Navbar = ({
             <span className="hamburger-line" />
           </button>
         )}
-        {links?.map(({ to, text }) => (
-          <NavLink key={to} to={to} className="link navbar-desktop-link">
+        {links?.map(({ to, text, state }) => (
+          <NavLink key={to} to={to} state={state} className="link navbar-desktop-link">
             {text}
           </NavLink>
         ))}
       </div>
       {menuOpen && links && links.length > 0 && (
         <div className="navbar-mobile-links">
-          {links.map(({ to, text }) => (
+          {links.map(({ to, text, state }) => (
             <NavLink
               key={to}
               to={to}
+              state={state}
               className="link"
               onClick={() => setMenuOpen(false)}
             >

@@ -1,0 +1,116 @@
+.support-page {
+  max-width: 52rem;
+  margin: 0 auto;
+  padding: 0 1rem 3rem;
+}
+
+.support-page h1 {
+  color: var(--c-yellow);
+  text-shadow: 3px 3px 0 var(--c-plum);
+  line-height: 1.5;
+}
+
+.support-page h2 {
+  margin-top: 2.25rem;
+  color: var(--c-cyan);
+}
+
+.support-lead {
+  max-width: 44em;
+  font-size: 1.3rem;
+}
+
+.support-perks {
+  display: grid;
+  gap: 1rem;
+  margin: 1.5rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.support-perks li {
+  padding: 1rem 1.25rem;
+  color: var(--c-ink);
+  background: var(--c-white);
+  border: var(--line);
+  box-shadow: var(--drop);
+}
+.support-perk-name {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-family: var(--font-pixel);
+  font-size: 0.7rem;
+  line-height: 1.6;
+}
+
+.support-options {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+}
+.support-option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  min-height: 6rem;
+  padding: 1rem;
+  text-align: left;
+}
+.support-option-amount {
+  font-family: var(--font-pixel);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+.support-option-note {
+  font-family: var(--font-body);
+  font-size: 1.15rem;
+  line-height: 1.2;
+  text-transform: none;
+  letter-spacing: normal;
+}
+.support-option-suggested {
+  background: var(--c-yellow);
+}
+.support-option[aria-pressed="true"] {
+  outline: var(--px) solid var(--c-red);
+  outline-offset: 3px;
+}
+
+.support-notice {
+  margin-top: 1.5rem;
+  padding: 1rem 1.25rem;
+  color: var(--c-ink);
+  background: var(--c-white);
+  border: var(--px) dashed var(--c-ink);
+}
+.support-notice p + p {
+  margin-top: 0.5rem;
+}
+
+.support-other {
+  padding-left: 1.25rem;
+}
+.support-other a {
+  color: var(--c-cyan);
+}
+
+/* A quiet "support us" line used after sharing or comparing. */
+.support-nudge {
+  margin: 1rem 0 0;
+  font-size: 1.05rem;
+  color: var(--c-mist);
+}
+.support-nudge a {
+  color: var(--c-cyan);
+}
+
+@media (max-width: 720px) {
+  .support-options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 360px) {
+  .support-options {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

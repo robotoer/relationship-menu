@@ -32,6 +32,7 @@ import {
   track,
   trackOnce,
 } from "./analytics";
+import { SupportPage } from "./pages/Support";
 import { countByFilter } from "./compare-filters";
 import {
   DecodedCompareSlug,
@@ -663,6 +664,7 @@ export const App = () => {
           { to: "/library", text: "Library" },
           { to: "/menu", text: "New menu" },
           { to: "/compare", text: "Compare" },
+          { to: "/support", text: "Support", state: { supportFrom: "nav" } },
         ]}
       />
       <Routes>
@@ -670,6 +672,7 @@ export const App = () => {
         <Route path="/library" element={libraryPage} />
         <Route path="/menu" element={menuPage} />
         <Route path="/compare" element={comparePage} />
+        <Route path="/support" element={<SupportPage />} />
         <Route path="/about" element={<Navigate to="/" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

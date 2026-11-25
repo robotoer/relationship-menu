@@ -71,6 +71,15 @@ describe("ShareDialog", () => {
     expect(screen.getByRole("button", { name: "Copied!" })).toBeInTheDocument();
   });
 
+  it("mentions supporting the project only after something was shared", async () => {
+    const writeText = jest.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    renderDialog();
+    expect(screen.queryByRole("link", { name: "Support the project" })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Copy template link" }));
+    expect(screen.getByRole("link", { name: "Support the project" })).toHaveAttribute("href", "/support");
+  });
+
   it("compares with a pasted link", async () => {
     renderDialog();
     await userEvent.type(screen.getByLabelText(/Paste it to compare/), "THEIRS");

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { SharePane } from "./SharePane";
 import "./ShareDialog.css";
 import { openedFromState, track } from "../analytics";
@@ -32,6 +32,12 @@ export const ShareDialog = ({
   const navigate = useNavigate();
   const [theirs, setTheirs] = useState("");
   const [inviteCopied, setInviteCopied] = useState(false);
+  // After someone shares, quietly mention that they can support the project.
+  const [shared, setShared] = useState(false);
+  const onLinkCopied = (link_type: "template" | "menu" | "invite" | "menu_slug" | "template_slug") => {
+    track("link_copied", { link_type });
+    setShared(true);
+  };
   const name = title || "this menu";
   const invite = `I made a relationship menu${title ? ` ("${title}")` : ""} for us to fill in. Open this link, mark each item, then send me your menu link: ${templateUrl}`;
   const canNativeShare = typeof navigator !== "undefined" && !!navigator.share;
@@ -111,7 +117,7 @@ export const ShareDialog = ({
           <SharePane
             value={templateUrl}
             title="Template link"
-            onCopied={() => track("link_copied", { link_type: "template" })}
+            onCopied={() => onLinkCopied("template")}
             description="Your groups and items with no answers, so they answer without seeing yours. Opening it saves a copy in their browser."
           />
           <div className="share-step-actions">
@@ -121,7 +127,7 @@ export const ShareDialog = ({
                 try {
                   await navigator.clipboard.writeText(invite);
                   setInviteCopied(true);
-                  track("link_copied", { link_type: "invite" });
+                  onLinkCopied("invite");
                   setTimeout(() => setInviteCopied(false), 1500);
                 } catch (e) {
                   console.error("Copy failed:", e);
@@ -136,7 +142,10 @@ export const ShareDialog = ({
                 onClick={() =>
                   navigator
                     .share({ title: "Relationship menu", text: invite })
-                    .then(() => track("native_share_used"))
+                    .then(() => {
+              track("native_share_used");
+              setShared(true);
+            })
                     .catch(() => {})
                 }
               >
@@ -156,7 +165,7 @@ export const ShareDialog = ({
           <SharePane
             value={menuUrl}
             title="Menu link"
-            onCopied={() => track("link_copied", { link_type: "menu" })}
+            onCopied={() => onLinkCopied("menu")}
             description={`Includes your answers and notes${
               personName ? `, and your name (${personName})` : ""
             }. Anyone with this link can see them, so send it only to the people you're comparing with.`}
@@ -202,16 +211,25 @@ export const ShareDialog = ({
               value={menuEncoded}
               title="Menu slug"
               description="With your answers."
-              onCopied={() => track("link_copied", { link_type: "menu_slug" })}
+              onCopied={() => onLinkCopied("menu_slug")}
             />
             <SharePane
               value={templateEncoded}
               title="Template slug"
               description="No answers."
-              onCopied={() => track("link_copied", { link_type: "template_slug" })}
+              onCopied={() => onLinkCopied("template_slug")}
             />
           </div>
         </details>
+        {shared && (
+          <p className="support-nudge">
+            Enjoying Relationship Menu?{" "}
+            <Link to="/support" state={{ supportFrom: "share" }}>
+              Support the project
+            </Link>
+            : it stays free for everyone.
+          </p>
+        )}
       </div>
     </div>
   );

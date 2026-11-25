@@ -12,6 +12,9 @@ import { CompareFilter } from "./compare-filters";
 import { LibrarySort } from "./library-info";
 
 type LinkKind = "menu" | "template" | "invite" | "menu_slug" | "template_slug";
+/** Where someone opened the Support page from. */
+export type SupportFrom = "nav" | "share" | "compare" | "landing" | "direct";
+export type SupportPlan = "yearly" | "lifetime";
 
 /** Core Web Vitals reported by `web-vitals` (see reportWebVitals.ts). */
 export type WebVitalName = "CLS" | "FCP" | "INP" | "LCP" | "TTFB";
@@ -122,6 +125,9 @@ export type AnalyticsEvent =
   | { name: "library_searched"; params?: undefined }
   | { name: "library_sorted"; params: { sort: LibrarySort } }
   | { name: "menu_deleted"; params?: undefined }
+  // Supporting the project
+  | { name: "support_viewed"; params: { from: SupportFrom } }
+  | { name: "support_option_chosen"; params: { amount_usd: 6 | 12 | 24 | 30; plan: SupportPlan } }
   // Problems
   | { name: "save_failed"; params?: undefined }
   | { name: "app_error"; params: { error_type: ErrorType; error_source: ErrorSource } }

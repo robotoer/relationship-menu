@@ -42,11 +42,12 @@ Google Analytics is loaded only on `relationship-menu.vercel.app`, and not in au
 | `library_sorted` | The Library sort is changed | `sort`: `edited`, `created`, `title` |
 | `menu_deleted` | A menu is deleted from the Library | |
 | `save_failed` | A save fails | |
+| `support_viewed` | The Support page is opened | `from`: `nav`, `share` (after sharing), `compare` (under results), `landing`, `direct` |
+| `support_option_chosen` | An amount is picked on the Support page (checkout isn't open yet, so this measures interest) | `amount_usd` (6, 12, 24, 30), `plan` (`yearly`, `lifetime`) |
 | `app_error` | An uncaught error (at most 5 per page load, each kind once) | `error_type`: a fixed error name (`TypeError`, `ChunkLoadError`, `QuotaExceededError`…; see `KNOWN_ERROR_NAMES` in `src/analytics.ts`), `other_error`, `non_error` (something other than an Error was thrown) or `unknown` (hidden by the browser); `error_source`: `error`, `unhandledrejection` or `react` (a render crash that blanked the page) |
 | `web_vital` | A Core Web Vital is measured (about once per page load each) | `metric_name` (`CLS`, `FCP`, `INP`, `LCP`, `TTFB`), `metric_value` (milliseconds, rounded; CLS × 1000) |
 
 Until late November 2026, opening a menu from the Library was counted as `shared_link_opened` with `own_menu` = true; filter on `own_menu` = false to compare older data.
-
 
 ## One-time setup in Google Analytics (about 10 minutes)
 
@@ -54,9 +55,9 @@ GA only shows event parameters in reports after they're registered.
 
 1. **Register the parameters.** In **Admin → Data display → Custom definitions**, click **Create custom dimension** and add each of these with scope **Event**, using the parameter name as the dimension name:
    - `template_id`, `link_type`, `source`, `filter`, `group_name`, `sort`, `reason`, `has_person`, `own_menu`, `opened_as_copy`, `percent_answered`
-   - `button_id`, `edit_kind`, `error_type`, `error_source`, `metric_name`
+   - `button_id`, `edit_kind`, `error_type`, `error_source`, `metric_name`, `from`, `plan`
 
-   Then, on the **Custom metrics** tab, add `item_count`, `menu_count`, `conflict_count` and `metric_value` (unit: Standard).
+   Then, on the **Custom metrics** tab, add `item_count`, `menu_count`, `conflict_count`, `metric_value` and `amount_usd` (unit: Standard).
 
    To read Core Web Vitals, build a free-form exploration with dimension `metric_name` and metrics **Event count** and `metric_value`: the average is `metric_value` ÷ Event count (CLS is × 1000, so 100 = 0.1).
 
@@ -64,6 +65,7 @@ GA only shows event parameters in reports after they're registered.
    - `link_copied`: someone shared a menu.
    - `shared_link_opened`: someone arrived from a shared link.
    - `comparison_shown`: two or more people compared.
+   - `support_option_chosen`: someone wanted to support the project (and at what amount).
 
 3. **Keep data longer.** In **Admin → Data collection and modification → Data retention**, set event data retention to **14 months**. The default of 2 months limits explorations.
 

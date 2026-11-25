@@ -219,6 +219,18 @@ export const LandingPage = ({ savedCount = 0 }: { savedCount?: number }) => {
         </p>
       </section>
 
+      <section className="landing-section" aria-labelledby="support">
+        <h2 id="support">Free, private, and kept that way by supporters</h2>
+        <p>
+          No ads and no accounts, and your menus never leave your browser unless you
+          share them. If Relationship Menu helps you, you can{" "}
+          <Link to="/support" state={{ supportFrom: "landing" }}>
+            support the project
+          </Link>
+          . Supporters will get encrypted sync between devices as thanks.
+        </p>
+      </section>
+
       <section className="landing-cta">
         <h2>Ready, player one?</h2>
         <div className="landing-actions">
