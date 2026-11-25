@@ -23,7 +23,7 @@ export const SharePane = ({
   const [copied, setCopied] = useState(false);
   return (
     <div className="share-pane">
-      {title && <h3 className="title">{title}</h3>}
+      {title && <h4 className="title">{title}</h4>}
       {description && <p className="description">{description}</p>}
       <div className="share-input-container">
         <input

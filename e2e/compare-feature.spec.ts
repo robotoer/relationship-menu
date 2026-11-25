@@ -1,4 +1,5 @@
 import { test, expect, Page, Browser } from "@playwright/test";
+import { getShareValues } from "./helpers";
 import { deflate } from "pako";
 
 // ---------------------------------------------------------------------------
@@ -56,7 +57,7 @@ async function setItemPreference(
 }
 
 /**
- * Creates a full menu on /menu and returns the slug (the second share-input value).
+ * Creates a full menu on /menu and returns its menu slug (from the Share dialog).
  *
  * @param page - Playwright Page (should be navigated or will navigate to /menu)
  * @param title - Menu title
@@ -96,10 +97,9 @@ async function createMenuAndGetSlug(
 
   await page.waitForTimeout(1000);
 
-  // The second share-input (index 1) is the menu slug
-  const shareInputs = page.locator("input.share-input");
-  await expect(shareInputs.first()).toBeVisible({ timeout: 10000 });
-  const slug = await shareInputs.nth(1).inputValue();
+  // Read the menu slug from the Share dialog
+  const shareInputs = await getShareValues(page);
+  const slug = shareInputs.menuSlug;
   return slug;
 }
 
@@ -699,9 +699,8 @@ test.describe("Compare Feature", () => {
         await page.waitForTimeout(1000);
 
         // Get the current menu slug from the share section
-        const shareInputs = page.locator("input.share-input");
-        await expect(shareInputs.first()).toBeVisible({ timeout: 10000 });
-        const menuSlug = await shareInputs.nth(1).inputValue();
+        const shareInputs = await getShareValues(page);
+        const menuSlug = shareInputs.menuSlug;
 
         // Click the Compare link on the menu page
         const compareLink = page.locator("a.menu-compare");

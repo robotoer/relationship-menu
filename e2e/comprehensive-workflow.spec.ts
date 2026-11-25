@@ -1,5 +1,5 @@
 import { test, expect, Page } from '@playwright/test';
-import { setupLogCapture } from './helpers';
+import { setupLogCapture, getShareValues } from './helpers';
 
 /**
  * Helper: add a group by filling the last new-group-title input.
@@ -394,28 +394,26 @@ test.describe('Comprehensive Workflow Tests', () => {
         { name: 'Sharing Item', value: 'like-to-have' },
       ]);
 
-      // The ShareSection has 4 SharePanes, each with an input.share-input
-      const shareInputs = page.locator('input.share-input');
-      const shareCount = await shareInputs.count();
-      expect(shareCount).toBe(4);
+      // The Share dialog has two links and two slugs
+      const shareInputs = await getShareValues(page);
 
       // Share Menu Link (first) - should be a full URL
-      const menuLink = await shareInputs.nth(0).inputValue();
+      const menuLink = shareInputs.menuLink;
       expect(menuLink).toContain('http');
       expect(menuLink).toContain('/menu?encoded=');
 
       // Share Menu Slug (second) - should be encoded data (not a URL)
-      const menuSlug = await shareInputs.nth(1).inputValue();
+      const menuSlug = shareInputs.menuSlug;
       expect(menuSlug).not.toContain('http');
       expect(menuSlug.length).toBeGreaterThan(0);
 
       // Share Template Link (third) - should be a full URL
-      const templateLink = await shareInputs.nth(2).inputValue();
+      const templateLink = shareInputs.templateLink;
       expect(templateLink).toContain('http');
       expect(templateLink).toContain('/menu?encoded=');
 
       // Share Template Slug (fourth) - should be encoded data
-      const templateSlug = await shareInputs.nth(3).inputValue();
+      const templateSlug = shareInputs.templateSlug;
       expect(templateSlug).not.toContain('http');
       expect(templateSlug.length).toBeGreaterThan(0);
 
@@ -432,23 +430,24 @@ test.describe('Comprehensive Workflow Tests', () => {
       ]);
 
       // Get the menu slug and template slug
-      const menuSlug = await page.locator('input.share-input').nth(1).inputValue();
-      const templateSlug = await page.locator('input.share-input').nth(3).inputValue();
+      const share = await getShareValues(page);
+      const menuSlug = share.menuSlug;
+      const templateSlug = share.templateSlug;
 
       // Menu and template slugs should be different (template strips preferences)
       expect(menuSlug).not.toBe(templateSlug);
       expect(templateSlug.length).toBeGreaterThan(0);
 
       // Get the template link
-      const templateLink = await page.locator('input.share-input').nth(2).inputValue();
+      const templateLink = share.templateLink;
       expect(templateLink).toContain('/menu?encoded=');
 
       // Verify the template link is different from the menu link
-      const menuLink = await page.locator('input.share-input').nth(0).inputValue();
+      const menuLink = share.menuLink;
       expect(templateLink).not.toBe(menuLink);
     });
 
-    test('Copy buttons exist in share section', async ({ page }) => {
+    test('Copy buttons exist in the share dialog', async ({ page }) => {
       await setupLogCapture(page);
       await navigateToNewMenu(page);
 
@@ -456,8 +455,11 @@ test.describe('Comprehensive Workflow Tests', () => {
       await addGroup(page, 'Test');
       await page.waitForTimeout(1000);
 
-      // There should be 4 copy buttons
-      const copyButtons = page.locator('.share-section .share-button');
+      // The dialog has a copy button for each link and slug
+      await page.getByRole('button', { name: 'Share', exact: true }).click();
+      const dialog = page.getByRole('dialog', { name: /^Share / });
+      await dialog.locator('summary').click(); // open "Advanced: slugs"
+      const copyButtons = dialog.locator('.share-button');
       const buttonCount = await copyButtons.count();
       expect(buttonCount).toBe(4);
 
@@ -565,7 +567,7 @@ test.describe('Comprehensive Workflow Tests', () => {
       await page.waitForTimeout(1000);
 
       // Get the menu encoded value from share slug
-      const menuSlug = await page.locator('input.share-input').nth(1).inputValue();
+      const menuSlug = (await getShareValues(page)).menuSlug;
       expect(menuSlug.length).toBeGreaterThan(0);
 
       // Navigate to compare page with the encoded param
@@ -590,7 +592,7 @@ test.describe('Comprehensive Workflow Tests', () => {
       await addItemToGroup(page, group, 'Paste Item');
       await page.waitForTimeout(1000);
 
-      const menuSlug = await page.locator('input.share-input').nth(1).inputValue();
+      const menuSlug = (await getShareValues(page)).menuSlug;
 
       // Go to compare page
       await page.goto('/compare');
@@ -613,7 +615,7 @@ test.describe('Comprehensive Workflow Tests', () => {
         { name: 'Exclusivity', value: 'must-have' },
         { name: 'Living together', value: 'like-to-have' },
       ]);
-      const menuSlug1 = await page.locator('input.share-input').nth(1).inputValue();
+      const menuSlug1 = (await getShareValues(page)).menuSlug;
 
       // Navigate directly to /menu to create second menu (avoid going through Library)
       await page.goto('/menu');
@@ -636,7 +638,7 @@ test.describe('Comprehensive Workflow Tests', () => {
       await menuItems2b.nth(count2b - 2).locator('select').selectOption('must-have');
       await page.waitForTimeout(1000);
 
-      const menuSlug2 = await page.locator('input.share-input').nth(1).inputValue();
+      const menuSlug2 = (await getShareValues(page)).menuSlug;
 
       // Navigate to compare with both encoded menus
       await page.goto(`/compare?encoded=${encodeURIComponent(menuSlug1)}&encoded=${encodeURIComponent(menuSlug2)}`);

@@ -1,4 +1,5 @@
 import { test, expect, Page } from "@playwright/test";
+import { getShareValues } from "./helpers";
 
 /**
  * Helper: add a group by filling the last new-group-title input.
@@ -401,9 +402,8 @@ test.describe("Library Feature", () => {
         await page.waitForTimeout(1000);
 
         // Get share URL
-        const shareInputs = page.locator("input.share-input");
-        await expect(shareInputs.first()).toBeVisible({ timeout: 10000 });
-        const shareUrl = await shareInputs.nth(0).inputValue();
+        const shareInputs = await getShareValues(page);
+        const shareUrl = shareInputs.menuLink;
 
         // Open share URL in new tab — the URL is self-contained so it works
         // in a new page even though it has a different Helia node
@@ -654,9 +654,8 @@ test.describe("Library Feature", () => {
         await setItemPreference(page, group, "must-have");
         await page.waitForTimeout(1000);
 
-        const shareInputs = page.locator("input.share-input");
-        await expect(shareInputs.first()).toBeVisible({ timeout: 10000 });
-        const shareUrl = await shareInputs.nth(0).inputValue();
+        const shareInputs = await getShareValues(page);
+        const shareUrl = shareInputs.menuLink;
         expect(shareUrl).toContain("/menu?encoded=");
 
         // Navigate to Library first (same SPA session)
@@ -689,13 +688,9 @@ test.describe("Library Feature", () => {
         await page.waitForURL("**/menu**");
         await page.waitForTimeout(2000);
 
-        const shareSection = page.locator(".share-section");
-        await expect(shareSection).toBeVisible({ timeout: 10000 });
+        const shareInputs = await getShareValues(page);
 
-        const shareInputs = page.locator("input.share-input");
-        expect(await shareInputs.count()).toBe(4);
-
-        const menuLink = await shareInputs.nth(0).inputValue();
+        const menuLink = shareInputs.menuLink;
         expect(menuLink).toContain("http");
         expect(menuLink).toContain("/menu?encoded=");
       } finally {

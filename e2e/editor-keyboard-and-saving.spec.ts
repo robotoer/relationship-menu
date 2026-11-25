@@ -1,5 +1,6 @@
 import { test, expect, Page } from "@playwright/test";
 import { deflate, inflate } from "pako";
+import { getShareValues } from "./helpers";
 
 // Build links the same way the app does (pako + base64), without the UI.
 const encode = (data: unknown) =>
@@ -175,8 +176,7 @@ test.describe("Library details and person info", () => {
     await page.getByLabel("Pronouns").fill("they/them");
     await expect(page.locator(".save-status")).toHaveText(/Saved/);
 
-    const menuSlug = await page.getByRole("textbox", { name: "Menu slug" }).inputValue();
-    const templateSlug = await page.getByRole("textbox", { name: "Template slug" }).inputValue();
+    const { menuSlug, templateSlug } = await getShareValues(page);
     expect(menuSlug.split(":")).toHaveLength(3);
     expect(templateSlug.split(":")).toHaveLength(2);
 
@@ -189,5 +189,27 @@ test.describe("Library details and person info", () => {
 
     await page.getByLabel("Search").fill("nothing-matches");
     await expect(page.locator(".menu-tile")).toHaveCount(0);
+  });
+});
+
+test.describe("Share dialog", () => {
+  test("explains each link and compares with a pasted link", async ({ page }) => {
+    await page.goto(menuPath("Ours", { G: [{ item: "Alpha", value: "must-have" }] }));
+    await page.getByRole("button", { name: "Share", exact: true }).click();
+    const dialog = page.getByRole("dialog", { name: 'Share "Ours"' });
+    await expect(dialog.getByRole("heading", { name: /Invite someone/ })).toBeVisible();
+    await expect(dialog).toContainText("no answers");
+    await expect(dialog).toContainText("Anyone with this link can see them");
+    // Focus stays in the dialog and Escape closes it.
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+
+    await page.getByRole("button", { name: "Share", exact: true }).click();
+    const theirs = `${encode("Theirs")}:${encode({ G: [{ item: "alpha", value: "off-limits" }] })}`;
+    await dialog.getByLabel(/Paste it to compare/).fill(theirs);
+    await dialog.getByRole("button", { name: "Compare" }).click();
+    await page.waitForURL("**/compare**");
+    await expect(page.locator(".compare-page-grid")).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Conflicts/ })).toContainText("1");
   });
 });
