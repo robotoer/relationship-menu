@@ -206,7 +206,7 @@ test.describe("Mobile Responsive", () => {
   test("no horizontal overflow on any page at mobile viewport", async ({
     page,
   }) => {
-    const pages = ["/", "/library", "/menu", "/compare", "/about"];
+    const pages = ["/", "/library", "/menu", "/compare", "/about", "/support"];
 
     for (const path of pages) {
       await page.goto(path);
@@ -366,7 +366,7 @@ for (const viewport of [
     });
 
     test("no page scrolls sideways, including a filled menu and a compare link", async ({ page }) => {
-      for (const path of ["/", "/library", "/menu", "/compare"]) {
+      for (const path of ["/", "/library", "/menu", "/compare", "/support"]) {
         await page.goto(path);
         await page.waitForLoadState("domcontentloaded");
         await page.waitForTimeout(300);

@@ -34,6 +34,8 @@ Events carry only fixed values: template ids, link kinds, filter ids, counts and
 | `library_sorted` | The Library sort is changed | `sort`: `edited`, `created`, `title` |
 | `menu_deleted` | A menu is deleted from the Library | |
 | `save_failed` | A save fails | |
+| `support_viewed` | The Support page is opened | `from`: `nav`, `share` (after sharing), `compare` (under results), `landing`, `direct` |
+| `support_option_chosen` | An amount is picked on the Support page (checkout isn't open yet, so this measures interest) | `amount_usd` (6, 12, 24, 30), `plan` (`yearly`, `lifetime`) |
 
 ## One-time setup in Google Analytics (about 10 minutes)
 
@@ -48,6 +50,7 @@ GA only shows event parameters in reports after they're registered.
    - `link_copied`: someone shared a menu.
    - `shared_link_opened`: someone arrived from a shared link.
    - `comparison_shown`: two or more people compared.
+   - `support_option_chosen`: someone wanted to support the project (and at what amount).
 
 3. **Keep data longer.** In **Admin → Data collection and modification → Data retention**, set event data retention to **14 months**. The default of 2 months limits explorations.
 
