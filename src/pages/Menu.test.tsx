@@ -8,9 +8,10 @@ import { applyMenuChange } from "../menu-editing";
 
 let ids = 0;
 
-/** MenuPage wired to real state, the way App.tsx uses it. */
+/** MenuPage wired to real state, the way App.tsx uses it (with simple undo). */
 const Editor = ({ initial = {} }: { initial?: RelationshipMenu }) => {
   const [menu, setMenu] = useState<RelationshipMenu>(initial);
+  const [history, setHistory] = useState<RelationshipMenu[]>([]);
   return (
     <MemoryRouter>
       <MenuPage
@@ -18,9 +19,16 @@ const Editor = ({ initial = {} }: { initial?: RelationshipMenu }) => {
         menu={menu}
         menuEncoded="x:y"
         templateEncoded="x:z"
-        onChange={(change) =>
-          setMenu((prev) => applyMenuChange(prev, change, () => `item_${++ids}`))
-        }
+        onChange={(change) => {
+          setHistory((h) => [...h, menu]);
+          setMenu(applyMenuChange(menu, change, () => `item_${++ids}`));
+        }}
+        onUndo={() => {
+          if (history.length) {
+            setMenu(history[history.length - 1]);
+            setHistory(history.slice(0, -1));
+          }
+        }}
         onChangeTitle={() => {}}
       />
       <output data-testid="menu">{JSON.stringify(menu)}</output>
@@ -93,5 +101,101 @@ describe("MenuPage editing", () => {
     await userEvent.type(groupInputs()[0], "x");
     expect(Object.keys(menuState())).toEqual(["Ax", "B"]);
     expect(groupInputs()[0]).toHaveFocus();
+  });
+
+  describe("keyboard controls", () => {
+    const menu: RelationshipMenu = {
+      Physical: [
+        { id: "a", item: "Kissing" },
+        { id: "b", item: "Hugging", value: "maybe" },
+      ],
+      Emotional: [{ id: "c", item: "Trust" }],
+    };
+    const row = (key: string) =>
+      document.querySelector<HTMLElement>(`[data-row-key="${key}"]`)!;
+    const items = () =>
+      menuState().Physical.map((i: { item: string; value?: string }) => [i.item, i.value ?? null]);
+
+    it("moves between rows with j/k and arrows, and answers with number keys", async () => {
+      render(<Editor initial={menu} />);
+      row("group-0").focus();
+      await userEvent.keyboard("j");
+      expect(row("a")).toHaveFocus();
+      await userEvent.keyboard("1");
+      await userEvent.keyboard("{ArrowDown}");
+      expect(row("b")).toHaveFocus();
+      await userEvent.keyboard("4");
+      expect(items()).toEqual([
+        ["Kissing", "must-have"],
+        ["Hugging", "off-limits"],
+      ]);
+      await userEvent.keyboard("0");
+      expect(items()[1]).toEqual(["Hugging", null]);
+    });
+
+    it("cycles preferences with h/l", async () => {
+      render(<Editor initial={menu} />);
+      row("b").focus();
+      await userEvent.keyboard("l");
+      expect(items()[1][1]).toBe("off-limits");
+      await userEvent.keyboard("l");
+      expect(items()[1][1]).toBeNull();
+      await userEvent.keyboard("h");
+      expect(items()[1][1]).toBe("off-limits");
+    });
+
+    it("Enter edits a row, Esc returns to the row, Enter while typing goes to the next row", async () => {
+      render(<Editor initial={menu} />);
+      row("a").focus();
+      await userEvent.keyboard("{Enter}");
+      const input = row("a").querySelector("input.menu-item-input")!;
+      expect(input).toHaveFocus();
+      await userEvent.keyboard("!");
+      expect(items()[0][0]).toBe("Kissing!");
+      // Letters type while editing instead of acting as commands.
+      await userEvent.keyboard("j");
+      expect(items()[0][0]).toBe("Kissing!j");
+      await userEvent.keyboard("{Escape}");
+      expect(row("a")).toHaveFocus();
+      await userEvent.keyboard("i{Enter}");
+      expect(row("b").querySelector("input.menu-item-input")).toHaveFocus();
+    });
+
+    it("o adds an item to the current group", async () => {
+      render(<Editor initial={menu} />);
+      row("a").focus();
+      await userEvent.keyboard("o");
+      await userEvent.keyboard("Dancing");
+      expect(items().map((i: string[]) => i[0])).toEqual(["Kissing", "Hugging", "Dancing"]);
+    });
+
+    it("J/K move items, dd deletes, u undoes", async () => {
+      render(<Editor initial={menu} />);
+      row("a").focus();
+      await userEvent.keyboard("J");
+      expect(items().map((i: string[]) => i[0])).toEqual(["Hugging", "Kissing"]);
+      expect(row("a")).toHaveFocus();
+      await userEvent.keyboard("dd");
+      expect(items().map((i: string[]) => i[0])).toEqual(["Hugging"]);
+      await userEvent.keyboard("u");
+      expect(items().map((i: string[]) => i[0])).toEqual(["Hugging", "Kissing"]);
+    });
+
+    it("? opens the help and Esc closes it", async () => {
+      render(<Editor initial={menu} />);
+      row("a").focus();
+      await userEvent.keyboard("?");
+      expect(screen.getByRole("dialog", { name: "Keyboard controls" })).toBeInTheDocument();
+      await userEvent.keyboard("{Escape}");
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(row("a")).toHaveFocus();
+    });
+
+    it("selecting --- clears the preference instead of storing '---'", async () => {
+      render(<Editor initial={menu} />);
+      const select = row("b").querySelector("select")!;
+      await userEvent.selectOptions(select, "---");
+      expect(menuState().Physical[1].value).toBeUndefined();
+    });
   });
 });

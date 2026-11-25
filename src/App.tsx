@@ -13,7 +13,7 @@ import { decodeData, encodeData } from "./data-encoder";
 import { MenuComparison } from "./model/compare";
 import { useStorage } from "./providers/Storage";
 import { compareMenus } from "./data-comparer";
-import { applyMenuChange } from "./menu-editing";
+import { MenuChange, applyMenuChange } from "./menu-editing";
 import { useAutosave } from "./autosave";
 import {
   DecodedCompareSlug,
@@ -73,7 +73,55 @@ const WrappedLibraryPage = () => {
 const WrappedMenuPage = () => {
   const { storage, documents } = useStorage();
   const [title, setTitle] = useState("");
-  const [menu, setMenu] = useState<RelationshipMenu>({});
+  const [menu, setMenuState] = useState<RelationshipMenu>({});
+  // Latest menu, updated synchronously so rapid edits always build on each other.
+  const menuRef = useRef<RelationshipMenu>({});
+  const undoStack = useRef<RelationshipMenu[]>([]);
+  const redoStack = useRef<RelationshipMenu[]>([]);
+  // The text field last edited, so a run of keystrokes in one field is one undo step.
+  const lastTextEdit = useRef<string | null>(null);
+  /** Replaces the menu (e.g. when loading) without recording an undo step. */
+  const setMenu = (next: RelationshipMenu) => {
+    menuRef.current = next;
+    undoStack.current = [];
+    redoStack.current = [];
+    lastTextEdit.current = null;
+    setMenuState(next);
+  };
+  const editMenu = (change: MenuChange) => {
+    const prev = menuRef.current;
+    const next = applyMenuChange(prev, change, generateItemId);
+    if (next === prev) return;
+    const textEdit =
+      change.kind === "item" && change.value && "item" in change.value
+        ? `item:${change.group}:${change.itemIndex}`
+        : change.kind === "group" && change.oldGroup !== undefined && change.newGroup !== undefined
+        ? `group:${Object.keys(prev).indexOf(change.oldGroup)}`
+        : null;
+    if (!textEdit || textEdit !== lastTextEdit.current) {
+      undoStack.current = [...undoStack.current.slice(-99), prev];
+    }
+    lastTextEdit.current = textEdit;
+    redoStack.current = [];
+    menuRef.current = next;
+    setMenuState(next);
+  };
+  const undo = () => {
+    const prev = undoStack.current.pop();
+    if (!prev) return;
+    redoStack.current.push(menuRef.current);
+    lastTextEdit.current = null;
+    menuRef.current = prev;
+    setMenuState(prev);
+  };
+  const redo = () => {
+    const next = redoStack.current.pop();
+    if (!next) return;
+    undoStack.current.push(menuRef.current);
+    lastTextEdit.current = null;
+    menuRef.current = next;
+    setMenuState(next);
+  };
   const loadedFromUrl = useRef(false);
   // The title this editor's menu is saved under (set when a menu is loaded or first
   // saved). Renaming saves under the new title and removes this entry.
@@ -188,10 +236,9 @@ const WrappedMenuPage = () => {
       menu={menu}
       menuEncoded={menuEncoded}
       templateEncoded={templateEncoded}
-      onChange={(change) =>
-        // Functional update so rapid edits (fast typing) never build on a stale menu.
-        setMenu((prev) => applyMenuChange(prev, change, generateItemId))
-      }
+      onChange={editMenu}
+      onUndo={undo}
+      onRedo={redo}
       onChangeTitle={setTitle}
       saveStatus={titleTaken ? "title-taken" : saveState}
     />

@@ -1,5 +1,6 @@
 import "./MenuGroup.css";
 import { ReactNode } from "react";
+import type { RowProps } from "./MenuItem";
 
 /**
  * Represents a menu group component.
@@ -16,16 +17,18 @@ export const MenuGroup = ({
   children,
   onDelete,
   deleteAriaLabel,
+  headerProps,
 }: {
   title: ReactNode;
   children?: ReactNode;
   onDelete?: () => void;
   deleteAriaLabel?: string;
+  headerProps?: RowProps;
 }) => {
   const label = deleteAriaLabel || "Delete group";
   return (
     <div className="menu-group">
-      <div className="menu-group-header">
+      <div {...headerProps} className="menu-group-header">
         {title}
         {onDelete && (
           <button

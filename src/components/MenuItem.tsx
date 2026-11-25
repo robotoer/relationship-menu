@@ -39,29 +39,46 @@ const MenuItemInput = ({
  * @param {() => void} [onDelete] - Optional callback triggered when the delete button is clicked. When provided, a delete button is rendered next to the item.
  * @returns {JSX.Element} The rendered menu item component.
  */
+/** Extra attributes for the row element (used for keyboard navigation). */
+export type RowProps = React.HTMLAttributes<HTMLDivElement> & {
+  [dataAttribute: `data-${string}`]: string | number | undefined;
+};
+
 export const MenuItem = ({
   id,
   item,
   value,
   onChange,
   onDelete,
+  rowProps,
 }: {
   id?: string;
   item: string;
   value?: RelationshipMenuItemValue;
   onChange: (value: Partial<RelationshipMenuItem>) => void;
   onDelete?: () => void;
+  rowProps?: RowProps;
 }) => {
+  const { className: rowClassName, ...restRowProps } = rowProps || {};
   return (
-    <div className="menu-item">
+    <div
+      {...restRowProps}
+      className={rowClassName ? `menu-item ${rowClassName}` : "menu-item"}
+    >
       <select
-        value={value}
+        // "" is "no preference": it must map back to undefined, not be stored as text.
+        value={value ?? ""}
+        aria-label={item ? `Preference for ${item}` : "Preference"}
         onChange={(e) =>
-          onChange({ value: e.target.value as RelationshipMenuItemValue })
+          onChange({
+            value: (e.target.value || undefined) as
+              | RelationshipMenuItemValue
+              | undefined,
+          })
         }
         className={value || "unknown"}
       >
-        <option value={undefined}>---</option>
+        <option value="">---</option>
         <option value="must-have">Must Have</option>
         <option value="like-to-have">Like to Have</option>
         <option value="maybe">Maybe</option>
@@ -71,6 +88,7 @@ export const MenuItem = ({
         <MenuItemInput
           id={id}
           value={item}
+          aria-label={item ? undefined : "New item"}
           onChange={(e) => onChange({ item: e.target.value })}
         />
       </label>
@@ -79,7 +97,7 @@ export const MenuItem = ({
           type="button"
           className="menu-item-delete"
           onClick={onDelete}
-          aria-label="Delete item"
+          aria-label={item ? `Delete item: ${item}` : "Delete item"}
           title="Delete item"
         >
           ✕
