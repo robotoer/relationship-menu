@@ -17,7 +17,7 @@ import {
   MenuTemplate,
   templateItemCount,
 } from "../templates";
-import { ShareSection } from "../components/ShareSection";
+import { ShareDialog } from "../components/ShareDialog";
 import { Link } from "react-router-dom";
 
 /**
@@ -219,6 +219,7 @@ export const MenuPage = ({
   // ---- Keyboard controls (see src/keyboard.ts) ----
   const pageRef = useRef<HTMLDivElement>(null);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const sequence = useRef<{ key: string; at: number } | null>(null);
   // Row to focus after the next render (rows can move or disappear on edits).
   // `index` is a fallback for when that row no longer exists (e.g. undo removed it).
@@ -365,7 +366,7 @@ export const MenuPage = ({
   };
 
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
-    if (helpOpen || e.nativeEvent.isComposing) return;
+    if (helpOpen || shareOpen || e.nativeEvent.isComposing) return;
     const target = e.target as HTMLElement;
     const row = target.closest<HTMLElement>("[data-row-key]");
     if (!row) return;
@@ -424,7 +425,26 @@ export const MenuPage = ({
         >
           Compare
         </Link>
+        <button
+          type="button"
+          className="button-primary menu-share"
+          onClick={() => setShareOpen(true)}
+          aria-haspopup="dialog"
+        >
+          Share
+        </button>
       </div>
+      {shareOpen && (
+        <ShareDialog
+          title={title}
+          personName={person?.name?.trim() || undefined}
+          menuUrl={`${window.location.origin}/menu?encoded=${encodeURIComponent(menuEncoded)}`}
+          menuEncoded={menuEncoded}
+          templateUrl={`${window.location.origin}/menu?encoded=${encodeURIComponent(templateEncoded)}`}
+          templateEncoded={templateEncoded}
+          onClose={() => setShareOpen(false)}
+        />
+      )}
       {onChangePerson && (
         <PersonFields person={person ?? {}} onChange={onChangePerson} />
       )}
@@ -606,13 +626,6 @@ export const MenuPage = ({
           </select>
         </label>
       </div>
-      <h2 className="menu-share-heading">Share your menu</h2>
-      <ShareSection
-        menuEncoded={menuEncoded}
-        menuUrl={`${window.location.protocol}//${window.location.host}/menu?encoded=${encodeURIComponent(menuEncoded)}`}
-        templateEncoded={templateEncoded}
-        templateUrl={`${window.location.protocol}//${window.location.host}/menu?encoded=${encodeURIComponent(templateEncoded)}`}
-      />
     </div>
   );
 };

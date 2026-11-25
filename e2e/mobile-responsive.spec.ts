@@ -1,4 +1,5 @@
 import { test, expect, Page } from "@playwright/test";
+import { getShareValues } from "./helpers";
 
 /**
  * Helper: add a group by filling the last new-group-title input.
@@ -124,11 +125,10 @@ test.describe("Mobile Responsive", () => {
       await page1.waitForTimeout(1000);
 
       // Verify share inputs are visible
-      const shareInputs = page1.locator("input.share-input");
-      await expect(shareInputs.first()).toBeVisible({ timeout: 10000 });
+      const shareInputs = await getShareValues(page1);
 
       // Get the share URL
-      const shareUrl = await shareInputs.nth(0).inputValue();
+      const shareUrl = shareInputs.menuLink;
       expect(shareUrl).toContain("/menu?encoded=");
 
       // Open share URL in a new mobile context
@@ -300,9 +300,8 @@ test.describe("Cross-Viewport Sharing", () => {
       await desktopPage.waitForTimeout(1000);
 
       // Get the share URL from desktop
-      const shareInputs = desktopPage.locator("input.share-input");
-      await expect(shareInputs.first()).toBeVisible({ timeout: 10000 });
-      const shareUrl = await shareInputs.nth(0).inputValue();
+      const shareInputs = await getShareValues(desktopPage);
+      const shareUrl = shareInputs.menuLink;
       expect(shareUrl).toContain("/menu?encoded=");
 
       // Mobile: Open the share link

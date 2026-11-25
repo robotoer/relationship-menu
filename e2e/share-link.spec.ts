@@ -1,4 +1,5 @@
 import { test, expect, Page } from "@playwright/test";
+import { getShareValues } from "./helpers";
 
 /**
  * Helper: add a group by filling the last new-group-title input.
@@ -85,9 +86,8 @@ test.describe("Share Link Loading", () => {
       await page1.waitForTimeout(1000);
 
       // Get the share URL (first share input = menu link)
-      const shareInputs = page1.locator("input.share-input");
-      await expect(shareInputs.first()).toBeVisible({ timeout: 10000 });
-      const shareUrl = await shareInputs.nth(0).inputValue();
+      const shareInputs = await getShareValues(page1);
+      const shareUrl = shareInputs.menuLink;
       expect(shareUrl).toContain("/menu?encoded=");
 
       // Browser 2: Open the share link
@@ -164,15 +164,14 @@ test.describe("Share Link Loading", () => {
 
       await page1.waitForTimeout(1000);
 
-      const shareInputs = page1.locator("input.share-input");
-      await expect(shareInputs.first()).toBeVisible({ timeout: 10000 });
+      const shareInputs = await getShareValues(page1);
 
       // Get the template URL (third share input, index 2)
-      const templateUrl = await shareInputs.nth(2).inputValue();
+      const templateUrl = shareInputs.templateLink;
       expect(templateUrl).toContain("/menu?encoded=");
 
       // Verify template URL differs from menu URL
-      const menuUrl = await shareInputs.nth(0).inputValue();
+      const menuUrl = shareInputs.menuLink;
       expect(templateUrl).not.toBe(menuUrl);
 
       // Browser 2: Open the template URL
@@ -267,9 +266,8 @@ test.describe("Share Link Loading", () => {
       await page1.waitForTimeout(1000);
 
       // Get the share URL
-      const shareInputs = page1.locator("input.share-input");
-      await expect(shareInputs.first()).toBeVisible({ timeout: 10000 });
-      const shareUrl = await shareInputs.nth(0).inputValue();
+      const shareInputs = await getShareValues(page1);
+      const shareUrl = shareInputs.menuLink;
 
       // Browser 2: Open the share link
       const urlObj = new URL(shareUrl);
@@ -428,9 +426,8 @@ test.describe("Share Link Loading", () => {
       await page1.waitForTimeout(1000);
 
       // Get the share URL
-      const shareInputs = page1.locator("input.share-input");
-      await expect(shareInputs.first()).toBeVisible({ timeout: 10000 });
-      const shareUrl = await shareInputs.nth(0).inputValue();
+      const shareInputs = await getShareValues(page1);
+      const shareUrl = shareInputs.menuLink;
       expect(shareUrl).toContain("/menu?encoded=");
 
       // Tab 2: Open the share link (same browser context = shared localStorage)

@@ -1,5 +1,6 @@
 import { test, expect, Page } from '@playwright/test';
 import {
+  getShareValues,
   setupLogCapture,
   getP2PLogs
 } from './helpers';
@@ -292,19 +293,11 @@ test.describe('Application Workflow', () => {
     
     await page.waitForTimeout(2000);
 
-    // Check if share section exists
-    const shareSection = page.locator('.share-section, .share-pane');
-    if (await shareSection.count() > 0) {
-      console.log('✅ Share section found');
-      
-      // Check for share URL or CID
-      const hasShareContent = await shareSection.locator('input, textarea, code, pre').count() > 0;
-      if (hasShareContent) {
-        console.log('✅ Share section contains shareable content');
-      }
-    } else {
-      console.log('ℹ️  Share section not visible in current UI');
-    }
+    // The Share dialog offers the menu and template links
+    const share = await getShareValues(page);
+    expect(share.menuLink).toContain('/menu?encoded=');
+    expect(share.templateLink).toContain('/menu?encoded=');
+    console.log('✅ Share dialog contains shareable links');
   });
 
   test('Multiple groups can be created and managed', async ({ page }) => {
