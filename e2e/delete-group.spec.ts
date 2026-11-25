@@ -1,5 +1,4 @@
 import { test, expect, Page } from '@playwright/test';
-import { setupLogCapture } from './helpers';
 
 /**
  * Helper function to add a group to the menu
@@ -15,7 +14,6 @@ async function addGroup(page: Page, groupName: string) {
 test.describe('Delete Group', () => {
 
   test('User can delete a menu group using the delete button', async ({ page }) => {
-    await setupLogCapture(page);
     await page.goto('/library');
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(5000);

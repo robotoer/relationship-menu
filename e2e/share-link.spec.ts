@@ -431,8 +431,6 @@ test.describe("Share Link Loading", () => {
       expect(shareUrl).toContain("/menu?encoded=");
 
       // Tab 2: Open the share link (same browser context = shared localStorage)
-      // Use domcontentloaded instead of networkidle because the IPFS node
-      // keeps making peer discovery requests that prevent networkidle.
       // The share link data is fully self-contained in the URL and loads synchronously.
       const urlObj = new URL(shareUrl);
       await page2.goto(urlObj.pathname + urlObj.search, {

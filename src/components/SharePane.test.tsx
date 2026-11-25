@@ -37,7 +37,7 @@ describe("SharePane", () => {
   });
 
   it("should copy value to clipboard when Copy button is clicked", () => {
-    const writeText = jest.fn().mockResolvedValue(undefined);
+    const writeText = vi.fn().mockResolvedValue(undefined);
     const originalClipboard = navigator.clipboard;
     Object.defineProperty(navigator, "clipboard", {
       value: { writeText },

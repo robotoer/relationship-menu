@@ -31,4 +31,4 @@ A template link is the same menu with every `value` and `note` removed and no `p
 
 ## Optional
 
-- [Source code](https://github.com/robotoer/relationship-menu): React + TypeScript app. Menus are stored in localStorage and an in-browser IPFS (Helia) node.
+- [Source code](https://github.com/robotoer/relationship-menu): React + TypeScript app. Menus are stored in the browser's localStorage; there is no server.

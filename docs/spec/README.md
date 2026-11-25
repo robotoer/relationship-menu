@@ -188,8 +188,8 @@ sequenceDiagram
 | SV-6 | Storage keeps one entry per title. When older duplicates exist, the most recently saved wins. | [Property](../../src/__props__/links-keyboard-library.props.test.ts) |
 | SV-7 | A menu is never saved under a title that belongs to a different saved menu; the editor says "Another menu already has this title" until it's renamed. | Test |
 | SV-8 | `createdAt` is set on the first save and never changes; `updatedAt` is set on every save. | Test |
-| SV-9 | Menus saved before the IPFS node started (plain `menu:<title>` entries) are listed like any other. | Test |
-| SV-10 | Every save is written to browser storage immediately, before the slower IPFS copy, so leaving or closing the page while a save is running keeps the edit. | Test (unit + e2e) |
+| SV-9 | Menus saved by older versions (raw `menu:<title>` entries, and IPFS-era `menu:<CID>` / `menu:pending:<title>` copies) are listed like any other; the next save of that menu tidies the old copies away. | Test |
+| SV-10 | Saving writes to browser storage synchronously, so leaving or closing the page right after a save can't lose it. | Test |
 | LB-1 | The library shows each menu's title (or "Untitled menu"), person, item and group counts, answered progress, and edited/created dates when known. | Test |
 | LB-2 | Search matches title, person or item text, ignoring case. Sort by recently edited, newest, or title. Menus without dates sort last. | [Property](../../src/__props__/links-keyboard-library.props.test.ts) |
 | LB-3 | Deleting from the library asks for confirmation. | Test |
@@ -361,7 +361,7 @@ flowchart LR
 
 | Found by | Bug | Fix |
 | --- | --- | --- |
-| e2e (analytics test) | An edit saved while the IPFS node was busy was lost if the page was closed or left during the save: the browser-storage copy was only written after the IPFS write finished. | Write the browser-storage copy first (SV-10). |
+| e2e (analytics test) | An edit saved while the IPFS node was busy was lost if the page was closed or left during the save: the browser-storage copy was only written after the IPFS write finished. | Write the browser-storage copy first; later IPFS was removed altogether, so saves are now synchronous (SV-10). |
 | Property CP-1 | A group named `__proto__` vanished from Compare, from opened links and from the library's in-memory list. | Prototype-free objects in `data-comparer.ts`, `compare-slug.ts`, `providers/Storage.tsx`. |
 | Property LK-4 | A pasted link whose slug ended in `+` didn't open (the `+` arrived as a space and was trimmed off). | Restore `+` before trimming (`compare-slug.ts`). |
 | Property LB-2 | Library search matched the stored JSON, so "item", "value" or "must" matched every menu. | Search only group and item text (`library-info.ts`). |
@@ -380,7 +380,7 @@ flowchart LR
 ### Gaps: what isn't formally covered, and what would be next
 
 - **App-level storage logic** (copy-on-conflict naming LK-6, title conflicts SV-7, legacy entries SV-9) lives inside `App.tsx` and `providers/Storage.tsx`, so it only has example tests. Next step: move it into a pure module and give it a property test or Dafny model like the editing core.
-- **The IPFS storage backend** isn't modelled. The TLA+ model treats storage as one atomic write plus an optional delete.
+- **Browser storage itself** isn't modelled: the TLA+ model treats a save as one atomic write plus an optional delete, which matches `localStorage`.
 - **Real time** isn't modelled. TLC checks the order of events, not the 400 ms timer. The property tests use fake timers.
 - **The Dafny editing model is a hand-written mirror** of `menu-editing.ts`. The property tests check the same claims on the real code, which catches drift, but they don't prove it. `answer-cells.ts` is verified directly with LemmaScript. Moving more of `menu-editing.ts` to LemmaScript is possible once LemmaScript handles object-keyed maps.
 - **UI behaviour** (focus, dialogs, layout, contrast) is checked by tests and review only. That's the right tool for it.
@@ -400,4 +400,4 @@ Run everything locally: `yarn test --watchAll=false` (includes the property test
 
 ## 12. Architecture notes
 
-**In short:** keep React (it's about 3% of the download; IPFS is about 70%), move from Create React App to Vite, and make the IPFS node optional. Details and measurements are in [`architecture.md`](architecture.md).
+**In short:** React stays (it was about 3% of the download). The app moved from Create React App to Vite + Vitest and dropped the in-browser IPFS node (about 70% of the download), which also removed every known vulnerable dependency. Details and measurements are in [`architecture.md`](architecture.md).

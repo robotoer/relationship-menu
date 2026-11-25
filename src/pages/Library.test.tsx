@@ -1,9 +1,10 @@
+import { encodeData } from "../data-encoder";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { LibraryPage } from "./Library";
 
 // Mock react-random-avatars to avoid rendering SVG complexity in tests
-jest.mock("react-random-avatars", () => ({
+vi.mock("react-random-avatars", () => ({
   RandomAvatar: ({ name }: { name: string }) => (
     <div data-testid={`avatar-${name}`}>Avatar</div>
   ),
@@ -47,7 +48,7 @@ describe("LibraryPage", () => {
   it("should render delete buttons when onDelete is provided", () => {
     render(
       <MemoryRouter>
-        <LibraryPage menus={menus} onDelete={jest.fn()} />
+        <LibraryPage menus={menus} onDelete={vi.fn()} />
       </MemoryRouter>
     );
     expect(
@@ -68,7 +69,7 @@ describe("LibraryPage", () => {
   });
 
   it("should call onDelete with the menu title when delete is clicked", async () => {
-    const onDelete = jest.fn().mockResolvedValue(undefined);
+    const onDelete = vi.fn().mockResolvedValue(undefined);
     render(
       <MemoryRouter>
         <LibraryPage menus={menus} onDelete={onDelete} />
@@ -86,7 +87,7 @@ describe("LibraryPage", () => {
   });
 
   it("should not delete when the confirmation is declined", () => {
-    const onDelete = jest.fn();
+    const onDelete = vi.fn();
     render(
       <MemoryRouter>
         <LibraryPage menus={menus} onDelete={onDelete} />
@@ -121,7 +122,7 @@ describe("LibraryPage", () => {
   });
 
   it("shows details and supports search and sort", () => {
-    const enc = (items: object) => require("../data-encoder").encodeData(items);
+    const enc = (items: object) => encodeData(items);
     const rich = [
       {
         title: "Beta",

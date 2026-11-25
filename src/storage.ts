@@ -25,8 +25,8 @@ export type Storage = {
 
   /**
    * Deletes all RelationshipMenuDocument entries matching the given title from the storage.
-   * This may remove multiple entries when the same title exists under different keys
-   * (e.g., a raw localStorage entry and one or more CID-keyed IPFS entries).
+   * This may remove several entries when the same title exists under different keys
+   * (e.g. older IPFS-era copies).
    * @param title - The title of the document(s) to delete.
    * @returns A Promise that resolves when all matching entries are deleted.
    */
@@ -40,9 +40,12 @@ export type Storage = {
 };
 
 /**
- * A menu document stored under a `menu:` key in localStorage. Two formats exist:
- * - IPFS storage: key `menu:<CID>`, value JSON `{ title, encoded, savedAt? }`.
- * - Plain local storage: key `menu:<title>`, value is the encoded menu itself.
+ * A menu document stored under a `menu:` key in localStorage. Formats, all still read:
+ * - Current: key `menu:<title>`, value JSON `{ title, encoded, savedAt, ... }`.
+ * - Older IPFS-era copies: key `menu:<CID>` or `menu:pending:<title>`, same JSON.
+ * - Oldest: key `menu:<title>`, value is the encoded menu itself.
+ * When a title has several entries, the most recently saved wins, and the next
+ * save removes the others.
  */
 export type LocalMenuEntry = {
   key: string;
@@ -117,18 +120,6 @@ export const latestByTitle = (entries: LocalMenuEntry[]) => {
   return best;
 };
 
-/**
- * Writes `doc` to localStorage right away under a temporary `menu:pending:<title>`
- * key. Slower backends (IPFS) call this before their own write, so closing the tab
- * mid-save can't lose the edit: the Library reads pending entries like any other,
- * and the backend's final entry replaces it (via removeLocalMenuEntries).
- */
-export const writePendingLocalCopy = (doc: RelationshipMenuDocument) => {
-  const key = `menu:pending:${doc.title}`;
-  localStorage.setItem(key, JSON.stringify({ ...doc, savedAt: Date.now() }));
-  return key;
-};
-
 /** Removes every localStorage entry for `title`, except the one stored under `exceptKey`. */
 export const removeLocalMenuEntries = (title: string, exceptKey?: string) => {
   for (const entry of readLocalMenuEntries()) {
@@ -158,7 +149,7 @@ const localStorageSaveDocuments = async (
     const key = `menu:${doc.title}`;
     // JSON (not the bare encoded menu) so dates and person info are kept.
     localStorage.setItem(key, JSON.stringify({ ...doc, savedAt: Date.now() }));
-    // Drop other copies of this menu (e.g. older IPFS entries) so it isn't listed twice.
+    // Drop other copies of this menu (e.g. IPFS-era entries) so it isn't listed twice.
     removeLocalMenuEntries(doc.title, key);
     ids.push(doc.title);
   }

@@ -182,18 +182,11 @@ const WrappedMenuPage = () => {
   const [loaded, setLoaded] = useState(!initialEncoded.current);
   const [notice, setNotice] = useState<string | null>(null);
 
-  // Latest title, for the async loader (its effect only re-runs when storage changes).
-  const titleRef = useRef(title);
-  titleRef.current = title;
-  // Set when an ID link couldn't be resolved yet (IPFS storage may still be starting).
-  const loadFailed = useRef(false);
-
   // Load the menu from the link. Two formats:
   // 1. "titleEncoded:menuEncoded" — self-contained link (all data in URL)
-  // 2. A document ID (CID or title) — looked up from storage, retried when storage
-  //    changes (IPFS starts asynchronously)
+  // 2. A document ID (the title) — looked up in this browser's storage
   // The "loaded" guard is only set once the menu has actually been applied, so a load
-  // cancelled by a storage change (or React StrictMode) is retried rather than lost.
+  // cancelled by React StrictMode is retried rather than lost.
   useEffect(() => {
     const raw = initialEncoded.current;
     if (!raw || loadedFromUrl.current) return;
@@ -223,16 +216,6 @@ const WrappedMenuPage = () => {
             : "This link couldn't be opened. It may have been cut off when it was copied; ask for it again."
         );
         setLoaded(true);
-        // An ID might still resolve once IPFS storage is ready; a broken link won't.
-        if (notFound) loadFailed.current = true;
-        else loadedFromUrl.current = true;
-        return;
-      }
-      // A late retry must not replace something the user has started in the meantime.
-      if (
-        loadFailed.current &&
-        (Object.keys(menuRef.current).length > 0 || titleRef.current !== "")
-      ) {
         loadedFromUrl.current = true;
         return;
       }

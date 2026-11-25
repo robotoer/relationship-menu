@@ -16,7 +16,7 @@ Live at **https://relationship-menu.vercel.app**.
    - *slugs* are the same data without the web address.
 4. **Compare.** Paste two or more menu links into Compare. Items are matched by their text, so the menus don't have to be identical. Filter to see conflicts, agreements, or things nobody has answered yet.
 
-There are no accounts and no server database. Menus are saved in your browser (localStorage, plus an in-browser IPFS node), and a link carries the whole menu inside it. Opening someone else's link saves a copy to your Library without overwriting anything of yours.
+There are no accounts and no server database. Menus are saved in your browser (localStorage), and a link carries the whole menu inside it. Opening someone else's link saves a copy to your Library without overwriting anything of yours.
 
 The link format is documented in [`public/llms.txt`](public/llms.txt), which is also served at `/llms.txt` for tools and agents that want to read or build menus.
 
@@ -28,18 +28,17 @@ You need Node 22 (see `.nvmrc`). Yarn 4 is checked into `.yarn/releases`, so any
 git clone https://github.com/robotoer/relationship-menu.git
 cd relationship-menu
 yarn install
-yarn start            # dev server on http://localhost:3000
+yarn start            # dev server (Vite) on http://localhost:5173
 ```
 
 Other scripts:
 
 | Command | What it does |
 | --- | --- |
-| `yarn test` | Unit and component tests (Jest + React Testing Library), in watch mode |
+| `yarn test` | Unit, component and property tests (Vitest + React Testing Library), in watch mode; `yarn test --run` for one run |
 | `yarn test:e2e` | End-to-end tests (Playwright, Chromium). Starts its own dev server on port 3099 |
 | `yarn build` | Production build into `build/` |
-| `yarn storybook` | Component explorer on http://localhost:6006 |
-| `yarn chromatic` | Publish Storybook to Chromatic (needs `CHROMATIC_PROJECT_TOKEN`, see `example.env`) |
+| `yarn verify` | Formal checks: LemmaScript and Dafny proofs (needs Dafny; see `docs/spec/formal/`) |
 
 Usage analytics (Google Analytics) and exactly what is and isn't sent are described in [`docs/analytics.md`](docs/analytics.md). No menu text, names or link contents ever leave the browser.
 
@@ -60,7 +59,8 @@ src/
   data-comparer.ts     matching items across menus
   compare-filters.ts   the compare view's filters
   templates.ts         template menus and ready-made groups
-  storage.ts, ipfs.ts  browser storage (localStorage and Helia/IPFS)
+  storage.ts           browser storage (localStorage)
+  analytics.ts         the typed analytics events (no menu data)
 e2e/                   Playwright tests
 public/                icons, manifest, llms.txt, robots.txt, sitemap.xml
 ```

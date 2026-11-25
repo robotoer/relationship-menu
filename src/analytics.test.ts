@@ -1,7 +1,7 @@
 import { progressMilestone, track, trackOnce } from "./analytics";
 
 describe("analytics", () => {
-  const gtag = jest.fn();
+  const gtag = vi.fn();
   beforeEach(() => {
     gtag.mockReset();
     (window as unknown as { gtag: typeof gtag }).gtag = gtag;
