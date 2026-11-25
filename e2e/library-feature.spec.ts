@@ -163,7 +163,7 @@ test.describe("Library Feature", () => {
 
         await expect(page.locator(".create-menu")).toBeVisible();
         await expect(
-          page.locator('.create-menu button:has-text("Create New Menu")')
+          page.locator('.create-menu a:has-text("Create New Menu")')
         ).toBeVisible();
 
         const tileCount = await page.locator(".menu-tile").count();
@@ -774,7 +774,7 @@ test.describe("Library Feature", () => {
 
         await expect(page.locator(".create-menu")).toBeVisible();
         await expect(
-          page.locator('.create-menu button:has-text("Create New Menu")')
+          page.locator('.create-menu a:has-text("Create New Menu")')
         ).toBeVisible();
 
         const tileCount = await page.locator(".menu-tile").count();

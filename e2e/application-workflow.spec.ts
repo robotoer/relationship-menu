@@ -413,24 +413,15 @@ test.describe('Application Workflow', () => {
     console.log('✅ Compare page loaded successfully');
   });
 
-  test('About page is accessible', async ({ page }) => {
+  test('About link redirects to the landing page', async ({ page }) => {
     await setupLogCapture(page);
-    await page.goto('/library');
-    await page.waitForTimeout(2000);
+    await page.goto('/about');
+    await page.waitForURL((url) => url.pathname === '/');
 
-    console.log('🧪 Testing About page navigation...');
-
-    // Navigate to About page
-    await page.click('text=About');
-    await page.waitForURL('**/about**');
-    
-    console.log('✅ Navigated to About page');
-
-    // Verify about page has content
-    const hasContent = await page.locator('body').textContent();
-    expect(hasContent?.length).toBeGreaterThan(0);
-    
-    console.log('✅ About page loaded successfully');
+    // The landing page explains the app
+    await expect(page.locator('h1.landing-title')).toBeVisible();
+    await expect(page.locator('h2:has-text("How it works")')).toBeVisible();
+    console.log('✅ About redirects to the landing page');
   });
 
 });
