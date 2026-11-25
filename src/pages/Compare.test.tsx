@@ -103,4 +103,27 @@ describe("ComparePage", () => {
     expect(screen.getByText("Kissing")).toBeInTheDocument();
     expect(screen.getByText("Trust")).toBeInTheDocument();
   });
+
+  it("filters the grid to conflicting items and shows counts", () => {
+    const comparison = {
+      Physical: [
+        { item: "Kissing", values: ["must-have", "must-have"] as any },
+        { item: "Dancing", values: ["like-to-have", "off-limits"] as any },
+      ],
+      Emotional: [{ item: "Trust", values: ["maybe", "maybe"] as any }],
+    };
+    render(
+      <ComparePage {...defaultProps} comparison={comparison} showComparison={true} />
+    );
+    const conflicts = screen.getByRole("button", { name: /Conflicts/ });
+    expect(conflicts).toHaveTextContent("1");
+    fireEvent.click(conflicts);
+    expect(conflicts).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText("Dancing")).toBeInTheDocument();
+    expect(screen.queryByText("Kissing")).not.toBeInTheDocument();
+    // Groups with no matching items are hidden.
+    expect(screen.queryByText("Emotional")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /^All 3/ }));
+    expect(screen.getByText("Kissing")).toBeInTheDocument();
+  });
 });

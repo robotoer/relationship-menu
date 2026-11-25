@@ -55,3 +55,59 @@
     padding: 0 0.75rem;
   }
 }
+
+/* ---- Filters ---- */
+.compare-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.compare-filter {
+  gap: 0.6rem;
+}
+
+.compare-filter-count {
+  display: inline-block;
+  min-width: 2.2em;
+  padding: 0.15rem 0.35rem;
+  font-family: var(--font-body);
+  font-size: 1rem;
+  line-height: 1;
+  text-align: center;
+  color: var(--c-white);
+  background: var(--c-ink);
+}
+
+.compare-filter[aria-pressed="true"] {
+  color: var(--c-ink);
+  background: var(--c-yellow);
+  box-shadow: var(--bevel-pressed);
+  transform: translate(1px, 1px);
+}
+.compare-filter[aria-pressed="true"]::before {
+  content: "▶";
+}
+
+/* Color hints matching the answer colors. */
+.compare-filter-conflict .compare-filter-count { background: var(--pref-off-limits); }
+.compare-filter-both-want .compare-filter-count { background: var(--pref-like-to-have); color: var(--c-ink); }
+.compare-filter-agree .compare-filter-count { background: var(--pref-must-have); }
+.compare-filter-differ .compare-filter-count { background: var(--pref-maybe); color: var(--c-ink); }
+
+.compare-filter-description {
+  margin: 0.75rem 0 0;
+  color: var(--c-mist);
+}
+
+@media (max-width: 640px) {
+  .compare-filters {
+    gap: 0.5rem;
+  }
+  .compare-filter {
+    flex: 1 1 calc(50% - 0.5rem);
+    padding: 0.5rem;
+    font-size: 0.55rem;
+  }
+}

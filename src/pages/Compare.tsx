@@ -12,6 +12,13 @@ import {
 } from "../components/MenuItemCompare";
 import { MenuComparison } from "../model/compare";
 import { CompareSection } from "../components/CompareSection";
+import { useMemo, useState } from "react";
+import {
+  COMPARE_FILTERS,
+  CompareFilter,
+  countByFilter,
+  filterComparison,
+} from "../compare-filters";
 
 /**
  * A key explaining what each color in the comparison grid means.
@@ -64,7 +71,12 @@ export const ComparePage = ({
   const columnTitles = (legendTitles ?? titles).map(
     (title, index) => title || `Menu ${index + 1}`
   );
-  const groups = Object.entries(comparison);
+  const [filter, setFilter] = useState<CompareFilter>("all");
+  const counts = useMemo(() => countByFilter(comparison), [comparison]);
+  const groups = Object.entries(
+    useMemo(() => filterComparison(comparison, filter), [comparison, filter])
+  );
+  const hasItems = counts.all > 0;
   return (
     <div className="compare-page">
       <h1 className="sr-only">Compare menus</h1>
@@ -82,8 +94,35 @@ export const ComparePage = ({
       {showComparison && (
         <>
           <CompareColorKey />
-          {groups.length === 0 && (
+          {hasItems && (
+            <div className="compare-filters" role="group" aria-label="Show items">
+              {COMPARE_FILTERS.map(({ id, label, description }) => (
+                <button
+                  key={id}
+                  type="button"
+                  className={`compare-filter compare-filter-${id}`}
+                  aria-pressed={filter === id}
+                  title={description}
+                  onClick={() => setFilter(id)}
+                >
+                  {label} <span className="compare-filter-count">{counts[id]}</span>
+                </button>
+              ))}
+            </div>
+          )}
+          {!hasItems && (
             <p className="compare-empty">These menus don't have any items yet.</p>
+          )}
+          {hasItems && groups.length === 0 && (
+            <p className="compare-empty">
+              Nothing here: no items are "
+              {COMPARE_FILTERS.find((f) => f.id === filter)?.label}".
+            </p>
+          )}
+          {hasItems && filter !== "all" && groups.length > 0 && (
+            <p className="compare-filter-description">
+              {COMPARE_FILTERS.find((f) => f.id === filter)?.description}.
+            </p>
           )}
           <div className="compare-page-grid">
             {groups.map(([title, group], index) => (
