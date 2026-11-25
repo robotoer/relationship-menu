@@ -5,6 +5,7 @@
 import "./Compare.css";
 import "../components/MenuItemCompare.css";
 import { track } from "../analytics";
+import { Link } from "react-router-dom";
 import { MenuCompareLegend } from "../components/MenuCompareLegend";
 import { MenuGroup } from "../components/MenuGroup";
 import {
@@ -144,6 +145,13 @@ export const ComparePage = ({
               </MenuGroup>
             ))}
           </div>
+          <p className="support-nudge">
+            Did this help you two talk?{" "}
+            <Link to="/support" state={{ supportFrom: "compare" }}>
+              Support Relationship Menu
+            </Link>{" "}
+            to keep it free and private.
+          </p>
         </>
       )}
     </div>

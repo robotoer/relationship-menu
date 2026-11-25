@@ -1,5 +1,10 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render as rtlRender, screen, fireEvent } from "@testing-library/react";
+import { ReactElement } from "react";
+import { MemoryRouter } from "react-router-dom";
 import { ComparePage } from "./Compare";
+
+// The page links to /support, so it needs a router.
+const render = (ui: ReactElement) => rtlRender(<MemoryRouter>{ui}</MemoryRouter>);
 
 describe("ComparePage", () => {
   const defaultProps = {
