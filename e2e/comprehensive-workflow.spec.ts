@@ -47,7 +47,7 @@ async function addItemToGroup(page: Page, groupLocator: ReturnType<Page['locator
  * Helper: navigate to the menu editor from any page.
  */
 async function navigateToNewMenu(page: Page) {
-  await page.goto('/');
+  await page.goto('/library');
   // Wait for the Library page to be visible (the "Create New Menu" button is in .create-menu)
   await expect(page.locator('.create-menu')).toBeVisible({ timeout: 30000 });
   await page.click('text=Create New Menu');
@@ -518,7 +518,7 @@ test.describe('Comprehensive Workflow Tests', () => {
 
     test('Create New Menu button navigates correctly', async ({ page }) => {
       await setupLogCapture(page);
-      await page.goto('/');
+      await page.goto('/library');
       await expect(page.locator('.create-menu')).toBeVisible({ timeout: 30000 });
 
       // Click Create New Menu
@@ -659,7 +659,7 @@ test.describe('Comprehensive Workflow Tests', () => {
 
     test('Navbar links navigate to correct pages', async ({ page }) => {
       await setupLogCapture(page);
-      await page.goto('/');
+      await page.goto('/library');
       await expect(page.locator('.create-menu')).toBeVisible({ timeout: 30000 });
 
       // Library link
@@ -671,27 +671,22 @@ test.describe('Comprehensive Workflow Tests', () => {
       await page.waitForURL('**/compare**');
       expect(page.url()).toContain('/compare');
 
-      // About link
-      await page.click('nav a:has-text("About")');
-      await page.waitForURL('**/about**');
-      expect(page.url()).toContain('/about');
+      // New menu link
+      await page.click('nav a:has-text("New menu")');
+      await page.waitForURL('**/menu**');
+      expect(page.url()).toContain('/menu');
     });
 
-    test('About page renders all content sections', async ({ page }) => {
+    test('About redirects to the landing page, which explains the app', async ({ page }) => {
       await setupLogCapture(page);
       await page.goto('/about');
-      await page.waitForTimeout(2000);
+      await page.waitForURL((url) => url.pathname === '/');
 
-      // Check main sections exist
-      await expect(page.locator('h1:has-text("About")')).toBeVisible();
-      await expect(page.locator('h2:has-text("How to Use")')).toBeVisible();
-      await expect(page.locator('h2:has-text("Comparison")')).toBeVisible();
-      await expect(page.locator('h2:has-text("Feedback")')).toBeVisible();
-
-      // Check paragraphs have content
-      const paragraphs = page.locator('.about-page p');
-      const pCount = await paragraphs.count();
-      expect(pCount).toBeGreaterThanOrEqual(3);
+      await expect(page.locator('h1.landing-title')).toBeVisible();
+      await expect(page.locator('h2:has-text("Why use one?")')).toBeVisible();
+      await expect(page.locator('h2:has-text("How it works")')).toBeVisible();
+      await expect(page.locator('h2:has-text("What are all these links?")')).toBeVisible();
+      await expect(page.locator('h2:has-text("Where does my menu go?")')).toBeVisible();
     });
 
     test('Menu page Compare link navigates to compare with current menu', async ({ page }) => {

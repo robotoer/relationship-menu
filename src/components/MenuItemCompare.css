@@ -2,17 +2,18 @@
   display: flex;
   flex-direction: row;
   align-items: center;
-  width: 100%;
-  padding: 1rem;
-  background-color: #fff;
-  margin: 0.5rem;
   gap: 0.5rem;
-  transition: transform 0.2s;
-  margin-top: 0.5rem;
+  width: 100%;
+  padding: 0.35rem 0.5rem;
+  border-bottom: 2px dashed var(--c-mist);
+}
+.menu-item-compare:last-child {
+  border-bottom: none;
 }
 
 .menu-item-compare .menu-item {
   margin-left: 0.5rem;
+  font-size: 1.15rem;
 }
 
 /* Color swatches, shared by comparison rows and the color key on the compare page. */
@@ -24,57 +25,53 @@
 .menu-item-compare .off-limits,
 .compare-key-swatch {
   flex: none;
-  box-sizing: border-box;
   width: 32px;
   height: 32px;
+  border: var(--line);
 }
 
 .menu-item-compare .unknown,
 .compare-key-swatch.unknown {
-  background-color: grey;
+  background-color: var(--pref-none);
 }
 
 /* Item is not on this person's menu at all: hollow, dashed box. */
 .menu-item-compare .absent,
 .compare-key-swatch.absent {
   background-color: transparent;
-  border: 2px dashed #999;
+  border: var(--px) dashed var(--c-slate);
 }
 
 .menu-item-compare .must-have,
 .compare-key-swatch.must-have {
-  background-color: blue;
+  background-color: var(--pref-must-have);
 }
 
 .menu-item-compare .like-to-have,
 .compare-key-swatch.like-to-have {
-  background-color: green;
+  background-color: var(--pref-like-to-have);
 }
 
 .menu-item-compare .maybe,
 .compare-key-swatch.maybe {
-  background-color: yellow;
+  background-color: var(--pref-maybe);
 }
 
 .menu-item-compare .off-limits,
 .compare-key-swatch.off-limits {
-  background-color: red;
+  background-color: var(--pref-off-limits);
 }
 
 @media (max-width: 640px) {
   .menu-item-compare {
     flex-wrap: wrap;
-    padding: 0.5rem;
-    margin: 0.25rem;
   }
-
   .menu-item-compare .unknown,
   .menu-item-compare .absent,
   .menu-item-compare .must-have,
   .menu-item-compare .like-to-have,
   .menu-item-compare .maybe,
-  .menu-item-compare .off-limits,
-  .compare-key-swatch {
+  .menu-item-compare .off-limits {
     width: 24px;
     height: 24px;
   }

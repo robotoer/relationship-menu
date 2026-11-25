@@ -68,15 +68,10 @@ export const StorageProvider: React.FC<{
       ready: awaitedStorage.ready,
       getDocuments: awaitedStorage.getDocuments,
       saveDocuments: async (...docs) => {
-        console.log("wrappedStorage: saveDocuments");
         setSaving(true);
-        console.log("wrappedStorage: setSaving(true)");
         setSaveError(undefined);
-        console.log("wrappedStorage: setSaveError(undefined)");
         try {
-          console.log("awaitedStorage:", awaitedStorage);
           const ids = await awaitedStorage.saveDocuments(...docs);
-          console.log("wrappedStorage: saveDocuments");
           setDocuments((prev) => {
             const next = { ...prev };
             for (const doc of docs) {

@@ -13,6 +13,8 @@ import { RelationshipMenu, RelationshipMenuItem } from "./model/menu";
  * - `{ kind: "item", group, itemIndex: <length>, value }` adds an item.
  * - `{ kind: "item", group, itemIndex, value }` updates an item.
  * - `{ kind: "item", group, itemIndex }` (no `value`) deletes an item.
+ * - `{ kind: "move-item", group, itemIndex, offset }` moves an item up (-1) or down (+1).
+ * - `{ kind: "move-group", group, offset }` moves a group up (-1) or down (+1).
  */
 export type MenuChange =
   | {
@@ -21,7 +23,9 @@ export type MenuChange =
       itemIndex: number;
       value?: Partial<RelationshipMenuItem>;
     }
-  | { kind: "group"; oldGroup?: string; newGroup?: string };
+  | { kind: "group"; oldGroup?: string; newGroup?: string }
+  | { kind: "move-item"; group: string; itemIndex: number; offset: number }
+  | { kind: "move-group"; group: string; offset: number };
 
 /**
  * Returns the menu with `change` applied, without mutating `menu`.
@@ -37,6 +41,30 @@ export const applyMenuChange = (
   change: MenuChange,
   generateId: () => string
 ): RelationshipMenu => {
+  if (change.kind === "move-group") {
+    const names = Object.keys(menu);
+    const from = names.indexOf(change.group);
+    const to = from + change.offset;
+    if (from === -1 || to < 0 || to >= names.length || to === from) return menu;
+    names.splice(to, 0, names.splice(from, 1)[0]);
+    // No prototype: group names are user text (e.g. "__proto__").
+      const result: RelationshipMenu = Object.create(null);
+    for (const name of names) result[name] = menu[name];
+    return result;
+  }
+
+  if (change.kind === "move-item") {
+    const items = menu[change.group];
+    const from = change.itemIndex;
+    const to = from + change.offset;
+    if (!items || from < 0 || from >= items.length || to < 0 || to >= items.length || to === from) {
+      return menu;
+    }
+    const next = [...items];
+    next.splice(to, 0, next.splice(from, 1)[0]);
+    return { ...menu, [change.group]: next };
+  }
+
   if (change.kind === "group") {
     const { oldGroup, newGroup } = change;
     const exists = (name: string) =>
@@ -44,7 +72,8 @@ export const applyMenuChange = (
 
     if (oldGroup !== undefined && newGroup === undefined) {
       if (!exists(oldGroup)) return menu;
-      const result: RelationshipMenu = {};
+      // No prototype: group names are user text (e.g. "__proto__").
+      const result: RelationshipMenu = Object.create(null);
       for (const group of Object.keys(menu)) {
         if (group !== oldGroup) result[group] = menu[group];
       }
@@ -55,7 +84,8 @@ export const applyMenuChange = (
       if (oldGroup === newGroup || !exists(oldGroup) || exists(newGroup)) {
         return menu;
       }
-      const result: RelationshipMenu = {};
+      // No prototype: group names are user text (e.g. "__proto__").
+      const result: RelationshipMenu = Object.create(null);
       for (const group of Object.keys(menu)) {
         result[group === oldGroup ? newGroup : group] = menu[group];
       }

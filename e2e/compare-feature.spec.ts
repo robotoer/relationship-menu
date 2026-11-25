@@ -1170,34 +1170,34 @@ test.describe("Compare Feature", () => {
           await expect(row0.locator(".off-limits")).toHaveCount(1);
 
           // Verify CSS background colors via computed styles
-          // blue = rgb(0, 0, 255)
+          // must-have blue #3b5dc9 = rgb(59, 93, 201)
           const mustHaveColor = await row0
             .locator(".must-have")
             .evaluate((el) => getComputedStyle(el).backgroundColor);
-          expect(mustHaveColor).toBe("rgb(0, 0, 255)");
+          expect(mustHaveColor).toBe("rgb(59, 93, 201)");
 
-          // red = rgb(255, 0, 0)
+          // off-limits red #b13e53 = rgb(177, 62, 83)
           const offLimitsColor = await row0
             .locator(".off-limits")
             .evaluate((el) => getComputedStyle(el).backgroundColor);
-          expect(offLimitsColor).toBe("rgb(255, 0, 0)");
+          expect(offLimitsColor).toBe("rgb(177, 62, 83)");
 
           // Row 1: "Item Beta" -- Menu A = like-to-have, Menu B = maybe
           const row1 = compareItems.nth(1);
           await expect(row1.locator(".like-to-have")).toHaveCount(1);
           await expect(row1.locator(".maybe")).toHaveCount(1);
 
-          // green = rgb(0, 128, 0)
+          // like-to-have green #38b764 = rgb(56, 183, 100)
           const likeToHaveColor = await row1
             .locator(".like-to-have")
             .evaluate((el) => getComputedStyle(el).backgroundColor);
-          expect(likeToHaveColor).toBe("rgb(0, 128, 0)");
+          expect(likeToHaveColor).toBe("rgb(56, 183, 100)");
 
-          // yellow = rgb(255, 255, 0)
+          // maybe yellow #ffcd75 = rgb(255, 205, 117)
           const maybeColor = await row1
             .locator(".maybe")
             .evaluate((el) => getComputedStyle(el).backgroundColor);
-          expect(maybeColor).toBe("rgb(255, 255, 0)");
+          expect(maybeColor).toBe("rgb(255, 205, 117)");
 
           // Row 2: "Item Gamma" -- Menu A = maybe, Menu B = like-to-have
           const row2 = compareItems.nth(2);
@@ -1251,11 +1251,11 @@ test.describe("Compare Feature", () => {
             const unknownSquare = row.locator(".unknown");
             await expect(unknownSquare).toHaveCount(1);
 
-            // grey = rgb(128, 128, 128)
+            // no-preference grey #94b0c2 = rgb(148, 176, 194)
             const unknownColor = await unknownSquare.evaluate(
               (el) => getComputedStyle(el).backgroundColor
             );
-            expect(unknownColor).toBe("rgb(128, 128, 128)");
+            expect(unknownColor).toBe("rgb(148, 176, 194)");
           }
         } else {
           console.log(

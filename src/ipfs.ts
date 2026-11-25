@@ -6,7 +6,13 @@ import { createHelia, Helia } from "helia";
 import { CID } from "multiformats/cid";
 import { code, encode } from "multiformats/codecs/json";
 import { sha256 } from "multiformats/hashes/sha2";
-import { Storage, localStorageDeleteDocument } from "./storage";
+import {
+  Storage,
+  latestByTitle,
+  localStorageDeleteDocument,
+  readLocalMenuEntries,
+  removeLocalMenuEntries,
+} from "./storage";
 import { RelationshipMenuDocument } from "./model/menu";
 
 // Global reference to the Helia instance for monitoring
@@ -82,68 +88,57 @@ export const calculateIpfsHash = async (obj: any): Promise<string> => {
 const ipfsSaveDocuments =
   (helJson: HeliaJSON) =>
   async (...docs: RelationshipMenuDocument[]) => {
-    console.log("Saving documents to IPFS...");
     const ids: string[] = [];
     for (const doc of docs) {
       const cid = await helJson.add(doc);
+      const key = `menu:${cid.toString()}`;
       ids.push(cid.toString());
-      
-      // Add to localStorage with document JSON as a fallback in case IndexedDB is cleared
-      localStorage.setItem(`menu:${cid.toString()}`, JSON.stringify(doc));
-      console.log(`Saved document with id: ${cid.toString()}`);
+
+      // Keep a JSON copy in localStorage (the library index, and a fallback in case
+      // IndexedDB is cleared). `savedAt` orders versions of the same menu.
+      localStorage.setItem(key, JSON.stringify({ ...doc, savedAt: Date.now() }));
+      // Each edit produces a new CID; drop the older versions of this menu so the
+      // library shows the latest one and localStorage doesn't grow with every edit.
+      removeLocalMenuEntries(doc.title, key);
     }
     return ids;
   };
 
 const ipfsGetDocuments = (helJson: HeliaJSON) => async (id?: string) => {
   if (!id) {
-    const promises: Promise<[string, RelationshipMenuDocument] | null>[] = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && key.startsWith("menu:")) {
-        const id = key.slice(5);
-        console.log(`Getting document with id: ${id}`);
+    // The library index lives in localStorage: CID-keyed JSON entries written by
+    // this storage, plus plain `menu:<title>` entries saved before IPFS was ready.
+    const latest = latestByTitle(readLocalMenuEntries());
+    const results = await Promise.all(
+      Object.values(latest).map(async (entry) => {
+        const cidText = entry.key.slice(5);
+        let cid: CID | null = null;
         try {
-          const cid = CID.parse(id);
-          promises.push(
-            helJson.get<RelationshipMenuDocument>(cid)
-              .then((doc): [string, RelationshipMenuDocument] => {
-                console.log(`Got document with id: ${id}`, doc);
-                return [id, doc];
-              })
-              .catch((error) => {
-                console.error(`Failed to get document with id: ${id}`, error);
-                // Fall back to localStorage JSON if Helia fetch fails
-                const rawValue = localStorage.getItem(`menu:${id}`);
-                if (rawValue) {
-                  try {
-                    const doc = JSON.parse(rawValue);
-                    if (doc && doc.title && doc.encoded) {
-                      return [id, doc] as [string, RelationshipMenuDocument];
-                    }
-                  } catch { /* not JSON, old timestamp format */ }
-                }
-                return null;
-              })
-          );
-        } catch (e) {
-          console.error(`Invalid CID: ${id}`, e);
+          cid = CID.parse(cidText);
+        } catch {
+          // Plain `menu:<title>` entry: use it as stored.
         }
+        if (!cid) {
+          return entry.doc;
+        }
+        try {
+          return await helJson.get<RelationshipMenuDocument>(cid);
+        } catch (error) {
+          console.error(`Failed to get document with id: ${cidText}`, error);
+          // Fall back to the localStorage JSON copy if IndexedDB lost the block.
+          return entry.doc;
+        }
+      })
+    );
+    const byTitle: { [title: string]: RelationshipMenuDocument } = Object.create(null);
+    for (const doc of results) {
+      if (doc && typeof doc.title === "string") {
+        byTitle[doc.title] = doc;
       }
-    }
-    
-    const results = await Promise.all(promises);
-    // Filter out null results
-    const validResults = results.filter((r): r is [string, RelationshipMenuDocument] => r !== null);
-    // Deduplicate by title — multiple CIDs may point to different versions
-    // of the same menu. Keep the last one (most recently saved).
-    const byTitle: { [title: string]: RelationshipMenuDocument } = {};
-    for (const [, doc] of validResults) {
-      byTitle[doc.title] = doc;
     }
     return byTitle;
   }
-  
+
   try {
     const cid = CID.parse(id);
     console.log(`Attempting to fetch document with id ${id} from IPFS network`);
@@ -152,7 +147,8 @@ const ipfsGetDocuments = (helJson: HeliaJSON) => async (id?: string) => {
     const doc = await helJson.get<RelationshipMenuDocument>(cid);
     
     // If we successfully fetched it from the network, store it locally as JSON fallback
-    if (doc) {
+    // Don't overwrite an existing entry: it carries the savedAt that orders versions.
+    if (doc && localStorage.getItem(`menu:${id}`) === null) {
       localStorage.setItem(`menu:${id}`, JSON.stringify(doc));
       console.log(`Retrieved and stored document with id: ${id} from network`);
     }

@@ -35,7 +35,7 @@ test.describe('Multi-User Data Sharing', () => {
       await setupLogCapture(page2);
 
       console.log('🧪 Browser 1: Creating menu...');
-      await page1.goto('/');
+      await page1.goto('/library');
       await waitForNodeReady(page1);
       const peerId1 = await getPeerId(page1);
       console.log(`✅ Browser 1 ready: ${peerId1.substring(0, 20)}...`);
@@ -59,7 +59,7 @@ test.describe('Multi-User Data Sharing', () => {
 
       // Start Browser 2
       console.log('🧪 Browser 2: Starting...');
-      await page2.goto('/');
+      await page2.goto('/library');
       await waitForNodeReady(page2);
       const peerId2 = await getPeerId(page2);
       console.log(`✅ Browser 2 ready: ${peerId2.substring(0, 20)}...`);
@@ -146,12 +146,12 @@ test.describe('Multi-User Data Sharing', () => {
       console.log('🧪 Starting both browsers...');
       
       // Start Browser 1
-      await page1.goto('/');
+      await page1.goto('/library');
       await waitForNodeReady(page1);
       console.log('✅ Browser 1 ready');
 
       // Start Browser 2
-      await page2.goto('/');
+      await page2.goto('/library');
       await waitForNodeReady(page2);
       console.log('✅ Browser 2 ready');
 
@@ -181,7 +181,7 @@ test.describe('Multi-User Data Sharing', () => {
 
       // Go to library in Browser 1
       await page1.click('text=Library');
-      await page1.waitForURL('/');
+      await page1.waitForURL('**/library');
       await page1.waitForTimeout(3000);
       
       const menuCount1 = await page1.locator('.menu-tile').count();
@@ -189,7 +189,7 @@ test.describe('Multi-User Data Sharing', () => {
 
       // Go to library in Browser 2
       await page2.click('text=Library');
-      await page2.waitForURL('/');
+      await page2.waitForURL('**/library');
       await page2.waitForTimeout(3000);
       
       const menuCount2 = await page2.locator('.menu-tile').count();
@@ -224,11 +224,11 @@ test.describe('Multi-User Data Sharing', () => {
       await setupLogCapture(page2);
 
       // Start both browsers
-      await page1.goto('/');
+      await page1.goto('/library');
       await waitForNodeReady(page1);
       console.log('✅ Browser 1 ready');
 
-      await page2.goto('/');
+      await page2.goto('/library');
       await waitForNodeReady(page2);
       console.log('✅ Browser 2 ready');
 
@@ -321,7 +321,7 @@ test.describe('Multi-User Data Sharing', () => {
 
       // Start all browsers
       for (let i = 0; i < pages.length; i++) {
-        await pages[i].goto('/');
+        await pages[i].goto('/library');
         await waitForNodeReady(pages[i]);
         console.log(`✅ Browser ${i + 1} ready`);
       }
@@ -407,10 +407,10 @@ test.describe('Multi-User Data Sharing', () => {
       await setupLogCapture(page2);
 
       // Start browsers
-      await page1.goto('/');
+      await page1.goto('/library');
       await waitForNodeReady(page1);
       
-      await page2.goto('/');
+      await page2.goto('/library');
       await waitForNodeReady(page2);
       
       console.log('✅ Both browsers ready');

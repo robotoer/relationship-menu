@@ -1,28 +1,19 @@
 .share-section {
-  /* display: flex;
-  justify-content: center;
-  align-items: center;
-  margin-top: 20px;
-  gap: 10px; */
-
   display: grid;
-  /* Grid should have a maximum of 4 columns */
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  grid-gap: 1rem;
-  padding: 1rem;
-  justify-content: center;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+  padding: 1.25rem 1rem 0.5rem;
 }
 
-/* Media queries for grid-template-columns */
-@media all and (max-width: 800px) {
+@media (max-width: 1100px) {
   .share-section {
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 640px) {
   .share-section {
     grid-template-columns: 1fr;
-    padding: 0.5rem;
+    padding: 1rem 0.75rem 0.25rem;
   }
 }

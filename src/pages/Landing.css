@@ -1,0 +1,328 @@
+.landing {
+  padding: 0 1rem;
+}
+
+/* ---- Hero ---- */
+.landing-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  grid-template-areas:
+    "kicker demo"
+    "title demo"
+    "lead demo"
+    "actions demo";
+  column-gap: 3rem;
+  align-items: start;
+  padding: 2rem 0 3rem;
+}
+
+.landing-kicker {
+  grid-area: kicker;
+  margin: 0 0 1rem;
+  font-family: var(--font-pixel);
+  font-size: 0.6rem;
+  color: var(--c-lime);
+  text-transform: uppercase;
+}
+
+.landing-title {
+  grid-area: title;
+  margin: 0 0 1.5rem;
+  font-size: clamp(1.75rem, 5vw, 3.25rem);
+  line-height: 1.3;
+  color: var(--c-yellow);
+  text-shadow: 4px 4px 0 var(--c-red), 8px 8px 0 var(--c-plum);
+}
+
+.landing-lead {
+  grid-area: lead;
+  max-width: 36em;
+  font-size: 1.4rem;
+  line-height: 1.3;
+}
+.landing-lead em {
+  color: var(--c-cyan);
+  font-style: normal;
+}
+
+.landing-actions {
+  grid-area: actions;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.landing-actions .button-primary::before {
+  content: "";
+}
+.landing-hero .button-primary {
+  animation: landing-blink 1.2s steps(2, jump-none) infinite;
+}
+
+@keyframes landing-blink {
+  50% {
+    box-shadow: inset calc(-1 * var(--px)) calc(-1 * var(--px)) 0 0 var(--c-orange),
+      0 0 0 var(--px) var(--c-white);
+  }
+}
+
+/* Mini comparison grid in the hero. */
+.landing-demo {
+  grid-area: demo;
+  align-self: center;
+  padding: 1.25rem;
+  color: var(--c-ink);
+  background: var(--c-white);
+  border: var(--line);
+  box-shadow: 8px 8px 0 0 var(--c-plum);
+}
+
+.landing-demo-header {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  font-family: var(--font-pixel);
+  font-size: 0.5rem;
+}
+.landing-demo-header span {
+  width: 40px;
+  text-align: center;
+}
+
+.landing-demo-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0;
+  border-bottom: 2px dashed var(--c-mist);
+}
+
+.landing-demo-label {
+  margin-left: 0.5rem;
+  font-size: 1.25rem;
+}
+
+.landing-demo-caption {
+  margin: 0.9rem 0 0;
+  font-size: 1.1rem;
+  color: var(--c-shade);
+}
+
+.landing-swatch {
+  flex: none;
+  display: inline-block;
+  width: 40px;
+  height: 40px;
+  border: var(--line);
+}
+.landing-swatch.must-have { background: var(--pref-must-have); }
+.landing-swatch.like-to-have { background: var(--pref-like-to-have); }
+.landing-swatch.maybe { background: var(--pref-maybe); }
+.landing-swatch.off-limits { background: var(--pref-off-limits); }
+
+/* ---- Sections ---- */
+.landing-section {
+  padding: 2.25rem 0;
+  border-top: var(--px) dashed var(--c-shade);
+}
+
+.landing-section h2 {
+  color: var(--c-cyan);
+  margin-bottom: 1.25rem;
+}
+.landing-section > p {
+  max-width: 46em;
+}
+
+.landing-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.5rem;
+}
+
+.landing-card {
+  padding: 1.25rem;
+  color: var(--c-ink);
+  background: var(--c-white);
+  border: var(--line);
+  box-shadow: var(--drop);
+}
+.landing-card:nth-child(1) { box-shadow: 6px 6px 0 0 var(--c-blue); }
+.landing-card:nth-child(2) { box-shadow: 6px 6px 0 0 var(--c-green); }
+.landing-card:nth-child(3) { box-shadow: 6px 6px 0 0 var(--c-red); }
+.landing-card h3 {
+  color: var(--c-plum);
+}
+.landing-card p {
+  margin: 0;
+}
+
+/* Numbered steps as "levels". */
+.landing-steps {
+  list-style: none;
+  counter-reset: step;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.5rem;
+  margin: 0;
+  padding: 0;
+}
+
+.landing-steps > li {
+  counter-increment: step;
+  position: relative;
+  padding: 1.25rem 1.25rem 1.25rem 5rem;
+  color: var(--c-ink);
+  background: var(--c-white);
+  border: var(--line);
+  box-shadow: var(--drop);
+}
+.landing-steps > li::before {
+  content: counter(step);
+  position: absolute;
+  left: 1.25rem;
+  top: 1.25rem;
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  font-family: var(--font-pixel);
+  font-size: 0.9rem;
+  color: var(--c-ink);
+  background: var(--c-yellow);
+  border: var(--line);
+}
+.landing-steps h3 {
+  color: var(--c-plum);
+}
+.landing-steps p {
+  margin: 0;
+}
+
+.landing-answers {
+  list-style: none;
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+}
+.landing-answers li {
+  display: grid;
+  grid-template-columns: auto 8.5rem 1fr;
+  align-items: center;
+  gap: 0.75rem;
+}
+.landing-answers .landing-swatch {
+  width: 28px;
+  height: 28px;
+}
+
+.landing-links {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 0;
+}
+.landing-links > div {
+  padding: 1rem;
+  border: var(--px) solid var(--c-slate);
+  background: rgba(255, 255, 255, 0.03);
+}
+.landing-links dt {
+  font-family: var(--font-pixel);
+  font-size: 0.65rem;
+  color: var(--c-yellow);
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+}
+.landing-links dd {
+  margin: 0;
+}
+.landing-links em {
+  color: var(--c-cyan);
+  font-style: normal;
+}
+
+.landing-list {
+  max-width: 46em;
+  margin: 0;
+  padding-left: 0;
+  list-style: none;
+}
+.landing-list li {
+  position: relative;
+  padding-left: 1.75rem;
+  margin-bottom: 0.75rem;
+}
+.landing-list li::before {
+  content: "■";
+  position: absolute;
+  left: 0;
+  color: var(--c-lime);
+}
+
+.landing-keys kbd {
+  font-size: 1.1rem;
+}
+
+.landing-cta {
+  padding: 3rem 0 1rem;
+  border-top: var(--px) dashed var(--c-shade);
+  text-align: center;
+}
+.landing-cta h2 {
+  color: var(--c-yellow);
+  font-size: 1.2rem;
+}
+.landing-cta .landing-actions {
+  justify-content: center;
+}
+
+@media (max-width: 960px) {
+  .landing-hero {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "kicker"
+      "title"
+      "lead"
+      "actions"
+      "demo";
+    row-gap: 0.5rem;
+  }
+  .landing-demo {
+    margin-top: 2rem;
+  }
+  .landing-cards,
+  .landing-steps,
+  .landing-links {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .landing {
+    padding: 0 0.75rem;
+  }
+  .landing-hero {
+    padding-top: 0.5rem;
+  }
+  .landing-lead {
+    font-size: 1.25rem;
+  }
+  .landing-steps > li {
+    padding-left: 4.25rem;
+  }
+  .landing-steps > li::before {
+    left: 0.9rem;
+  }
+  .landing-answers li {
+    grid-template-columns: auto 1fr;
+  }
+  .landing-answers li span:last-child {
+    grid-column: 2;
+  }
+  .landing-actions .button {
+    width: 100%;
+  }
+}

@@ -1,25 +1,28 @@
-/* Vertical flexbox with small gap between title and input */
 .compare-input {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-
-  align-items: center;
-
-  width: 100%;
+  gap: 0.35rem;
+  flex: 1 1 260px;
   min-width: 0;
 }
 
+.compare-input label {
+  font-family: var(--font-pixel);
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+
 .compare-input input {
-  width: calc(100% - 2rem);
+  width: 100%;
 }
 
 .compare-input-invalid input {
-  border-color: #c00;
-  outline-color: #c00;
+  border-color: var(--c-red);
+  outline-color: var(--c-red);
 }
 
 .compare-input-error {
-  color: #c00;
-  font-size: 0.8rem;
+  color: var(--c-red);
+  font-size: 1rem;
 }

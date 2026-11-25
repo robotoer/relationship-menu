@@ -361,7 +361,7 @@ test.describe("Share Link Loading", () => {
 
       // Navigate to Library
       await page.click('a:has-text("Library")');
-      await page.waitForURL("/");
+      await page.waitForURL("**/library");
       await page.waitForTimeout(1000);
 
       // Verify the menu tile appears

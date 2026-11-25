@@ -129,4 +129,14 @@ describe("applyMenuChange", () => {
       expect(state.C).toEqual([{ item: "Spring", id: "x" }]);
     });
   });
+
+  it("keeps a group named __proto__ when moving or renaming groups", () => {
+    const menu = JSON.parse('{"A":[],"__proto__":[{"item":"x"}]}');
+    expect(Object.keys(menu)).toEqual(["A", "__proto__"]);
+    const moved = applyMenuChange(menu, { kind: "move-group", group: "A", offset: 1 }, gen);
+    expect(Object.keys(moved)).toEqual(["__proto__", "A"]);
+    expect(moved["__proto__"]).toEqual([{ item: "x" }]);
+    const renamed = applyMenuChange(menu, { kind: "group", oldGroup: "A", newGroup: "B" }, gen);
+    expect(Object.keys(renamed)).toEqual(["B", "__proto__"]);
+  });
 });

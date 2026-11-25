@@ -38,38 +38,90 @@ export type Storage = {
   clear(): Promise<void>;
 };
 
-// Implementation of the `Storage` type that uses the browser's `localStorage`
-// but still hashes using the IPFS algorithm:
+/**
+ * A menu document stored under a `menu:` key in localStorage. Two formats exist:
+ * - IPFS storage: key `menu:<CID>`, value JSON `{ title, encoded, savedAt? }`.
+ * - Plain local storage: key `menu:<title>`, value is the encoded menu itself.
+ */
+export type LocalMenuEntry = {
+  key: string;
+  doc: RelationshipMenuDocument;
+  /** When it was saved (ms since epoch), or 0 if unknown (older entries). */
+  savedAt: number;
+};
 
-const localStorageGetDocuments = async (id?: string) => {
-  const documents: { [id: string]: RelationshipMenuDocument } = {};
+/** Parses one localStorage entry, or returns null if it isn't a menu entry. */
+export const parseLocalMenuEntry = (
+  key: string,
+  value: string | null
+): LocalMenuEntry | null => {
+  if (!key.startsWith("menu:") || value === null) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(value);
+    if (
+      parsed &&
+      typeof parsed.title === "string" &&
+      typeof parsed.encoded === "string"
+    ) {
+      return {
+        key,
+        doc: { title: parsed.title, encoded: parsed.encoded },
+        savedAt: typeof parsed.savedAt === "number" ? parsed.savedAt : 0,
+      };
+    }
+  } catch {
+    // Not JSON: raw format.
+  }
+  return { key, doc: { title: key.slice(5), encoded: value }, savedAt: 0 };
+};
+
+/** Every menu entry currently in localStorage. */
+export const readLocalMenuEntries = (): LocalMenuEntry[] => {
+  const entries: LocalMenuEntry[] = [];
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
-    if (key && key.startsWith("menu:")) {
-      const value = localStorage.getItem(key);
-      if (value) {
-        // Try to parse as JSON first (IPFS format stores {title, encoded} as JSON)
-        try {
-          const parsed = JSON.parse(value);
-          if (
-            parsed &&
-            typeof parsed.title === "string" &&
-            typeof parsed.encoded === "string"
-          ) {
-            documents[parsed.title] = parsed;
-            continue;
-          }
-        } catch {
-          // Not JSON — fall through to raw format
-        }
-        // Raw format: key suffix is the title, value is the encoded menu data
-        const title = key.slice(5);
-        const document: RelationshipMenuDocument = {
-          title,
-          encoded: value,
-        };
-        documents[title] = document;
-      }
+    if (key) {
+      const entry = parseLocalMenuEntry(key, localStorage.getItem(key));
+      if (entry) entries.push(entry);
+    }
+  }
+  return entries;
+};
+
+/**
+ * Picks one document per title. When a title has several entries (older versions
+ * saved before duplicates were cleaned up), the most recently saved one wins.
+ */
+export const latestByTitle = (entries: LocalMenuEntry[]) => {
+  // No prototype: titles are user text (e.g. "constructor").
+  const best: { [title: string]: LocalMenuEntry } = Object.create(null);
+  for (const entry of entries) {
+    const current = best[entry.doc.title];
+    if (!current || entry.savedAt >= current.savedAt) {
+      best[entry.doc.title] = entry;
+    }
+  }
+  return best;
+};
+
+/** Removes every localStorage entry for `title`, except the one stored under `exceptKey`. */
+export const removeLocalMenuEntries = (title: string, exceptKey?: string) => {
+  for (const entry of readLocalMenuEntries()) {
+    if (entry.doc.title === title && entry.key !== exceptKey) {
+      localStorage.removeItem(entry.key);
+    }
+  }
+};
+
+const localStorageGetDocuments = async (id?: string) => {
+  const documents: { [id: string]: RelationshipMenuDocument } = Object.create(null);
+  for (const [title, entry] of Object.entries(
+    latestByTitle(readLocalMenuEntries())
+  )) {
+    if (id === undefined || id === title) {
+      documents[title] = entry.doc;
     }
   }
   return documents;
@@ -78,47 +130,19 @@ const localStorageGetDocuments = async (id?: string) => {
 const localStorageSaveDocuments = async (
   ...docs: RelationshipMenuDocument[]
 ): Promise<string[]> => {
-  console.log("Saving documents to localStorage...");
   const ids: string[] = [];
   for (const doc of docs) {
     const key = `menu:${doc.title}`;
     localStorage.setItem(key, doc.encoded);
+    // Drop other copies of this menu (e.g. older IPFS entries) so it isn't listed twice.
+    removeLocalMenuEntries(doc.title, key);
     ids.push(doc.title);
   }
   return ids;
 };
 
 export const localStorageDeleteDocument = async (title: string) => {
-  for (let i = localStorage.length - 1; i >= 0; i--) {
-    const key = localStorage.key(i);
-    if (key && key.startsWith("menu:")) {
-      const value = localStorage.getItem(key);
-      if (value !== null) {
-        // Try JSON format first (IPFS entries use CID-based keys with JSON values)
-        let isJsonMenu = false;
-        try {
-          const parsed = JSON.parse(value);
-          if (
-            parsed &&
-            typeof parsed.title === "string" &&
-            typeof parsed.encoded === "string"
-          ) {
-            isJsonMenu = true;
-            if (parsed.title === title) {
-              localStorage.removeItem(key);
-              continue;
-            }
-          }
-        } catch {
-          // Not JSON — fall through to raw format
-        }
-        // Raw format: only when value is not a valid JSON menu document
-        if (!isJsonMenu && key === `menu:${title}`) {
-          localStorage.removeItem(key);
-        }
-      }
-    }
-  }
+  removeLocalMenuEntries(title);
 };
 
 const localStorageClear = async () => {

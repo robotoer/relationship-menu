@@ -52,21 +52,21 @@ describe("MenuItem", () => {
   it("should render a delete button when onDelete is provided", () => {
     const onDelete = jest.fn();
     render(<MenuItem item="Kissing" onChange={jest.fn()} onDelete={onDelete} />);
-    const deleteButton = screen.getByRole("button", { name: "Delete item" });
+    const deleteButton = screen.getByRole("button", { name: /^Delete item/ });
     expect(deleteButton).toBeInTheDocument();
   });
 
   it("should not render a delete button when onDelete is not provided", () => {
     render(<MenuItem item="Kissing" onChange={jest.fn()} />);
     expect(
-      screen.queryByRole("button", { name: "Delete item" })
+      screen.queryByRole("button", { name: /^Delete item/ })
     ).not.toBeInTheDocument();
   });
 
   it("should call onDelete when the delete button is clicked", () => {
     const onDelete = jest.fn();
     render(<MenuItem item="Kissing" onChange={jest.fn()} onDelete={onDelete} />);
-    fireEvent.click(screen.getByRole("button", { name: "Delete item" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Delete item/ }));
     expect(onDelete).toHaveBeenCalledTimes(1);
   });
 

@@ -1,8 +1,19 @@
+.compare-page {
+  padding: 0 1rem;
+}
+
 .compare-page-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
-  grid-gap: 1rem;
-  padding: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  gap: 1.5rem;
+  padding: 1rem 0;
+  align-items: start;
+}
+
+.compare-page-grid .menu-group h2 {
+  margin: 0;
+  padding-bottom: 0.25rem;
+  font-size: 0.8rem;
 }
 
 .compare-key {
@@ -10,9 +21,12 @@
   flex-wrap: wrap;
   gap: 0.5rem 1.25rem;
   list-style: none;
-  margin: 0;
-  padding: 0 1rem;
-  font-size: 0.875rem;
+  margin: 1rem 0 0;
+  padding: 0.75rem 1rem;
+  color: var(--c-ink);
+  background: var(--c-white);
+  border: var(--line);
+  box-shadow: var(--drop);
 }
 
 .compare-key li {
@@ -22,28 +36,22 @@
 }
 
 .compare-key .compare-key-swatch {
-  width: 16px;
-  height: 16px;
+  width: 20px;
+  height: 20px;
 }
 
 .compare-empty {
-  padding: 0 1rem;
+  padding: 1rem 0 0;
 }
 
-/* Media queries for grid-template-columns */
-@media all and (max-width: 800px) {
+@media all and (max-width: 860px) {
   .compare-page-grid {
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 640px) {
-  .compare-page-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .compare-key .compare-key-swatch {
-    width: 16px;
-    height: 16px;
+  .compare-page {
+    padding: 0 0.75rem;
   }
 }

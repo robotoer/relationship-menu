@@ -91,7 +91,7 @@ test.describe("Mobile Responsive", () => {
 
     // Click the Library link
     await mobileLinks.locator('a:has-text("Library")').click();
-    await page.waitForURL("/");
+    await page.waitForURL("**/library");
 
     // After navigation, the mobile menu should close (panel removed from DOM)
     await expect(page.locator(".navbar-mobile-links")).toHaveCount(0);
@@ -189,7 +189,7 @@ test.describe("Mobile Responsive", () => {
     const hamburger = page.locator("button.hamburger");
     await hamburger.click();
     await page.locator(".navbar-mobile-links").locator('a:has-text("Library")').click();
-    await page.waitForURL("/");
+    await page.waitForURL("**/library");
     await page.waitForTimeout(1000);
 
     // Verify the menu tile is visible
@@ -205,7 +205,7 @@ test.describe("Mobile Responsive", () => {
   test("no horizontal overflow on any page at mobile viewport", async ({
     page,
   }) => {
-    const pages = ["/", "/menu", "/compare", "/about"];
+    const pages = ["/", "/library", "/menu", "/compare", "/about"];
 
     for (const path of pages) {
       await page.goto(path);
@@ -247,7 +247,7 @@ test.describe("Tablet Responsive", () => {
 
     // Navigate to library using desktop link
     await page.click('a.navbar-desktop-link:has-text("Library")');
-    await page.waitForURL("/");
+    await page.waitForURL("**/library");
     await page.waitForTimeout(1000);
 
     // Verify tile displays

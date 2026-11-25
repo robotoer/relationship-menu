@@ -3,11 +3,15 @@
  */
 
 import "./Menu.css";
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, KeyboardEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { MenuGroup } from "../components/MenuGroup";
 import { MenuItem } from "../components/MenuItem";
 import { RelationshipMenu } from "../model/menu";
 import { MenuChange } from "../menu-editing";
+import { SaveState } from "../autosave";
+import { KeyAction, PREFERENCE_CYCLE, SEQUENCE_TIMEOUT_MS, resolveKey } from "../keyboard";
+import { KeyboardHelp } from "../components/KeyboardHelp";
+import { starterMenuPath } from "../starter-menu";
 import { ShareSection } from "../components/ShareSection";
 import { Link } from "react-router-dom";
 
@@ -90,6 +94,28 @@ const GroupTitle = ({
   );
 };
 
+export type SaveStatus = SaveState | "title-taken";
+
+const SAVE_LABELS: { [status: string]: string } = {
+  pending: "Saving…",
+  saving: "Saving…",
+  saved: "Saved",
+  error: "Couldn't save",
+  "title-taken": "Another menu already has this title. Rename to save.",
+};
+
+/** Shows whether the menu's latest changes are saved. */
+const SaveIndicator = ({ status }: { status?: SaveStatus }) =>
+  status && SAVE_LABELS[status] ? (
+    <span
+      className={`save-status save-status-${status}`}
+      role="status"
+      aria-live="polite"
+    >
+      {SAVE_LABELS[status]}
+    </span>
+  ) : null;
+
 /** Counter for keys of the trailing "new item" row, which become the new item's id. */
 let nextPendingItemId = 0;
 
@@ -111,6 +137,11 @@ export const MenuPage = ({
   templateEncoded,
   onChange,
   onChangeTitle,
+  saveStatus,
+  onUndo,
+  onRedo,
+  notice,
+  onDismissNotice,
 }: {
   title: string;
   menu: RelationshipMenu;
@@ -118,34 +149,251 @@ export const MenuPage = ({
   templateEncoded: string;
   onChange: (change: MenuChange) => void;
   onChangeTitle: (title: string) => void;
+  saveStatus?: SaveStatus;
+  onUndo?: () => void;
+  onRedo?: () => void;
+  notice?: string | null;
+  onDismissNotice?: () => void;
 }) => {
   const groupNames = Object.keys(menu);
   // Key (and future id) of each group's "new item" row, by group name.
   const pendingItemIds = useRef<{ [group: string]: string }>({});
   const pendingItemIdFor = (group: string) =>
     (pendingItemIds.current[group] ??= `new_${++nextPendingItemId}`);
+
+  // ---- Keyboard controls (see src/keyboard.ts) ----
+  const pageRef = useRef<HTMLDivElement>(null);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const sequence = useRef<{ key: string; at: number } | null>(null);
+  // Row to focus after the next render (rows can move or disappear on edits).
+  // `index` is a fallback for when that row no longer exists (e.g. undo removed it).
+  const focusAfterRender = useRef<{
+    rowKey: string;
+    mode: "row" | "input";
+    index?: number;
+  } | null>(null);
+
+  const rowElements = () =>
+    Array.from(
+      pageRef.current?.querySelectorAll<HTMLElement>("[data-row-key]") ?? []
+    );
+
+  const focusRow = (row: HTMLElement | undefined, mode: "row" | "input") => {
+    if (!row) return;
+    if (mode === "input") {
+      const input = row.querySelector<HTMLInputElement>("input");
+      if (input) {
+        input.focus();
+        const end = input.value.length;
+        input.setSelectionRange?.(end, end);
+        return;
+      }
+    }
+    row.focus();
+    row.scrollIntoView?.({ block: "nearest" });
+  };
+
+  useLayoutEffect(() => {
+    const target = focusAfterRender.current;
+    if (!target) return;
+    focusAfterRender.current = null;
+    const rows = rowElements();
+    const match = rows.find((row) => row.dataset.rowKey === target.rowKey);
+    const fallback =
+      target.index === undefined
+        ? undefined
+        : rows[Math.min(target.index, rows.length - 1)];
+    focusRow(match ?? fallback, target.mode);
+  });
+
+  // Pressing j/k (or ?) with nothing focused starts keyboard navigation.
+  useEffect(() => {
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.target !== document.body || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.key === "?") {
+        e.preventDefault();
+        setHelpOpen(true);
+      } else if (e.key === "j" || e.key === "k") {
+        e.preventDefault();
+        focusRow(rowElements()[0], "row");
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
+
+  const perform = (action: KeyAction, row: HTMLElement) => {
+    const rows = rowElements();
+    const index = rows.indexOf(row);
+    const kind = row.dataset.rowKind;
+    const groupIndex = Number(row.dataset.groupIndex);
+    const group = Number.isNaN(groupIndex) ? undefined : groupNames[groupIndex];
+    const itemIndex = Number(row.dataset.itemIndex);
+    const item = kind === "item" && group !== undefined ? menu[group][itemIndex] : undefined;
+    const isHeader = (r: HTMLElement) =>
+      r.dataset.rowKind === "group" || r.dataset.rowKind === "new-group";
+    const byKey = (key: string) => rows.find((r) => r.dataset.rowKey === key);
+
+    switch (action.type) {
+      case "next":
+        return focusRow(rows[index + 1], "row");
+      case "prev":
+        return focusRow(rows[index - 1], "row");
+      case "first":
+        return focusRow(rows[0], "row");
+      case "last":
+        return focusRow(rows[rows.length - 1], "row");
+      case "next-group":
+        return focusRow(rows.slice(index + 1).find(isHeader), "row");
+      case "prev-group":
+        return focusRow(rows.slice(0, index).reverse().find(isHeader), "row");
+      case "edit":
+        return focusRow(row, "input");
+      case "stop-editing":
+        return focusRow(row, "row");
+      case "next-row-input":
+        return focusRow(rows[index + 1], "input");
+      case "prev-row-input":
+        return focusRow(rows[index - 1], "input");
+      case "set-preference":
+        if (item && group !== undefined) {
+          onChange({ kind: "item", group, itemIndex, value: { value: action.value } });
+        }
+        return;
+      case "cycle-preference":
+        if (item && group !== undefined) {
+          const n = PREFERENCE_CYCLE.length;
+          const at = PREFERENCE_CYCLE.indexOf(item.value);
+          const value = PREFERENCE_CYCLE[(at + action.direction + n) % n];
+          onChange({ kind: "item", group, itemIndex, value: { value } });
+        }
+        return;
+      case "new-item":
+        if (group === undefined) return focusRow(row, "input");
+        return focusRow(byKey(pendingItemIdFor(group)), "input");
+      case "new-group":
+        return focusRow(byKey("new-group"), "input");
+      case "move":
+        if (item && group !== undefined) {
+          focusAfterRender.current = { rowKey: row.dataset.rowKey!, mode: "row" };
+          onChange({ kind: "move-item", group, itemIndex, offset: action.offset });
+        } else if (kind === "group" && group !== undefined) {
+          const to = groupIndex + action.offset;
+          if (to >= 0 && to < groupNames.length) {
+            focusAfterRender.current = { rowKey: `group-${to}`, mode: "row" };
+            onChange({ kind: "move-group", group, offset: action.offset });
+          }
+        }
+        return;
+      case "delete":
+        if (item && group !== undefined) {
+          const neighbour = rows[index + 1] ?? rows[index - 1];
+          if (neighbour) {
+            focusAfterRender.current = { rowKey: neighbour.dataset.rowKey!, mode: "row" };
+          }
+          onChange({ kind: "item", group, itemIndex });
+        } else if (kind === "group" && group !== undefined) {
+          focusAfterRender.current = {
+            rowKey: groupIndex < groupNames.length - 1 ? `group-${groupIndex}` : "new-group",
+            mode: "row",
+          };
+          onChange({ kind: "group", oldGroup: group });
+        }
+        return;
+      case "undo":
+      case "redo":
+        focusAfterRender.current = { rowKey: row.dataset.rowKey!, mode: "row", index };
+        return action.type === "undo" ? onUndo?.() : onRedo?.();
+      case "help":
+        return setHelpOpen(true);
+    }
+  };
+
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (helpOpen || e.nativeEvent.isComposing) return;
+    const target = e.target as HTMLElement;
+    const row = target.closest<HTMLElement>("[data-row-key]");
+    if (!row) return;
+    if (target.tagName === "SELECT" || target.tagName === "BUTTON") {
+      // Let the picker and buttons handle their own keys; Esc returns to the row.
+      if (e.key === "Escape") {
+        e.preventDefault();
+        focusRow(row, "row");
+      }
+      return;
+    }
+    const mode = target === row ? "row" : "input";
+    const now = Date.now();
+    const pending =
+      sequence.current && now - sequence.current.at < SEQUENCE_TIMEOUT_MS
+        ? sequence.current.key
+        : null;
+    const { action, pending: nextPending } = resolveKey(e, mode, pending);
+    sequence.current = nextPending ? { key: nextPending, at: now } : null;
+    if (nextPending) e.preventDefault();
+    if (!action) return;
+    e.preventDefault();
+    perform(action, row);
+  };
   return (
     <>
+      <h1 className="sr-only">Edit menu</h1>
       <div className="menu-title-container">
         <MenuTitle
           value={title}
           placeholder="Menu title"
           onChange={(e) => onChangeTitle(e.target.value)}
         />
+        <SaveIndicator status={saveStatus} />
+        {onUndo && (
+          <button type="button" className="menu-undo" onClick={onUndo} title="Undo (u / Ctrl+Z)">
+            Undo
+          </button>
+        )}
+        {onRedo && (
+          <button type="button" className="menu-redo" onClick={onRedo} title="Redo (Ctrl+Y)">
+            Redo
+          </button>
+        )}
+        <button
+          type="button"
+          className="keyboard-help-button"
+          onClick={() => setHelpOpen(true)}
+          aria-keyshortcuts="?"
+        >
+          Keys <kbd>?</kbd>
+        </button>
         <Link
           to={`/compare?encoded=${encodeURIComponent(menuEncoded)}`}
-          className="menu-compare"
+          className="button menu-compare"
         >
           Compare
         </Link>
       </div>
-      <ShareSection
-        menuEncoded={menuEncoded}
-        menuUrl={`${window.location.protocol}//${window.location.host}/menu?encoded=${encodeURIComponent(menuEncoded)}`}
-        templateEncoded={templateEncoded}
-        templateUrl={`${window.location.protocol}//${window.location.host}/menu?encoded=${encodeURIComponent(templateEncoded)}`}
-      />
-      <div className="menu-page">
+      {notice && (
+        <div className="menu-notice" role="status">
+          <span>{notice}</span>
+          {onDismissNotice && (
+            <button type="button" onClick={onDismissNotice} aria-label="Dismiss notice">
+              ✕
+            </button>
+          )}
+        </div>
+      )}
+
+      {helpOpen && <KeyboardHelp onClose={() => setHelpOpen(false)} />}
+      {groupNames.length === 0 && (
+        <div className="menu-empty">
+          <p>
+            Type a group name below to start (for example "Commitment"), or load a
+            ready-made list of common topics and edit it to fit.
+          </p>
+          <Link className="button" to={starterMenuPath()}>
+            Load the starter menu
+          </Link>
+        </div>
+      )}
+      <div className="menu-page" ref={pageRef} onKeyDown={onKeyDown}>
         {/*
           The trailing "new group" and "new item" rows are rendered in the same keyed
           lists as the existing rows. When one of them receives text it becomes a real
@@ -158,6 +406,11 @@ export const MenuPage = ({
             return (
               <MenuGroup
                 key={groupIndex}
+                headerProps={{
+                  tabIndex: -1,
+                  "data-row-key": "new-group",
+                  "data-row-kind": "new-group",
+                }}
                 title={
                   <GroupTitle
                     id={inputId}
@@ -185,6 +438,12 @@ export const MenuPage = ({
           return (
             <MenuGroup
               key={groupIndex}
+              headerProps={{
+                tabIndex: -1,
+                "data-row-key": `group-${groupIndex}`,
+                "data-row-kind": "group",
+                "data-group-index": groupIndex,
+              }}
               title={
                 <GroupTitle
                   id={inputId}
@@ -202,6 +461,13 @@ export const MenuPage = ({
                 <Fragment key={key}>
                   {item === null && <div className="menu-divider" />}
                   <MenuItem
+                    rowProps={{
+                      tabIndex: -1,
+                      "data-row-key": key,
+                      "data-row-kind": item ? "item" : "new-item",
+                      "data-group-index": groupIndex,
+                      "data-item-index": itemIndex,
+                    }}
                     id={item ? `menu-item-input-${groupIndex}-${key}` : undefined}
                     item={item ? item.item : ""}
                     value={item ? item.value : undefined}
@@ -231,6 +497,13 @@ export const MenuPage = ({
           );
         })}
       </div>
+      <h2 className="menu-share-heading">Share your menu</h2>
+      <ShareSection
+        menuEncoded={menuEncoded}
+        menuUrl={`${window.location.protocol}//${window.location.host}/menu?encoded=${encodeURIComponent(menuEncoded)}`}
+        templateEncoded={templateEncoded}
+        templateUrl={`${window.location.protocol}//${window.location.host}/menu?encoded=${encodeURIComponent(templateEncoded)}`}
+      />
     </>
   );
 };

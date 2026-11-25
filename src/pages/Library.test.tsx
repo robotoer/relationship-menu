@@ -77,7 +77,27 @@ describe("LibraryPage", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "Delete My First Menu" })
     );
+    // Deleting asks for confirmation first.
+    expect(onDelete).not.toHaveBeenCalled();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Yes, delete My First Menu" })
+    );
     expect(onDelete).toHaveBeenCalledWith("My First Menu");
+  });
+
+  it("should not delete when the confirmation is declined", () => {
+    const onDelete = jest.fn();
+    render(
+      <MemoryRouter>
+        <LibraryPage menus={menus} onDelete={onDelete} />
+      </MemoryRouter>
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Delete My First Menu" }));
+    fireEvent.click(screen.getByRole("button", { name: "Keep it" }));
+    expect(onDelete).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("button", { name: "Delete My First Menu" })
+    ).toBeInTheDocument();
   });
 
   it("should render avatars for each menu", () => {

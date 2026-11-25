@@ -180,3 +180,53 @@ describe("LocalStorage", () => {
     });
   });
 });
+
+describe("localStorage menu entries", () => {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const s = require("./storage");
+
+  beforeEach(() => localStorage.clear());
+
+  it("latestByTitle keeps the most recently saved version of each menu", () => {
+    localStorage.setItem("menu:cidOld", JSON.stringify({ title: "A", encoded: "old", savedAt: 1 }));
+    localStorage.setItem("menu:cidNew", JSON.stringify({ title: "A", encoded: "new", savedAt: 2 }));
+    localStorage.setItem("menu:B", "raw-b");
+    const latest = s.latestByTitle(s.readLocalMenuEntries());
+    expect(latest.A.doc.encoded).toBe("new");
+    expect(latest.B.doc).toEqual({ title: "B", encoded: "raw-b" });
+  });
+
+  it("saving locally removes other copies of the same menu", async () => {
+    localStorage.setItem("menu:cid1", JSON.stringify({ title: "A", encoded: "old" }));
+    await s.createLocalStorage().saveDocuments({ title: "A", encoded: "new" });
+    expect(localStorage.getItem("menu:cid1")).toBeNull();
+    expect(await s.createLocalStorage().getDocuments()).toEqual({
+      A: { title: "A", encoded: "new" },
+    });
+  });
+
+  it("removeLocalMenuEntries keeps the excepted key and other titles", () => {
+    localStorage.setItem("menu:x", JSON.stringify({ title: "A", encoded: "1" }));
+    localStorage.setItem("menu:y", JSON.stringify({ title: "A", encoded: "2" }));
+    localStorage.setItem("menu:z", JSON.stringify({ title: "B", encoded: "3" }));
+    localStorage.setItem("other", "untouched");
+    s.removeLocalMenuEntries("A", "menu:y");
+    expect(localStorage.getItem("menu:x")).toBeNull();
+    expect(localStorage.getItem("menu:y")).not.toBeNull();
+    expect(localStorage.getItem("menu:z")).not.toBeNull();
+    expect(localStorage.getItem("other")).toBe("untouched");
+  });
+});
+
+describe("menus with titles that match built-in object properties", () => {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const s = require("./storage");
+  beforeEach(() => localStorage.clear());
+
+  it("lists menus titled constructor or toString", async () => {
+    localStorage.setItem("menu:c1", JSON.stringify({ title: "constructor", encoded: "e1", savedAt: 1 }));
+    localStorage.setItem("menu:c2", JSON.stringify({ title: "toString", encoded: "e2", savedAt: 1 }));
+    const docs = await s.createLocalStorage().getDocuments();
+    expect(Object.keys(docs).sort()).toEqual(["constructor", "toString"]);
+  });
+});

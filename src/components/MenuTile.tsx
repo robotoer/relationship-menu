@@ -23,7 +23,7 @@ export const MenuTile = ({
 }) => {
   return (
     <div className="menu-tile">
-      <h2>{title}</h2>
+      <h2 className={title ? undefined : "untitled"}>{title || "Untitled menu"}</h2>
       {image}
       <Link to={link}>View</Link>
     </div>

@@ -2345,6 +2345,20 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@fontsource/press-start-2p@npm:^5":
+  version: 5.3.0
+  resolution: "@fontsource/press-start-2p@npm:5.3.0"
+  checksum: 10c0/019fae05e17f07e7eb67d03c28a939b756f00cc9dfe74ee395c70c1c3840802a72f698be056fd7a1aa0c3ce9f4cd70ecf07a211c2c8fb546acb9098c0c3cd3dd
+  languageName: node
+  linkType: hard
+
+"@fontsource/vt323@npm:^5":
+  version: 5.3.0
+  resolution: "@fontsource/vt323@npm:5.3.0"
+  checksum: 10c0/da077218f7ffd513295fc641ed10f61325578596753ee21c2a50f868a6e5198aaebf8b8b49309c6703d805e8d267fc222786fc36ee224b7f91748eba6d3a0193
+  languageName: node
+  linkType: hard
+
 "@helia/bitswap@npm:^1.1.4":
   version: 1.1.4
   resolution: "@helia/bitswap@npm:1.1.4"
@@ -16945,6 +16959,8 @@ __metadata:
     "@chainsafe/libp2p-noise": "npm:^17.0.0"
     "@chainsafe/libp2p-yamux": "npm:^8.0.1"
     "@chromatic-com/storybook": "npm:^1.9.0"
+    "@fontsource/press-start-2p": "npm:^5"
+    "@fontsource/vt323": "npm:^5"
     "@helia/json": "npm:^3.0.6"
     "@helia/unixfs": "npm:^5.1.0"
     "@libp2p/bootstrap": "npm:^11.0.47"

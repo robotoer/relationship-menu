@@ -63,7 +63,7 @@ async function navigateToLibrary(page: Page) {
         .locator('a:has-text("Library")')
         .click();
     } else {
-      await page.goto("/");
+      await page.goto("/library");
     }
   } else {
     await page.click('nav a:has-text("Library")');
@@ -157,13 +157,13 @@ test.describe("Library Feature", () => {
       const page = await context.newPage();
 
       try {
-        await page.goto("/");
+        await page.goto("/library");
         await expect(page.locator(".library")).toBeVisible({ timeout: 30000 });
         await page.waitForTimeout(1000);
 
         await expect(page.locator(".create-menu")).toBeVisible();
         await expect(
-          page.locator('.create-menu button:has-text("Create New Menu")')
+          page.locator('.create-menu a:has-text("Create New Menu")')
         ).toBeVisible();
 
         const tileCount = await page.locator(".menu-tile").count();
@@ -264,7 +264,7 @@ test.describe("Library Feature", () => {
       const page = await context.newPage();
 
       try {
-        await page.goto("/");
+        await page.goto("/library");
         await expect(page.locator(".create-menu")).toBeVisible({
           timeout: 30000,
         });
@@ -365,9 +365,9 @@ test.describe("Library Feature", () => {
           .filter({ hasText: "Persist Test" });
         await expect(tile).toBeVisible({ timeout: 10000 });
 
-        // Navigate away to About page
-        await page.click('nav a:has-text("About")');
-        await page.waitForURL("**/about**");
+        // Navigate away to the Compare page
+        await page.click('nav a:has-text("Compare")');
+        await page.waitForURL("**/compare**");
         await page.waitForTimeout(1000);
 
         // Navigate back to Library
@@ -768,13 +768,13 @@ test.describe("Library Feature", () => {
       const page = await context.newPage();
 
       try {
-        await page.goto("/");
+        await page.goto("/library");
         await expect(page.locator(".library")).toBeVisible({ timeout: 30000 });
         await page.waitForTimeout(1000);
 
         await expect(page.locator(".create-menu")).toBeVisible();
         await expect(
-          page.locator('.create-menu button:has-text("Create New Menu")')
+          page.locator('.create-menu a:has-text("Create New Menu")')
         ).toBeVisible();
 
         const tileCount = await page.locator(".menu-tile").count();

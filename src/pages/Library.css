@@ -1,55 +1,66 @@
-/* A grid of saved relationship menu tiles. */
+.library-page {
+  padding: 0 1rem;
+}
+
+.library-header {
+  margin-bottom: 1.25rem;
+}
+
 .library {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  grid-gap: 1rem;
-  padding: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1.5rem;
 }
 
 .menu-tile-wrapper {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  gap: 0.5rem;
 }
 
 .delete-menu-button {
-  min-height: 44px;
-  margin-top: 0.5rem;
-  padding: 0.25rem 1rem;
-  background-color: white;
-  color: #d32f2f;
-  border: 1px solid #d32f2f;
-  border-radius: 5px;
-  font-size: 0.9rem;
-  cursor: pointer;
+  align-self: center;
+  color: var(--c-red);
+  background: var(--c-white);
+}
+.delete-menu-button:hover {
+  color: var(--c-white);
+  background: var(--c-red);
 }
 
-.delete-menu-button:hover {
-  background-color: #d32f2f;
-  color: white;
+.delete-menu-confirm {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  color: var(--c-yellow);
+}
+.delete-menu-confirm .delete-menu-button {
+  color: var(--c-white);
+  background: var(--c-red);
 }
 
 .create-menu {
   display: flex;
+  flex-direction: column;
   justify-content: center;
   align-items: center;
-  height: 100%;
-  width: 100%;
-  border: 2px dashed #ccc;
-  border-radius: 5px;
-  cursor: pointer;
+  gap: 0.75rem;
+  min-height: 220px;
+  padding: 1rem;
+  border: var(--px) dashed var(--c-slate);
+  text-align: center;
 }
 
-.create-menu button {
-  background-color: white;
-  border: 0px solid #ccc;
-  border-radius: 5px;
-  padding: 0.5rem 1rem;
-  font-size: 1rem;
-  cursor: pointer;
+.create-menu-starter {
+  font-size: 1.1rem;
 }
 
 @media (max-width: 640px) {
+  .library-page {
+    padding: 0 0.75rem;
+  }
   .library {
     grid-template-columns: 1fr;
   }

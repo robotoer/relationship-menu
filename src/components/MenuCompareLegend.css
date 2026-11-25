@@ -1,51 +1,59 @@
 .menu-compare-legend {
   display: flex;
   flex-direction: row;
-  align-items: center;
-  width: 100%;
-  padding: 1rem;
-  background-color: #fff;
-  margin: 0.5rem;
-  margin-bottom: 0;
-  padding-bottom: 0;
+  align-items: flex-end;
   gap: 0.5rem;
-  transition: transform 0.2s;
-  margin-top: 0.5rem;
+  width: 100%;
+  padding: 0.25rem 0.5rem 0.5rem;
+  border-bottom: var(--px) solid var(--c-ink);
 }
 
-/* Should rotate text to 90 degrees and justify text to bottom */
+/* Column names, read bottom-to-top, one per 32px column. */
+.legend-title-outer {
+  flex: none;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  width: 32px;
+  max-height: 6rem;
+}
+
 .legend-title {
-  transform: rotate(90deg);
-  width: 100%;
-  text-align: right;
-  justify-content: bottom;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-height: 6rem;
+  font-family: var(--font-pixel);
+  font-size: 0.55rem;
+  line-height: 1;
 }
 
 .legend-titles-mobile {
   display: none;
 }
 
-.legend-title-outer {
-  width: 32px;
-  height: 100px;
-}
-
 @media (max-width: 768px) {
-  .legend-titles-mobile {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-    width: 100%;
-    font-size: 0.875rem;
-  }
-
   .legend-title-outer {
     display: none;
   }
-
   .menu-compare-legend {
     flex-direction: column;
-    padding: 0.5rem;
+    align-items: flex-start;
+  }
+  .legend-titles-mobile {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 1rem;
+    font-size: 1rem;
+    counter-reset: column;
+  }
+  .legend-titles-mobile span {
+    counter-increment: column;
+  }
+  .legend-titles-mobile span::before {
+    content: counter(column) ". ";
+    color: var(--c-slate);
   }
 }

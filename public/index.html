@@ -32,7 +32,13 @@
       function gtag(){dataLayer.push(arguments);}
       gtag('js', new Date());
     
-      gtag('config', 'G-JGP1J62LL4');
+      // Menus live in the URL's query string (?encoded=...), answers included, so
+      // never report full URLs: no automatic page view, and only the path is sent.
+      gtag('config', 'G-JGP1J62LL4', {
+        send_page_view: false,
+        page_location: location.origin + location.pathname,
+        page_referrer: document.referrer ? document.referrer.split(/[?#]/)[0] : undefined,
+      });
     </script>
   </head>
   <body>

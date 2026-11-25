@@ -1,48 +1,28 @@
-/* Horizontal flexbox with gaps between children */
 .compare-section {
   display: flex;
-  gap: 1rem;
-  overflow-x: auto;
-  padding: 1rem;
+  flex-wrap: wrap;
   align-items: flex-end;
+  gap: 1rem;
+  padding: 1rem;
+  color: var(--c-ink);
+  background: var(--c-white);
+  border: var(--line);
+  box-shadow: var(--drop);
 }
 
 .compare-button {
-  padding: 0.5rem 2rem;
-  font-size: 1rem;
-  font-weight: bold;
-  background-color: #007bff;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  white-space: nowrap;
-  height: fit-content;
+  flex: none;
 }
-
-.compare-button:hover:not(:disabled) {
-  background-color: #0056b3;
-}
-
-.compare-button:disabled {
-  background-color: #ccc;
-  cursor: not-allowed;
-}
-
-/* Media query to make the flexbox wrap */
-@media (max-width: 768px) {
-  .compare-section {
-    flex-wrap: wrap;
-  }
+.compare-button:not(:disabled) {
+  background: var(--c-yellow);
+  box-shadow: inset calc(-1 * var(--px)) calc(-1 * var(--px)) 0 0 var(--c-orange);
 }
 
 @media (max-width: 640px) {
   .compare-section {
     flex-direction: column;
-    padding: 0.5rem;
     align-items: stretch;
   }
-
   .compare-button {
     width: 100%;
   }

@@ -1,9 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
-import { Routes, Route, useLocation, useSearchParams } from "react-router-dom";
+import {
+  Navigate,
+  Routes,
+  Route,
+  useLocation,
+  useNavigationType,
+  useSearchParams,
+} from "react-router-dom";
 import { Navbar } from "./components/Navbar";
 import { LibraryPage } from "./pages/Library";
-import { AboutPage } from "./pages/About";
+import { LandingPage } from "./pages/Landing";
 import { ComparePage } from "./pages/Compare";
 import {
   RelationshipMenu,
@@ -13,7 +20,8 @@ import { decodeData, encodeData } from "./data-encoder";
 import { MenuComparison } from "./model/compare";
 import { useStorage } from "./providers/Storage";
 import { compareMenus } from "./data-comparer";
-import { applyMenuChange } from "./menu-editing";
+import { MenuChange, applyMenuChange } from "./menu-editing";
+import { useAutosave } from "./autosave";
 import {
   DecodedCompareSlug,
   decodeCompareSlug,
@@ -63,6 +71,26 @@ const WrappedLibraryPage = () => {
   return <LibraryPage menus={documents} onDelete={deleteDocument} />;
 };
 
+/** Whether a stored encoded menu has the same groups, items and answers as `menu`. */
+const sameMenu = (encoded: string, menu: RelationshipMenu): boolean => {
+  try {
+    return (
+      JSON.stringify(stripMenuIds(decodeData(encoded))) ===
+      JSON.stringify(stripMenuIds(menu))
+    );
+  } catch {
+    return false;
+  }
+};
+
+/** "Title (2)", "Title (3)", ... — the first that isn't already a saved menu's title. */
+const uniqueTitle = (title: string, saved: { [title: string]: unknown }) => {
+  for (let n = 2; ; n++) {
+    const candidate = `${title || "Untitled"} (${n})`;
+    if (!Object.prototype.hasOwnProperty.call(saved, candidate)) return candidate;
+  }
+};
+
 /**
  * A wrapped version of the MenuPage component that handles state management and data encoding/decoding.
  * It uses react-router-dom to get path parameters and syncs the encoded data with the menu state.
@@ -70,90 +98,186 @@ const WrappedLibraryPage = () => {
  * @returns The wrapped MenuPage component.
  */
 const WrappedMenuPage = () => {
-  const { storage } = useStorage();
+  const { storage, documents } = useStorage();
   const [title, setTitle] = useState("");
-  const [menu, setMenu] = useState<RelationshipMenu>({});
+  const [menu, setMenuState] = useState<RelationshipMenu>({});
+  // Latest menu, updated synchronously so rapid edits always build on each other.
+  const menuRef = useRef<RelationshipMenu>({});
+  const undoStack = useRef<RelationshipMenu[]>([]);
+  const redoStack = useRef<RelationshipMenu[]>([]);
+  // The text field last edited, so a run of keystrokes in one field is one undo step.
+  const lastTextEdit = useRef<string | null>(null);
+  /** Replaces the menu (e.g. when loading) without recording an undo step. */
+  const setMenu = (next: RelationshipMenu) => {
+    menuRef.current = next;
+    undoStack.current = [];
+    redoStack.current = [];
+    lastTextEdit.current = null;
+    setMenuState(next);
+  };
+  const editMenu = (change: MenuChange) => {
+    const prev = menuRef.current;
+    const next = applyMenuChange(prev, change, generateItemId);
+    if (next === prev) return;
+    const textEdit =
+      change.kind === "item" && change.value && "item" in change.value
+        ? `item:${change.group}:${change.itemIndex}`
+        : change.kind === "group" && change.oldGroup !== undefined && change.newGroup !== undefined
+        ? `group:${Object.keys(prev).indexOf(change.oldGroup)}`
+        : null;
+    if (!textEdit || textEdit !== lastTextEdit.current) {
+      undoStack.current = [...undoStack.current.slice(-99), prev];
+    }
+    lastTextEdit.current = textEdit;
+    redoStack.current = [];
+    menuRef.current = next;
+    setMenuState(next);
+  };
+  const undo = () => {
+    const prev = undoStack.current.pop();
+    if (!prev) return;
+    redoStack.current.push(menuRef.current);
+    lastTextEdit.current = null;
+    menuRef.current = prev;
+    setMenuState(prev);
+  };
+  const redo = () => {
+    const next = redoStack.current.pop();
+    if (!next) return;
+    undoStack.current.push(menuRef.current);
+    lastTextEdit.current = null;
+    menuRef.current = next;
+    setMenuState(next);
+  };
   const loadedFromUrl = useRef(false);
+  // The title this editor's menu is saved under (set when a menu is loaded or first
+  // saved). Renaming saves under the new title and removes this entry.
+  const ownedTitle = useRef<string | null>(null);
   // Get path paremeters from react-router-dom:
   const [params, setParams] = useSearchParams();
 
-  // Memoize encodedRaw to use as stable dependency
-  const encodedRaw = useMemo(() => params.get("encoded"), [params]);
+  // The link this page was opened with. Captured once: the URL is rewritten as the
+  // menu is edited, and must not be read back as a new menu to load.
+  const initialEncoded = useRef(params.get("encoded"));
+  // False until the opened link (if any) has been loaded.
+  const [loaded, setLoaded] = useState(!initialEncoded.current);
+  const [notice, setNotice] = useState<string | null>(null);
 
-  // Decode menu data from the URL encoded parameter on initial load.
-  // Supports two formats:
+  // Latest title, for the async loader (its effect only re-runs when storage changes).
+  const titleRef = useRef(title);
+  titleRef.current = title;
+  // Set when an ID link couldn't be resolved yet (IPFS storage may still be starting).
+  const loadFailed = useRef(false);
+
+  // Load the menu from the link. Two formats:
   // 1. "titleEncoded:menuEncoded" — self-contained link (all data in URL)
-  // 2. A document ID (CID or title) — looked up from storage
+  // 2. A document ID (CID or title) — looked up from storage, retried when storage
+  //    changes (IPFS starts asynchronously)
+  // The "loaded" guard is only set once the menu has actually been applied, so a load
+  // cancelled by a storage change (or React StrictMode) is retried rather than lost.
   useEffect(() => {
-    if (!encodedRaw || loadedFromUrl.current) {
-      return;
-    }
-    // The encoded format is "titleEncoded:menuEncoded" where both parts are
-    // pako-compressed base64 strings. Base64 uses [A-Za-z0-9+/=] so ":"
-    // is a safe delimiter.
-    const colonIndex = encodedRaw.indexOf(":");
-    if (colonIndex !== -1) {
-      // Format 1: self-contained "titleEncoded:menuEncoded"
-      try {
-        const titlePart = encodedRaw.slice(0, colonIndex);
-        const menuPart = encodedRaw.slice(colonIndex + 1);
-        const decodedTitle = decodeData(titlePart);
-        const decodedMenu = decodeData(menuPart);
-        if (decodedTitle !== undefined && decodedTitle !== null) {
-          setTitle(decodedTitle);
-        }
-        if (decodedMenu && typeof decodedMenu === "object") {
-          setMenu(ensureItemIds(decodedMenu));
-        }
-        loadedFromUrl.current = true;
-      } catch (e) {
-        console.error("Failed to decode menu from URL:", e);
-      }
-    } else {
-      // Format 2: document ID lookup (CID or title)
-      (async () => {
-        try {
-          const docs = await storage.getDocuments(encodedRaw);
-          const doc = docs[encodedRaw];
-          if (doc) {
-            setTitle(doc.title);
-            const decodedMenu = decodeData(doc.encoded);
-            if (decodedMenu && typeof decodedMenu === "object") {
-              setMenu(ensureItemIds(decodedMenu));
-            }
-            loadedFromUrl.current = true;
-          } else {
-            console.warn(`Document not found for ID: ${encodedRaw}`);
-          }
-        } catch (e) {
-          console.error("Failed to fetch document by ID:", e);
-        }
-      })();
-    }
-  }, [encodedRaw, storage]);
-  // Save the menu to the browser local storage:
-  useEffect(() => {
+    const raw = initialEncoded.current;
+    if (!raw || loadedFromUrl.current) return;
+    let cancelled = false;
     (async () => {
-      // Don't save empty menus:
-      if (Object.keys(menu).length === 0) {
+      let opened: { title: string; menu: RelationshipMenu } | null = null;
+      let notFound = false;
+      try {
+        if (raw.includes(":")) {
+          opened = decodeCompareSlug(raw);
+        } else {
+          const doc = (await storage.getDocuments(raw))[raw];
+          notFound = !doc;
+          opened = doc
+            ? decodeCompareSlug(`${encodeData(doc.title)}:${doc.encoded}`)
+            : null;
+        }
+      } catch (e) {
+        console.error("Failed to open menu link:", e);
+      }
+      if (cancelled) return;
+      if (!opened) {
+        setNotice(
+          notFound
+            ? "This menu wasn't found in this browser. If it was shared with you, ask for the full link."
+            : "This link couldn't be opened. It may have been cut off when it was copied; ask for it again."
+        );
+        setLoaded(true);
+        // An ID might still resolve once IPFS storage is ready; a broken link won't.
+        if (notFound) loadFailed.current = true;
+        else loadedFromUrl.current = true;
         return;
       }
-
-      const value = encodeData(stripMenuIds(menu));
-      await storage.saveDocuments({
-        title,
-        encoded: value,
-      });
+      // A late retry must not replace something the user has started in the meantime.
+      if (
+        loadFailed.current &&
+        (Object.keys(menuRef.current).length > 0 || titleRef.current !== "")
+      ) {
+        loadedFromUrl.current = true;
+        return;
+      }
+      // Opening a link must never replace a different menu you already saved under
+      // the same title (e.g. your partner's menu, or a template of your own menu):
+      // open it as a copy with a free title instead.
+      const saved = await storage.getDocuments();
+      if (cancelled) return;
+      loadedFromUrl.current = true;
+      const existing = Object.prototype.hasOwnProperty.call(saved, opened.title)
+        ? saved[opened.title]
+        : undefined;
+      let openedTitle = opened.title;
+      if (existing && !sameMenu(existing.encoded, opened.menu)) {
+        openedTitle = uniqueTitle(opened.title, saved);
+        setNotice(
+          `You already have a menu called "${opened.title}", so this link was opened as "${openedTitle}". Rename it any time.`
+        );
+        ownedTitle.current = null;
+      } else {
+        setNotice(null);
+        ownedTitle.current = opened.title;
+      }
+      setTitle(openedTitle);
+      setMenu(ensureItemIds(opened.menu));
+      setLoaded(true);
     })();
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [menu]); // We are purpusely not saving when the title changes to avoid creating a new document unnecessarily.
-  // Update query parameters as menu or title changes:
+  }, [storage]);
+  // Save the menu (and its title) to storage, debounced, one save at a time.
+  const titleTaken =
+    title !== ownedTitle.current &&
+    Object.prototype.hasOwnProperty.call(documents, title);
+  const docToSave = useMemo(
+    () =>
+      !loaded || titleTaken || (title === "" && Object.keys(menu).length === 0)
+        ? null
+        : { title, encoded: encodeData(stripMenuIds(menu)) },
+    [title, menu, titleTaken, loaded]
+  );
+  const saveState = useAutosave(docToSave, async (doc) => {
+    // The storage provider reports failures by returning no IDs; treat that as an
+    // error so a failed rename never goes on to delete the menu's old entry.
+    const ids = await storage.saveDocuments(doc);
+    if (ids.length === 0) throw new Error("Saving the menu failed");
+    const previous = ownedTitle.current;
+    ownedTitle.current = doc.title;
+    if (previous !== null && previous !== doc.title) {
+      await storage.deleteDocument(previous);
+    }
+  });
+
+  // Keep the URL in sync with the menu so it can be bookmarked or reloaded. Replace
+  // the history entry rather than pushing one per edit, so Back leaves the editor.
   useEffect(() => {
-    const strippedMenu = stripMenuIds(menu);
-    const menuEncoded = encodeData(strippedMenu);
-    const menuTitleEncoded = encodeData(title);
-    setParams({ encoded: `${menuTitleEncoded}:${menuEncoded}` });
-  }, [menu, title, setParams]);
+    if (!loaded) return;
+    const encoded = `${encodeData(title)}:${encodeData(stripMenuIds(menu))}`;
+    if (params.get("encoded") !== encoded) {
+      setParams({ encoded }, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [menu, title, loaded]);
 
   const menuEncoded = useMemo(
     () => `${encodeData(title)}:${encodeData(stripMenuIds(menu))}`,
@@ -178,11 +302,13 @@ const WrappedMenuPage = () => {
       menu={menu}
       menuEncoded={menuEncoded}
       templateEncoded={templateEncoded}
-      onChange={(change) =>
-        // Functional update so rapid edits (fast typing) never build on a stale menu.
-        setMenu((prev) => applyMenuChange(prev, change, generateItemId))
-      }
+      onChange={editMenu}
+      onUndo={undo}
+      onRedo={redo}
       onChangeTitle={setTitle}
+      saveStatus={titleTaken ? "title-taken" : saveState}
+      notice={notice}
+      onDismissNotice={() => setNotice(null)}
     />
   );
 };
@@ -190,6 +316,26 @@ const WrappedMenuPage = () => {
 /** Whether a list of compare entries contains at least two valid menus. */
 const opensCompared = (entries: string[]) =>
   entries.filter((entry) => decodeCompareSlug(entry) !== null).length >= 2;
+
+/** Landing page with the number of saved menus (for a "My menus" shortcut). */
+const WrappedLandingPage = () => {
+  const { documents } = useStorage();
+  return <LandingPage savedCount={Object.keys(documents).length} />;
+};
+
+/**
+ * The menu editor route. Opening /menu by a link, the navbar or Back/Forward starts a
+ * fresh editor for that URL; the editor's own URL updates (history replaces) don't.
+ */
+const MenuRoute = () => {
+  const location = useLocation();
+  const navigationType = useNavigationType();
+  const editorKey = useRef(location.key);
+  if (navigationType !== "REPLACE") {
+    editorKey.current = location.key;
+  }
+  return <WrappedMenuPage key={editorKey.current} />;
+};
 
 /**
  * A wrapped component for the ComparePage.
@@ -305,35 +451,39 @@ const WrappedComparePage = () => {
  * relationship menu documents.
  */
 export const App = () => {
+  const landingPage = useMemo(() => <WrappedLandingPage />, []);
   const libraryPage = useMemo(() => <WrappedLibraryPage />, []);
-  const menuPage = useMemo(() => <WrappedMenuPage />, []);
+  const menuPage = useMemo(() => <MenuRoute />, []);
   const comparePage = useMemo(() => <WrappedComparePage />, []);
-  const aboutPage = useMemo(() => <AboutPage />, []);
 
   const location = useLocation();
 
   useEffect(() => {
-    // track pageview with gtag / react-ga / react-ga4, for example:
-    window.gtag("event", "page_view", {
-      page_path: location.pathname + location.search,
+    // Report the page path only. The query string holds the menu itself (including
+    // the person's answers) and must never be sent to analytics.
+    window.gtag?.("event", "page_view", {
+      page_path: location.pathname,
+      page_location: window.location.origin + location.pathname,
     });
-  }, [location]);
+  }, [location.pathname]);
 
   return (
     <div className="app">
       <Navbar
         title="Relationship Menu"
         links={[
-          { to: "/", text: "Library" },
+          { to: "/library", text: "Library" },
+          { to: "/menu", text: "New menu" },
           { to: "/compare", text: "Compare" },
-          { to: "/about", text: "About" },
         ]}
       />
       <Routes>
-        <Route path="/" element={libraryPage} />
+        <Route path="/" element={landingPage} />
+        <Route path="/library" element={libraryPage} />
         <Route path="/menu" element={menuPage} />
         <Route path="/compare" element={comparePage} />
-        <Route path="/about" element={aboutPage} />
+        <Route path="/about" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>
   );
