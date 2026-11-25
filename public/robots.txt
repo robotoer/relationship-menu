@@ -1,3 +1,6 @@
 # https://www.robotstxt.org/robotstxt.html
 User-agent: *
 Disallow:
+
+Sitemap: https://relationship-menu.vercel.app/sitemap.xml
+# A plain-text description of this site for AI agents: https://relationship-menu.vercel.app/llms.txt
