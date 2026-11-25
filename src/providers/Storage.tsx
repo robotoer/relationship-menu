@@ -73,7 +73,8 @@ export const StorageProvider: React.FC<{
         try {
           const ids = await awaitedStorage.saveDocuments(...docs);
           setDocuments((prev) => {
-            const next = { ...prev };
+            // No prototype: titles are user text (e.g. "__proto__").
+            const next: typeof prev = Object.assign(Object.create(null), prev);
             for (const doc of docs) {
               next[doc.title] = doc;
             }

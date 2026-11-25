@@ -53,7 +53,9 @@ const slugsFromLink = (value: string): string[] | null => {
   const query = value.slice(queryIndex + 1).split("#")[0];
   const slugs = new URLSearchParams(query)
     .getAll("encoded")
-    .map((slug) => slug.trim())
+    // An unencoded "+" arrives as a space; restore it before trimming (base64 has no
+    // spaces), or a slug ending in "+" would lose its last character.
+    .map((slug) => slug.replace(/ /g, "+").trim())
     .filter(Boolean);
   return slugs.length > 0 ? slugs : null;
 };
@@ -96,7 +98,8 @@ const sanitizeMenu = (menu: unknown): RelationshipMenu | null => {
   if (!menu || typeof menu !== "object" || Array.isArray(menu)) {
     return null;
   }
-  const result: RelationshipMenu = {};
+  // No prototype: group names are user text (e.g. "__proto__").
+  const result: RelationshipMenu = Object.create(null);
   for (const [group, items] of Object.entries(menu)) {
     if (!Array.isArray(items)) {
       return null;
@@ -117,7 +120,11 @@ const sanitizeMenu = (menu: unknown): RelationshipMenu | null => {
  * @returns The decoded title and menu, or null if the entry is not a valid slug.
  */
 export const decodeCompareSlug = (raw: string): DecodedCompareSlug | null => {
-  const parts = normalizeCompareEntry(raw).split(":");
+  // Each part is padded base64 (a multiple of 4 characters). A part 3 characters
+  // over lost a trailing "+" (it arrived as a space and was trimmed): put it back.
+  const parts = normalizeCompareEntry(raw)
+    .split(":")
+    .map((part) => (part.length % 4 === 3 ? `${part}+` : part));
   if (parts.length < 2 || parts.length > 3) {
     return null;
   }

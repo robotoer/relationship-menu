@@ -3,6 +3,15 @@
  */
 
 import { ComparedMenuItem, ComparedMenuItemValue, MenuComparison } from "./model/compare";
+import {
+  Cell,
+  isAgree,
+  isAllWant,
+  isConflict,
+  isDiffer,
+  isMissing,
+  isUnanswered,
+} from "./answer-cells";
 
 export type CompareFilter =
   | "all"
@@ -51,28 +60,23 @@ export const COMPARE_FILTERS: {
   },
 ];
 
-const WANTS: ComparedMenuItemValue[] = ["must-have", "like-to-have"];
+/** A compared value as a verified Cell: null → "absent", undefined → "none". */
+export const toCell = (value: ComparedMenuItemValue): Cell =>
+  value === null ? "absent" : value === undefined ? "none" : value;
 
-/** Every filter an item belongs to (besides "all"). */
+/**
+ * Every filter an item belongs to (besides "all"). The predicates come from
+ * src/answer-cells.ts, whose properties (CP-10, CP-11) are proved with LemmaScript.
+ */
 export const itemCategories = (values: ComparedMenuItemValue[]): Set<CompareFilter> => {
+  const cells = values.map(toCell);
   const categories = new Set<CompareFilter>();
-  const answers = values.filter(
-    (v): v is NonNullable<ComparedMenuItemValue> => v !== null && v !== undefined
-  );
-  const everyoneAnswered = answers.length === values.length && values.length > 0;
-
-  if (values.some((v) => v === null)) categories.add("missing");
-  if (values.some((v) => v === undefined)) categories.add("unanswered");
-
-  const someoneWants = answers.some((v) => WANTS.includes(v));
-  const someoneRefuses = answers.includes("off-limits");
-  if (someoneWants && someoneRefuses) categories.add("conflict");
-
-  if (everyoneAnswered) {
-    if (answers.every((v) => v === answers[0])) categories.add("agree");
-    else if (!someoneRefuses || !someoneWants) categories.add("differ");
-    if (answers.every((v) => WANTS.includes(v))) categories.add("both-want");
-  }
+  if (isMissing(cells)) categories.add("missing");
+  if (isUnanswered(cells)) categories.add("unanswered");
+  if (isConflict(cells)) categories.add("conflict");
+  if (isAgree(cells)) categories.add("agree");
+  if (isDiffer(cells)) categories.add("differ");
+  if (isAllWant(cells)) categories.add("both-want");
   return categories;
 };
 

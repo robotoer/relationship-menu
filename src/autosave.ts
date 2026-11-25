@@ -47,7 +47,7 @@ export const useAutosave = (
     const key = JSON.stringify(next);
     queue.current = queue.current.then(async () => {
       if (key === lastSaved.current) {
-        if (mounted.current) setState("saved");
+        if (mounted.current && !pending.current) setState("saved");
         return;
       }
       if (mounted.current) setState("saving");
@@ -57,6 +57,10 @@ export const useAutosave = (
         if (mounted.current && !pending.current) setState("saved");
       } catch (e) {
         console.error("Failed to save menu:", e);
+        // Part of the save may have happened (e.g. written, but the old title not
+        // removed), so storage no longer matches any known version: don't skip the
+        // next save because it equals an earlier one.
+        lastSaved.current = null;
         if (mounted.current) setState("error");
       }
     });

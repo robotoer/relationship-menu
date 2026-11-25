@@ -61,7 +61,8 @@ export const compareMenus = (menus: RelationshipMenu[]): MenuComparison => {
     });
   });
 
-  const comparison: MenuComparison = {};
+  // No prototype: group names are user text (e.g. "__proto__").
+  const comparison: MenuComparison = Object.create(null);
   groupNames.forEach((name, groupKey) => {
     comparison[name] = Array.from(groupItems.get(groupKey)!.values());
   });

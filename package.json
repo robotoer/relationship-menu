@@ -51,7 +51,8 @@
     "eject": "react-scripts eject",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
-    "chromatic": "env-cmd chromatic"
+    "chromatic": "env-cmd chromatic",
+    "verify": "while read -r f; do [ -n \"$f\" ] && lsc check --backend=dafny \"$f\"; done < LemmaScript-files.txt && dafny verify docs/spec/formal/dafny/MenuEditing.dfy"
   },
   "eslintConfig": {
     "extends": [
@@ -106,6 +107,8 @@
     "chromatic": "^11.29.0",
     "env-cmd": "^10.1.0",
     "eslint-plugin-storybook": "^0.11.6",
+    "fast-check": "^3.23.2",
+    "lemmascript": "0.6.12",
     "playwright": "^1.58.2",
     "prop-types": "^15.8.1",
     "storybook": "^8.6.17",
