@@ -39,4 +39,27 @@ describe("MenuItemCompare", () => {
     const itemDiv = container.querySelector(".menu-item");
     expect(itemDiv).toHaveTextContent("Trust");
   });
+
+  it("should apply 'absent' class when the item is not on a menu (null)", () => {
+    const { container } = render(
+      <MenuItemCompare item="Trust" menuItems={[null, undefined]} />
+    );
+    const indicators = container.querySelectorAll(".menu-item-compare > div");
+    expect(indicators[0]).toHaveClass("absent");
+    expect(indicators[1]).toHaveClass("unknown");
+  });
+
+  it("should label each cell with the menu title and preference", () => {
+    render(
+      <MenuItemCompare
+        item="Trust"
+        menuItems={["maybe", null]}
+        titles={["Alice", "Bob"]}
+      />
+    );
+    expect(screen.getByRole("img", { name: "Alice: Maybe" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("img", { name: "Bob: Not on this menu" })
+    ).toBeInTheDocument();
+  });
 });
