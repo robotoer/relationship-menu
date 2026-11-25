@@ -85,8 +85,19 @@ export const matchesSearch = (menu: RelationshipMenuDocument, query: string): bo
     .join(" ")
     .toLowerCase();
   if (haystack.includes(q)) return true;
+  // Search group names and item text only (not JSON keys or answer values,
+  // which would make "item" or "must" match every menu).
   try {
-    return JSON.stringify(decodeData(menu.encoded)).toLowerCase().includes(q);
+    const decoded = decodeData(menu.encoded);
+    if (!decoded || typeof decoded !== "object") return false;
+    return Object.entries(decoded).some(
+      ([group, items]) =>
+        group.toLowerCase().includes(q) ||
+        (Array.isArray(items) &&
+          items.some(
+            (item) => typeof item?.item === "string" && item.item.toLowerCase().includes(q)
+          ))
+    );
   } catch {
     return false;
   }

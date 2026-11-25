@@ -1,0 +1,56 @@
+# Formal checks for docs/spec (see docs/spec/README.md §11).
+# Property tests (src/__props__) run with the unit tests in ci.yml.
+name: Formal verification
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  dafny:
+    name: Dafny + LemmaScript
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Install dependencies
+        run: yarn install --immutable
+      - name: Install Dafny 4.11
+        run: |
+          curl -sSL -o dafny.zip https://github.com/dafny-lang/dafny/releases/download/v4.11.0/dafny-4.11.0-x64-ubuntu-22.04.zip
+          unzip -q dafny.zip -d "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/dafny" >> "$GITHUB_PATH"
+      - name: Verify TypeScript with LemmaScript (CP-10, CP-11)
+        run: |
+          while read -r file; do
+            [ -n "$file" ] && npx lsc check --backend=dafny "$file"
+          done < LemmaScript-files.txt
+      - name: Verify the menu-editing model (DM-1, ED-1..ED-11)
+        run: dafny verify docs/spec/formal/dafny/MenuEditing.dfy
+
+  tlc:
+    name: TLA+ autosave model
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Download TLC 1.8.0
+        run: curl -sSL -o "$RUNNER_TEMP/tla2tools.jar" https://github.com/tlaplus/tlaplus/releases/download/v1.8.0/tla2tools.jar
+      - name: Model-check autosave (SV-1, SV-2, SV-3, SV-5)
+        working-directory: docs/spec/formal/tla
+        run: |
+          for cfg in Autosave AutosaveDeleteFails AutosaveStatus; do
+            echo "::group::$cfg"
+            java -XX:+UseParallelGC -cp "$RUNNER_TEMP/tla2tools.jar" tlc2.TLC -workers auto -config "$cfg.cfg" Autosave.tla | tee "$RUNNER_TEMP/$cfg.out"
+            echo "::endgroup::"
+            grep -q "No error has been found" "$RUNNER_TEMP/$cfg.out"
+          done

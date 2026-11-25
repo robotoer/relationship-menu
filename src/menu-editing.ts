@@ -51,14 +51,18 @@ export const applyMenuChange = (
   }
 
   if (change.kind === "insert-group") {
-    const existing = Object.prototype.hasOwnProperty.call(menu, change.group)
-      ? menu[change.group]
-      : [];
+    if (!change.group.trim()) return menu;
+    const groupExists = Object.prototype.hasOwnProperty.call(menu, change.group);
+    const existing = groupExists ? menu[change.group] : [];
     const have = new Set(existing.map((item) => item.item.trim().toLowerCase()));
-    const added = change.items
-      .filter((item) => item.trim() && !have.has(item.trim().toLowerCase()))
-      .map((item) => ({ item, id: generateId() }));
-    if (added.length === 0 && existing.length > 0) return menu;
+    const added: RelationshipMenuItem[] = [];
+    for (const item of change.items) {
+      const key = item.trim().toLowerCase();
+      if (!key || have.has(key)) continue;
+      have.add(key); // also skips duplicates within `items` itself
+      added.push({ item, id: generateId() });
+    }
+    if (added.length === 0 && groupExists) return menu;
     const result: RelationshipMenu = Object.create(null);
     const define = (name: string, value: RelationshipMenu[string]) =>
       Object.defineProperty(result, name, {
@@ -79,8 +83,12 @@ export const applyMenuChange = (
     if (from === -1 || to < 0 || to >= names.length || to === from) return menu;
     names.splice(to, 0, names.splice(from, 1)[0]);
     // No prototype: group names are user text (e.g. "__proto__").
-      const result: RelationshipMenu = Object.create(null);
+    const result: RelationshipMenu = Object.create(null);
     for (const name of names) result[name] = menu[name];
+    // JS lists integer-like keys ("0", "12") first, so such a move can't take
+    // effect (spec KL-1); return the same menu rather than an empty undo step.
+    const before = Object.keys(menu);
+    if (Object.keys(result).every((name, i) => name === before[i])) return menu;
     return result;
   }
 
@@ -132,8 +140,9 @@ export const applyMenuChange = (
   }
 
   const { group, itemIndex, value } = change;
-  const items = menu[group];
-  if (!items) return menu;
+  // Own properties only: "constructor" etc. must not resolve to Object.prototype.
+  const items = Object.prototype.hasOwnProperty.call(menu, group) ? menu[group] : undefined;
+  if (!Array.isArray(items)) return menu;
 
   if (value === undefined) {
     if (itemIndex < 0 || itemIndex >= items.length) return menu;
@@ -150,6 +159,9 @@ export const applyMenuChange = (
   }
 
   if (itemIndex >= 0 && itemIndex < items.length) {
+    const current = items[itemIndex];
+    const changes = Object.keys(value) as (keyof RelationshipMenuItem)[];
+    if (changes.every((key) => current[key] === value[key])) return menu; // nothing changes
     return {
       ...menu,
       [group]: items.map((item, index) =>
