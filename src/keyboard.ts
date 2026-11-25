@@ -25,6 +25,8 @@ export type KeyAction =
   | { type: "new-group" }
   | { type: "move"; offset: 1 | -1 }
   | { type: "delete" }
+  | { type: "note" }
+  | { type: "make-group" }
   | { type: "undo" }
   | { type: "redo" }
   | { type: "help" };
@@ -148,6 +150,10 @@ export const resolveKey = (
       return { action: { type: "delete" }, pending: null };
     case "u":
       return { action: { type: "undo" }, pending: null };
+    case "n":
+      return { action: { type: "note" }, pending: null };
+    case "m":
+      return { action: { type: "make-group" }, pending: null };
     case "?":
       return { action: { type: "help" }, pending: null };
     case "g":
@@ -191,6 +197,8 @@ export const SHORTCUTS: { section: string; keys: [string, string][] }[] = [
       ["O", "Add a new group"],
       ["J", "Move row down"],
       ["K", "Move row up"],
+      ["n", "Add or edit this item's note"],
+      ["m", "Make this item into a group"],
       ["dd / x / Delete", "Delete row"],
       ["u / Ctrl+Z", "Undo"],
       ["Ctrl+Y / Ctrl+Shift+Z", "Redo"],

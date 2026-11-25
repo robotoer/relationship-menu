@@ -16,7 +16,10 @@ const cleaned = (menu: RelationshipMenu): RelationshipMenu => {
   const out: RelationshipMenu = Object.create(null);
   for (const [group, items] of Object.entries(menu)) {
     Object.defineProperty(out, group, {
-      value: items.map((i) => ({ item: i.item, value: i.value })),
+      value: items.map((i) => {
+        const note = (i.note ?? "").trim().slice(0, 280);
+        return note ? { item: i.item, value: i.value, note } : { item: i.item, value: i.value };
+      }),
       enumerable: true, writable: true, configurable: true,
     });
   }
@@ -29,7 +32,7 @@ const personArb = fc.record(
 );
 
 describe("link properties", () => {
-  it("LK-1: encode then decode gives back title, menu and cleaned person", () => {
+  it("LK-1/LK-9: encode then decode gives back title, menu (notes trimmed, capped) and cleaned person", () => {
     fc.assert(
       fc.property(textArb, menuArb, fc.option(personArb, { nil: undefined }), (title, menu, person) => {
         const decoded = decodeCompareSlug(encodeMenuSlug(title, menu, person));
@@ -213,14 +216,15 @@ describe("storage and library properties", () => {
     { requiredKeys: ["title", "encoded"] }
   );
 
-  it("LB-2: search matches title, person or item/group text, ignoring case — and nothing else", () => {
+  it("LB-2: search matches title, person, group, item or note text, ignoring case — and nothing else", () => {
     fc.assert(
       fc.property(docArb, textArb, (doc, query) => {
         const q = query.trim().toLowerCase();
         const decoded = decodeData(doc.encoded) as RelationshipMenu;
         const texts = [doc.title, doc.person?.name ?? ""]
           .concat(Object.keys(decoded))
-          .concat(Object.values(decoded).flat().map((i) => i.item));
+          .concat(Object.values(decoded).flat().map((i) => i.item))
+          .concat(Object.values(decoded).flat().map((i) => i.note ?? ""));
         // (Title and person are searched as one string, so a query may span them.)
         const expected = !q || texts.some((t) => t.toLowerCase().includes(q)) ||
           [doc.title, doc.person?.name].filter(Boolean).join(" ").toLowerCase().includes(q);

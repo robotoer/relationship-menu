@@ -17,6 +17,9 @@ import { RelationshipMenu, RelationshipMenuItem } from "./model/menu";
  * - `{ kind: "move-group", group, offset }` moves a group up (-1) or down (+1).
  * - `{ kind: "insert-group", group, items }` adds a ready-made group; if a group with
  *   that name exists, only the items it doesn't already have are appended.
+ * - `{ kind: "item-to-group", group, itemIndex }` turns an item into a new group placed
+ *   right after `group`, holding that item (text, answer and note) as its first entry.
+ *   Ignored if the item's text is blank or a group with that name already exists.
  * - `{ kind: "replace", menu }` replaces the whole menu (e.g. starting from a template).
  */
 export type MenuChange =
@@ -30,6 +33,7 @@ export type MenuChange =
   | { kind: "move-item"; group: string; itemIndex: number; offset: number }
   | { kind: "move-group"; group: string; offset: number }
   | { kind: "insert-group"; group: string; items: string[] }
+  | { kind: "item-to-group"; group: string; itemIndex: number }
   | { kind: "replace"; menu: RelationshipMenu };
 
 /**
@@ -48,6 +52,34 @@ export const applyMenuChange = (
 ): RelationshipMenu => {
   if (change.kind === "replace") {
     return change.menu;
+  }
+
+  if (change.kind === "item-to-group") {
+    const { group, itemIndex } = change;
+    if (!Object.prototype.hasOwnProperty.call(menu, group)) return menu;
+    const items = menu[group];
+    const item = items[itemIndex];
+    if (!item) return menu;
+    const name = item.item.trim();
+    if (!name || Object.prototype.hasOwnProperty.call(menu, name)) return menu;
+    // No prototype: group names are user text (e.g. "__proto__").
+    const result: RelationshipMenu = Object.create(null);
+    const define = (key: string, value: RelationshipMenu[string]) =>
+      Object.defineProperty(result, key, {
+        value,
+        enumerable: true,
+        writable: true,
+        configurable: true,
+      });
+    for (const key of Object.keys(menu)) {
+      if (key === group) {
+        define(key, items.filter((_, index) => index !== itemIndex));
+        define(name, [item]);
+      } else {
+        define(key, menu[key]);
+      }
+    }
+    return result;
   }
 
   if (change.kind === "insert-group") {

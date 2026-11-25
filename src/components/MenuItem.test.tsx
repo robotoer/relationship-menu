@@ -79,4 +79,52 @@ describe("MenuItem", () => {
     render(<MenuItem item="" onChange={jest.fn()} />);
     expect(screen.getByPlaceholderText("New item")).toBeInTheDocument();
   });
+
+  describe("notes and make-into-group", () => {
+    it("opens a note field from the note button and reports typed notes", () => {
+      const onChange = jest.fn();
+      render(<MenuItem item="Kissing" onChange={onChange} onDelete={jest.fn()} />);
+      expect(screen.queryByLabelText("Note on Kissing")).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Add a note to Kissing" }));
+      const note = screen.getByLabelText("Note on Kissing");
+      expect(note).toHaveFocus();
+      fireEvent.change(note, { target: { value: "not in public" } });
+      expect(onChange).toHaveBeenCalledWith({ note: "not in public" });
+    });
+
+    it("shows an existing note, and clearing it reports undefined", () => {
+      const onChange = jest.fn();
+      render(<MenuItem item="Kissing" note="ask first" onChange={onChange} onDelete={jest.fn()} />);
+      expect(screen.getByRole("button", { name: "Edit note on Kissing" })).toHaveAttribute("aria-expanded", "true");
+      fireEvent.change(screen.getByLabelText("Note on Kissing"), { target: { value: "" } });
+      expect(onChange).toHaveBeenCalledWith({ note: undefined });
+    });
+
+    it("has no note or make-group controls on the new-item row", () => {
+      render(<MenuItem item="" onChange={jest.fn()} />);
+      expect(screen.queryByRole("button", { name: /note/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /into a group/i })).not.toBeInTheDocument();
+    });
+
+    it("makes the item into a group, or explains why it can't", () => {
+      const onMakeGroup = jest.fn();
+      const { rerender } = render(
+        <MenuItem item="Kids" onChange={jest.fn()} onDelete={jest.fn()} onMakeGroup={onMakeGroup} />
+      );
+      fireEvent.click(screen.getByRole("button", { name: 'Make "Kids" into a group' }));
+      expect(onMakeGroup).toHaveBeenCalled();
+      rerender(
+        <MenuItem
+          item="Kids"
+          onChange={jest.fn()}
+          onDelete={jest.fn()}
+          onMakeGroup={onMakeGroup}
+          makeGroupBlockedReason="There's already a group with this name"
+        />
+      );
+      const button = screen.getByRole("button", { name: 'Make "Kids" into a group' });
+      expect(button).toBeDisabled();
+      expect(button).toHaveAttribute("title", "There's already a group with this name");
+    });
+  });
 });

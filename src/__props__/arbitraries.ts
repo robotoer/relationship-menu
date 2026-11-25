@@ -15,8 +15,15 @@ export const textArb = fc.oneof(
   fc.string({ maxLength: 6 })
 );
 
+/** Notes: usually short, sometimes blank or over the 280-character cap. */
+export const noteArb = fc.oneof(
+  fc.constantFrom("only on weekends", "  ask first  ", "", "   "),
+  fc.string({ maxLength: 8 }),
+  fc.string({ minLength: 279, maxLength: 300 })
+);
+
 export const itemArb = fc.record(
-  { item: textArb, value: answerArb },
+  { item: textArb, value: answerArb, note: noteArb },
   { requiredKeys: ["item"] }
 );
 

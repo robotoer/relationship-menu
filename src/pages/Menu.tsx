@@ -211,6 +211,15 @@ export const MenuPage = ({
   onUseTemplate?: (template: MenuTemplate) => void;
 }) => {
   const groupNames = Object.keys(menu);
+  /** Why an item can't become a group right now, or undefined if it can (ED-14). */
+  const makeGroupBlockedReason = (text: string) => {
+    const name = text.trim();
+    if (!name) return "Give the item some text first";
+    if (Object.prototype.hasOwnProperty.call(menu, name)) {
+      return "There's already a group with this name";
+    }
+    return undefined;
+  };
   // Key (and future id) of each group's "new item" row, by group name.
   const pendingItemIds = useRef<{ [group: string]: string }>({});
   const pendingItemIdFor = (group: string) =>
@@ -354,6 +363,20 @@ export const MenuPage = ({
             mode: "row",
           };
           onChange({ kind: "group", oldGroup: group });
+        }
+        return;
+      case "note": {
+        if (!item) return;
+        const toggle = row.querySelector<HTMLButtonElement>(".menu-item-note-toggle");
+        const field = row.querySelector<HTMLInputElement>(".menu-item-note input");
+        if (field) field.focus();
+        else toggle?.click(); // opens the note field and focuses it
+        return;
+      }
+      case "make-group":
+        if (item && group !== undefined && !makeGroupBlockedReason(item.item)) {
+          focusAfterRender.current = { rowKey: `group-${groupIndex + 1}`, mode: "row" };
+          onChange({ kind: "item-to-group", group, itemIndex });
         }
         return;
       case "undo":
@@ -578,6 +601,19 @@ export const MenuPage = ({
                     id={item ? `menu-item-input-${groupIndex}-${key}` : undefined}
                     item={item ? item.item : ""}
                     value={item ? item.value : undefined}
+                    note={item ? item.note : undefined}
+                    onMakeGroup={
+                      item
+                        ? () => {
+                            focusAfterRender.current = {
+                              rowKey: `group-${groupIndex + 1}`,
+                              mode: "row",
+                            };
+                            onChange({ kind: "item-to-group", group, itemIndex });
+                          }
+                        : undefined
+                    }
+                    makeGroupBlockedReason={item ? makeGroupBlockedReason(item.item) : undefined}
                     onChange={(value) => {
                       if (item) {
                         onChange({ kind: "item", group, itemIndex, value });

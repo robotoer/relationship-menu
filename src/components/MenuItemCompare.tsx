@@ -29,17 +29,24 @@ export const compareValueClass = (value: ComparedMenuItemValue): string =>
  * @param item - The item to be displayed.
  * @param menuItems - One value per compared menu (see ComparedMenuItemValue).
  * @param titles - Optional menu titles, used to label each cell for tooltips and screen readers.
+ * @param notes - Optional notes, one per menu, shown under the item with whose they are.
  * @returns The rendered MenuItemCompare component.
  */
 export const MenuItemCompare = ({
   item,
   menuItems,
   titles = [],
+  notes = [],
 }: {
   item: string;
   menuItems: ComparedMenuItemValue[];
   titles?: string[];
+  /** Each person's note on this item (same order as `menuItems`), if any. */
+  notes?: (string | undefined)[];
 }) => {
+  const withNotes = notes
+    .map((note, index) => ({ note, who: titles[index] || `Menu ${index + 1}` }))
+    .filter((entry): entry is { note: string; who: string } => !!entry.note);
   return (
     <div className="menu-item-compare">
       {menuItems.map((menuItem, itemIndex) => {
@@ -57,6 +64,15 @@ export const MenuItemCompare = ({
         );
       })}
       <div className="menu-item">{item}</div>
+      {withNotes.length > 0 && (
+        <ul className="compare-notes" aria-label={`Notes on ${item}`}>
+          {withNotes.map(({ note, who }) => (
+            <li key={who}>
+              <span className="compare-note-who">{who}:</span> {note}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 };

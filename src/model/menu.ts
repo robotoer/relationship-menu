@@ -19,7 +19,15 @@ export type RelationshipMenuItem = {
   id?: string;
   item: string;
   value?: RelationshipMenuItemValue;
+  /**
+   * Optional note on this item ("only on weekends"). Personal like the answer:
+   * included in menu links, left out of template links.
+   */
+  note?: string;
 };
+
+/** Longest note kept when reading a link. */
+export const ITEM_NOTE_LIMIT = 280;
 
 /**
  * Represents a group of relationship menu items.

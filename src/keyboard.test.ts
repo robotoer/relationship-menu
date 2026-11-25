@@ -51,4 +51,11 @@ describe("resolveKey", () => {
   it("ignores keys with Alt so browser/OS shortcuts keep working", () => {
     expect(row("j", { altKey: true }).action).toBeNull();
   });
+
+  it("n edits the note and m makes the item into a group (row mode only)", () => {
+    expect(resolveKey({ key: "n" }, "row").action).toEqual({ type: "note" });
+    expect(resolveKey({ key: "m" }, "row").action).toEqual({ type: "make-group" });
+    expect(resolveKey({ key: "n" }, "input").action).toBeNull();
+    expect(resolveKey({ key: "m" }, "input").action).toBeNull();
+  });
 });

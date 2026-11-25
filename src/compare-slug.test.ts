@@ -117,4 +117,26 @@ describe("compare-slug", () => {
     const decoded = decodeCompareSlug(encodeMenuSlug("Us", menu, { name: "x".repeat(500) }));
     expect(decoded?.person?.name).toHaveLength(60);
   });
+
+  it("keeps item notes from links, trimmed and capped at 280 characters (LK-9)", () => {
+    const long = "x".repeat(400);
+    const slug = `${encodeData("T")}:${encodeData({
+      G: [
+        { item: "A", note: "  ask first " },
+        { item: "B", note: long },
+        { item: "C", note: 42 },
+        { item: "D", note: "   " },
+      ],
+    })}`;
+    const items = decodeCompareSlug(slug)!.menu.G;
+    expect(items[0].note).toBe("ask first");
+    expect(items[1].note).toHaveLength(280);
+    expect(items[2]).not.toHaveProperty("note");
+    expect(items[3]).not.toHaveProperty("note");
+  });
+
+  it("round-trips notes through encodeMenuSlug", () => {
+    const decoded = decodeCompareSlug(encodeMenuSlug("T", { G: [{ item: "A", value: "maybe", note: "weekends" }] }));
+    expect(decoded!.menu.G).toEqual([{ item: "A", value: "maybe", note: "weekends" }]);
+  });
 });
