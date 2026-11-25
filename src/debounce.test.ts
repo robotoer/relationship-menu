@@ -6,16 +6,16 @@ describe("debounce", () => {
     const func = jest.fn();
     const debounced = debounce(func, 100);
     debounced();
-    expect(func).not.toBeCalled();
+    expect(func).not.toHaveBeenCalled();
     await new Promise((resolve) => setTimeout(resolve, 150));
-    expect(func).toBeCalled();
+    expect(func).toHaveBeenCalled();
   });
   it("should call the function immediately if leading is true", async () => {
     const func = jest.fn();
     const debounced = debounce(func, 100, { leading: true });
     debounced();
-    expect(func).toBeCalled();
+    expect(func).toHaveBeenCalled();
     await new Promise((resolve) => setTimeout(resolve, 150));
-    expect(func).toBeCalledTimes(1);
+    expect(func).toHaveBeenCalledTimes(1);
   });
 });

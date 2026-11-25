@@ -20,9 +20,15 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
-    "types": ["@testing-library/jest-dom", "@types/gtag.js"]
+    "types": [
+      "@testing-library/jest-dom",
+      "@types/gtag.js"
+    ]
   },
   "include": [
     "src"
+  ],
+  "exclude": [
+    "src/**/*.stories.tsx"
   ]
 }
