@@ -1,20 +1,50 @@
 .menu-tile {
   display: flex;
   flex-direction: column;
-  justify-content: center;
   align-items: center;
+  gap: 0.75rem;
   width: 100%;
-  height: 100%;
   padding: 1rem;
-  background-color: #fff;
-  border-radius: 0.5rem;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-  box-sizing: border-box;
+  color: var(--c-ink);
+  background: var(--c-white);
+  border: var(--line);
+  box-shadow: var(--drop);
+  text-align: center;
+}
+
+.menu-tile h2 {
+  margin: 0;
+  font-size: 0.7rem;
+  overflow-wrap: anywhere;
+}
+.menu-tile h2.untitled {
+  color: var(--c-slate);
+}
+
+.menu-tile svg,
+.menu-tile img {
+  image-rendering: pixelated;
+  border: var(--line);
+  background: var(--c-mist);
+  max-width: 100%;
+  height: auto;
 }
 
 .menu-tile a {
-  min-height: 44px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  min-height: 44px;
+  padding: 0.5rem 1.25rem;
+  font-family: var(--font-pixel);
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: var(--c-ink);
+  background: var(--c-yellow);
+  border: var(--line);
+  box-shadow: inset calc(-1 * var(--px)) calc(-1 * var(--px)) 0 0 var(--c-orange);
+}
+.menu-tile a:hover {
+  background: #ffd98f;
 }

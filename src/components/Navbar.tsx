@@ -1,6 +1,6 @@
 import "./Navbar.css";
 import { useState } from "react";
-import { NavLink } from "react-router-dom";
+import { Link, NavLink } from "react-router-dom";
 
 /**
  * Main navigation bar component.
@@ -23,7 +23,9 @@ export const Navbar = ({
   return (
     <nav className="navbar">
       <div className="navbar-header">
-        <h1>{title}</h1>
+        <Link to="/" className="navbar-home">
+          {title}
+        </Link>
         <div className="spacer" />
         {links && links.length > 0 && (
           <button

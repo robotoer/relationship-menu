@@ -1,93 +1,146 @@
-.menu-page {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
-  grid-gap: 1rem;
-  padding: 1rem;
-}
-
-/* Media queries for grid-template-columns */
-@media all and (max-width: 800px) {
-  .menu-page {
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  }
-}
-
-.new-group-title {
-  width: calc(100% - 32px);
-  box-sizing: border-box;
-  margin-bottom: 16px;
-
-  font-size: 1.5rem;
-  font-weight: bold;
-
-  text-align: center;
-
-  border: none;
-}
-
-.menu-divider {
-  width: 100%;
-  height: 1px;
-  background-color: #ccc;
-  margin: 1rem 0;
+/* ---- Title bar ---- */
+.menu-title-container {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0 1rem;
 }
 
 .menu-title {
-  width: calc(100% - 32px);
-  box-sizing: border-box;
-  margin-top: 16px;
-
-  font-size: 2rem;
-  font-weight: bold;
-
-  text-align: center;
-
-  border: none;
+  flex: 1 1 320px;
+  min-width: 0;
+  font-family: var(--font-pixel);
+  font-size: 1.1rem;
+  line-height: 1.6;
+  padding: 0.5rem 0.75rem;
+  color: var(--c-ink);
+  background: var(--c-white);
+  box-shadow: var(--drop);
 }
 
-/* Horizontal flexbox that auto-expands the first child */
-.menu-title-container {
+.save-status {
+  font-family: var(--font-pixel);
+  font-size: 0.55rem;
+  text-transform: uppercase;
+  color: var(--c-mist);
+  min-width: 6.5em;
+}
+.save-status-saved { color: var(--c-lime); }
+.save-status-saved::before { content: "✓ "; }
+.save-status-error,
+.save-status-title-taken {
+  flex-basis: 100%;
+  order: 10;
+  color: var(--c-yellow);
+  font-family: var(--font-body);
+  font-size: 1.1rem;
+  text-transform: none;
+}
+.save-status-error::before,
+.save-status-title-taken::before { content: "! "; }
+
+.keyboard-help-button kbd {
+  font-size: 0.9rem;
+}
+
+/* ---- Notices and empty state ---- */
+.menu-notice {
   display: flex;
-  justify-content: center;
   align-items: center;
+  gap: 1rem;
+  margin: 1.25rem 1rem 0;
+  padding: 0.75rem 1rem;
+  color: var(--c-ink);
+  background: var(--c-yellow);
+  border: var(--line);
+  box-shadow: var(--drop);
+}
+.menu-notice span { flex: 1; }
+.menu-notice button {
+  min-height: 0;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  font-family: var(--font-body);
+  font-size: 1.1rem;
 }
 
-.menu-title-container > *:first-child {
-  flex: 1;
+.menu-empty {
+  margin: 1.25rem 1rem 0;
+  padding: 1rem;
+  color: var(--c-white);
+  border: var(--px) dashed var(--c-slate);
 }
 
-.menu-compare {
-  padding-right: 1rem;
+/* ---- Groups grid ---- */
+.menu-page {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(460px, 1fr));
+  gap: 1.5rem;
+  padding: 1rem;
+  align-items: start;
 }
 
-@media (max-width: 640px) {
-  .menu-page {
-    grid-template-columns: 1fr;
-  }
-
-  .menu-title-container {
-    flex-direction: column;
-  }
-
-  .menu-title-container > *:first-child {
-    width: 100%;
-  }
-
-  .menu-compare {
-    padding-right: 0;
-    padding-top: 0.25rem;
-    padding-bottom: 0.5rem;
-  }
+.new-group-title {
+  width: 100%;
+  min-width: 0;
+  font-family: var(--font-pixel);
+  font-size: 0.8rem;
+  line-height: 1.6;
+  padding: 0.4rem 0.5rem;
+  background: transparent;
+  border-color: transparent;
+}
+.new-group-title:hover {
+  border-color: var(--c-mist);
+}
+.new-group-title:focus {
+  background: #ffffff;
+  border-color: var(--c-ink);
+}
+.new-group-title::placeholder {
+  color: var(--c-slate);
 }
 
 .group-title-error {
-  color: #c00;
-  font-size: 0.8rem;
+  color: var(--c-red);
+  font-size: 1rem;
   /* Own line below the group name and delete button. */
   order: 1;
   flex-basis: 100%;
 }
-
 .menu-group-header:has(.group-title-error) {
   flex-wrap: wrap;
+}
+
+.menu-divider {
+  width: 100%;
+  height: 0;
+  border-top: var(--px) dotted var(--c-mist);
+  margin: 0.75rem 0 0.25rem;
+}
+
+@media (max-width: 1000px) {
+  .menu-page {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .menu-title-container {
+    padding: 0 0.75rem;
+  }
+  .menu-title {
+    flex-basis: 100%;
+    font-size: 0.85rem;
+  }
+  .menu-page {
+    padding: 0.75rem;
+  }
+}
+
+.menu-share-heading {
+  margin: 1.5rem 1rem 0;
+  color: var(--c-cyan);
 }

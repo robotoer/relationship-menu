@@ -1,9 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
-import { Routes, Route, useLocation, useSearchParams } from "react-router-dom";
+import {
+  Navigate,
+  Routes,
+  Route,
+  useLocation,
+  useNavigationType,
+  useSearchParams,
+} from "react-router-dom";
 import { Navbar } from "./components/Navbar";
 import { LibraryPage } from "./pages/Library";
-import { AboutPage } from "./pages/About";
+import { LandingPage } from "./pages/Landing";
 import { ComparePage } from "./pages/Compare";
 import {
   RelationshipMenu,
@@ -283,6 +290,26 @@ const WrappedMenuPage = () => {
 const opensCompared = (entries: string[]) =>
   entries.filter((entry) => decodeCompareSlug(entry) !== null).length >= 2;
 
+/** Landing page with the number of saved menus (for a "My menus" shortcut). */
+const WrappedLandingPage = () => {
+  const { documents } = useStorage();
+  return <LandingPage savedCount={Object.keys(documents).length} />;
+};
+
+/**
+ * The menu editor route. Opening /menu by a link, the navbar or Back/Forward starts a
+ * fresh editor for that URL; the editor's own URL updates (history replaces) don't.
+ */
+const MenuRoute = () => {
+  const location = useLocation();
+  const navigationType = useNavigationType();
+  const editorKey = useRef(location.key);
+  if (navigationType !== "REPLACE") {
+    editorKey.current = location.key;
+  }
+  return <WrappedMenuPage key={editorKey.current} />;
+};
+
 /**
  * A wrapped component for the ComparePage.
  *
@@ -397,35 +424,39 @@ const WrappedComparePage = () => {
  * relationship menu documents.
  */
 export const App = () => {
+  const landingPage = useMemo(() => <WrappedLandingPage />, []);
   const libraryPage = useMemo(() => <WrappedLibraryPage />, []);
-  const menuPage = useMemo(() => <WrappedMenuPage />, []);
+  const menuPage = useMemo(() => <MenuRoute />, []);
   const comparePage = useMemo(() => <WrappedComparePage />, []);
-  const aboutPage = useMemo(() => <AboutPage />, []);
 
   const location = useLocation();
 
   useEffect(() => {
-    // track pageview with gtag / react-ga / react-ga4, for example:
-    window.gtag("event", "page_view", {
-      page_path: location.pathname + location.search,
+    // Report the page path only. The query string holds the menu itself (including
+    // the person's answers) and must never be sent to analytics.
+    window.gtag?.("event", "page_view", {
+      page_path: location.pathname,
+      page_location: window.location.origin + location.pathname,
     });
-  }, [location]);
+  }, [location.pathname]);
 
   return (
     <div className="app">
       <Navbar
         title="Relationship Menu"
         links={[
-          { to: "/", text: "Library" },
+          { to: "/library", text: "Library" },
+          { to: "/menu", text: "New menu" },
           { to: "/compare", text: "Compare" },
-          { to: "/about", text: "About" },
         ]}
       />
       <Routes>
-        <Route path="/" element={libraryPage} />
+        <Route path="/" element={landingPage} />
+        <Route path="/library" element={libraryPage} />
         <Route path="/menu" element={menuPage} />
         <Route path="/compare" element={comparePage} />
-        <Route path="/about" element={aboutPage} />
+        <Route path="/about" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>
   );

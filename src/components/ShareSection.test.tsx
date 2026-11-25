@@ -11,10 +11,10 @@ describe("ShareSection", () => {
         templateEncoded="template-slug"
       />
     );
-    expect(screen.getByText("Share Menu Link")).toBeInTheDocument();
-    expect(screen.getByText("Share Menu Slug")).toBeInTheDocument();
-    expect(screen.getByText("Share Template Link")).toBeInTheDocument();
-    expect(screen.getByText("Share Template Slug")).toBeInTheDocument();
+    expect(screen.getByText("Menu link")).toBeInTheDocument();
+    expect(screen.getByText("Menu slug")).toBeInTheDocument();
+    expect(screen.getByText("Template link")).toBeInTheDocument();
+    expect(screen.getByText("Template slug")).toBeInTheDocument();
   });
 
   it("should display the correct values in each share pane", () => {

@@ -8,6 +8,8 @@
     "@chainsafe/libp2p-gossipsub": "^14.1.2",
     "@chainsafe/libp2p-noise": "^17.0.0",
     "@chainsafe/libp2p-yamux": "^8.0.1",
+    "@fontsource/press-start-2p": "^5",
+    "@fontsource/vt323": "^5",
     "@helia/json": "^3.0.6",
     "@helia/unixfs": "^5.1.0",
     "@libp2p/bootstrap": "^11.0.47",

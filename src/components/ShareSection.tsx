@@ -31,23 +31,27 @@ export const ShareSection = ({
   templateEncoded: string;
 }) => {
   return (
-    <div className="share-section">
+    <section className="share-section" aria-label="Share this menu">
       <SharePane
         value={menuUrl}
-        description="Share Menu Link"
+        title="Menu link"
+        description="With your answers. Send it only to people you're comparing with."
       />
       <SharePane
         value={menuEncoded}
-        description="Share Menu Slug"
+        title="Menu slug"
+        description="Same as the menu link, without the website address. Paste into Compare."
       />
       <SharePane
         value={templateUrl}
-        description="Share Template Link"
+        title="Template link"
+        description="Your items with no answers, so someone can fill them in fresh."
       />
       <SharePane
         value={templateEncoded}
-        description="Share Template Slug"
+        title="Template slug"
+        description="The template without the website address."
       />
-    </div>
+    </section>
   );
 };

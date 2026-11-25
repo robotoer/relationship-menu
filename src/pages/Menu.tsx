@@ -11,6 +11,7 @@ import { MenuChange } from "../menu-editing";
 import { SaveState } from "../autosave";
 import { KeyAction, PREFERENCE_CYCLE, SEQUENCE_TIMEOUT_MS, resolveKey } from "../keyboard";
 import { KeyboardHelp } from "../components/KeyboardHelp";
+import { starterMenuPath } from "../starter-menu";
 import { ShareSection } from "../components/ShareSection";
 import { Link } from "react-router-dom";
 
@@ -330,6 +331,7 @@ export const MenuPage = ({
   };
   return (
     <>
+      <h1 className="sr-only">Edit menu</h1>
       <div className="menu-title-container">
         <MenuTitle
           value={title}
@@ -357,7 +359,7 @@ export const MenuPage = ({
         </button>
         <Link
           to={`/compare?encoded=${encodeURIComponent(menuEncoded)}`}
-          className="menu-compare"
+          className="button menu-compare"
         >
           Compare
         </Link>
@@ -372,13 +374,19 @@ export const MenuPage = ({
           )}
         </div>
       )}
-      <ShareSection
-        menuEncoded={menuEncoded}
-        menuUrl={`${window.location.protocol}//${window.location.host}/menu?encoded=${encodeURIComponent(menuEncoded)}`}
-        templateEncoded={templateEncoded}
-        templateUrl={`${window.location.protocol}//${window.location.host}/menu?encoded=${encodeURIComponent(templateEncoded)}`}
-      />
+
       {helpOpen && <KeyboardHelp onClose={() => setHelpOpen(false)} />}
+      {groupNames.length === 0 && (
+        <div className="menu-empty">
+          <p>
+            Type a group name below to start (for example "Commitment"), or load a
+            ready-made list of common topics and edit it to fit.
+          </p>
+          <Link className="button" to={starterMenuPath()}>
+            Load the starter menu
+          </Link>
+        </div>
+      )}
       <div className="menu-page" ref={pageRef} onKeyDown={onKeyDown}>
         {/*
           The trailing "new group" and "new item" rows are rendered in the same keyed
@@ -483,6 +491,13 @@ export const MenuPage = ({
           );
         })}
       </div>
+      <h2 className="menu-share-heading">Share your menu</h2>
+      <ShareSection
+        menuEncoded={menuEncoded}
+        menuUrl={`${window.location.protocol}//${window.location.host}/menu?encoded=${encodeURIComponent(menuEncoded)}`}
+        templateEncoded={templateEncoded}
+        templateUrl={`${window.location.protocol}//${window.location.host}/menu?encoded=${encodeURIComponent(templateEncoded)}`}
+      />
     </>
   );
 };

@@ -67,6 +67,7 @@ export const ComparePage = ({
   const groups = Object.entries(comparison);
   return (
     <div className="compare-page">
+      <h1 className="sr-only">Compare menus</h1>
       <CompareSection
         titles={titles}
         menus={encoded}

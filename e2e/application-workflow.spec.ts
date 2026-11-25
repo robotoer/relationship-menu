@@ -42,7 +42,7 @@ test.describe('Application Workflow', () => {
 
   test('User can create a new menu with title and items', async ({ page }) => {
     await setupLogCapture(page);
-    await page.goto('/');
+    await page.goto('/library');
     
     // Wait for page to load
     await page.waitForLoadState('networkidle');
@@ -129,7 +129,7 @@ test.describe('Application Workflow', () => {
 
   test('Menu is automatically saved to IPFS', async ({ page }) => {
     await setupLogCapture(page);
-    await page.goto('/');
+    await page.goto('/library');
     await page.waitForTimeout(2000);
 
     console.log('🧪 Testing automatic menu saving...');
@@ -164,7 +164,7 @@ test.describe('Application Workflow', () => {
 
   test('User can navigate to library and see saved menus', async ({ page }) => {
     await setupLogCapture(page);
-    await page.goto('/');
+    await page.goto('/library');
     await page.waitForTimeout(2000);
 
     console.log('🧪 Testing library navigation...');
@@ -183,7 +183,7 @@ test.describe('Application Workflow', () => {
 
     // Navigate back to library
     await page.click('text=Library');
-    await page.waitForURL('/');
+    await page.waitForURL('**/library');
     
     console.log('✅ Navigated to library page');
 
@@ -201,7 +201,7 @@ test.describe('Application Workflow', () => {
 
   test('User can load a saved menu by clicking on it', async ({ page }) => {
     await setupLogCapture(page);
-    await page.goto('/');
+    await page.goto('/library');
     await page.waitForTimeout(2000);
 
     console.log('🧪 Testing menu loading...');
@@ -218,7 +218,7 @@ test.describe('Application Workflow', () => {
 
     // Go to library
     await page.click('text=Library');
-    await page.waitForURL('/');
+    await page.waitForURL('**/library');
     await page.waitForTimeout(3000);
 
     // Click on the first menu tile's "View" link
@@ -243,7 +243,7 @@ test.describe('Application Workflow', () => {
 
   test('User can edit menu items and changes persist', async ({ page }) => {
     await setupLogCapture(page);
-    await page.goto('/');
+    await page.goto('/library');
     await page.waitForTimeout(2000);
 
     console.log('🧪 Testing menu editing...');
@@ -278,7 +278,7 @@ test.describe('Application Workflow', () => {
 
   test('Share section displays correct share links', async ({ page }) => {
     await setupLogCapture(page);
-    await page.goto('/');
+    await page.goto('/library');
     await page.waitForTimeout(2000);
 
     console.log('🧪 Testing share functionality...');
@@ -309,7 +309,7 @@ test.describe('Application Workflow', () => {
 
   test('Multiple groups can be created and managed', async ({ page }) => {
     await setupLogCapture(page);
-    await page.goto('/');
+    await page.goto('/library');
     await page.waitForTimeout(2000);
 
     console.log('🧪 Testing multiple group management...');
@@ -338,7 +338,7 @@ test.describe('Application Workflow', () => {
 
   test('Application state persists across page reloads', async ({ page }) => {
     await setupLogCapture(page);
-    await page.goto('/');
+    await page.goto('/library');
     await page.waitForTimeout(2000);
 
     console.log('🧪 Testing state persistence across reload...');
@@ -375,7 +375,7 @@ test.describe('Application Workflow', () => {
 
   test('Empty menu shows appropriate UI state', async ({ page }) => {
     await setupLogCapture(page);
-    await page.goto('/');
+    await page.goto('/library');
     await page.waitForTimeout(2000);
 
     console.log('🧪 Testing empty menu state...');
@@ -396,7 +396,7 @@ test.describe('Application Workflow', () => {
 
   test('Compare page is accessible', async ({ page }) => {
     await setupLogCapture(page);
-    await page.goto('/');
+    await page.goto('/library');
     await page.waitForTimeout(2000);
 
     console.log('🧪 Testing Compare page navigation...');
@@ -415,7 +415,7 @@ test.describe('Application Workflow', () => {
 
   test('About page is accessible', async ({ page }) => {
     await setupLogCapture(page);
-    await page.goto('/');
+    await page.goto('/library');
     await page.waitForTimeout(2000);
 
     console.log('🧪 Testing About page navigation...');

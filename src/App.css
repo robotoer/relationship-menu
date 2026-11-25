@@ -1,0 +1,11 @@
+.app {
+  min-height: 100vh;
+  padding-bottom: 3rem;
+}
+
+/* Page container used by every route. */
+.app > :not(.navbar) {
+  max-width: 1280px;
+  margin-left: auto;
+  margin-right: auto;
+}

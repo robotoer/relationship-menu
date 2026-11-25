@@ -8,6 +8,7 @@ import { MenuTile } from "../components/MenuTile";
 import { RelationshipMenuDocument } from "../model/menu";
 import { Link } from "react-router-dom";
 import { useState } from "react";
+import { starterMenuPath } from "../starter-menu";
 import { RandomAvatar } from "react-random-avatars";
 
 /**
@@ -38,50 +39,66 @@ export const LibraryPage = ({
   };
 
   return (
-    <div className="library">
-      {menus.map((menu) => (
-        <div key={menu.title} className="menu-tile-wrapper">
-          <MenuTile
-            title={menu.title}
-            image={<RandomAvatar name={menu.title} size={150} />}
-            link={`/menu?encoded=${encodeURIComponent(menu.id)}`}
-          />
-          {onDelete &&
-            (confirming === menu.title ? (
-              <div className="delete-menu-confirm" role="group" aria-label="Confirm delete">
-                <span>Delete for good?</span>
+    <div className="library-page">
+      <div className="library-header">
+        <h1>Your menus</h1>
+        <p>
+          Menus you've made or opened are saved in this browser.{" "}
+          {menus.length === 0 && "Nothing here yet: start one below."}
+        </p>
+      </div>
+      <div className="library">
+        {menus.map((menu) => (
+          <div key={menu.title} className="menu-tile-wrapper">
+            <MenuTile
+              title={menu.title}
+              image={<RandomAvatar name={menu.title} size={150} />}
+              link={`/menu?encoded=${encodeURIComponent(menu.id)}`}
+            />
+            {onDelete &&
+              (confirming === menu.title ? (
+                <div
+                  className="delete-menu-confirm"
+                  role="group"
+                  aria-label="Confirm delete"
+                >
+                  <span>Delete for good?</span>
+                  <button
+                    className="delete-menu-button"
+                    onClick={() => handleDelete(menu.title)}
+                    aria-label={`Yes, delete ${menu.title || "Untitled menu"}`}
+                  >
+                    Yes
+                  </button>
+                  <button
+                    className="delete-menu-cancel"
+                    onClick={() => setConfirming(null)}
+                    aria-label="Keep it"
+                  >
+                    No
+                  </button>
+                </div>
+              ) : (
                 <button
                   className="delete-menu-button"
-                  onClick={() => handleDelete(menu.title)}
-                  aria-label={`Yes, delete ${menu.title || "Untitled menu"}`}
+                  onClick={() => setConfirming(menu.title)}
+                  aria-label={`Delete ${menu.title || "Untitled menu"}`}
                 >
-                  Yes
+                  Delete
                 </button>
-                <button
-                  className="delete-menu-cancel"
-                  onClick={() => setConfirming(null)}
-                  aria-label="Keep it"
-                >
-                  No
-                </button>
-              </div>
-            ) : (
-              <button
-                className="delete-menu-button"
-                onClick={() => setConfirming(menu.title)}
-                aria-label={`Delete ${menu.title || "Untitled menu"}`}
-              >
-                Delete
-              </button>
-            ))}
-        </div>
-      ))}
+              ))}
+          </div>
+        ))}
 
-      {/* Add a button to create a new menu */}
-      <div className="create-menu">
-        <Link to="/menu">
-          <button>Create New Menu</button>
-        </Link>
+        {/* Add a button to create a new menu */}
+        <div className="create-menu">
+          <Link className="button button-primary" to="/menu">
+            Create New Menu
+          </Link>
+          <Link className="create-menu-starter" to={starterMenuPath()}>
+            or start from the starter menu
+          </Link>
+        </div>
       </div>
     </div>
   );

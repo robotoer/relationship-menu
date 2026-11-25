@@ -95,7 +95,7 @@ export const MenuItem = ({
       {onDelete && (
         <button
           type="button"
-          className="menu-item-delete"
+          className="menu-item-delete icon-button"
           onClick={onDelete}
           aria-label={item ? `Delete item: ${item}` : "Delete item"}
           title="Delete item"

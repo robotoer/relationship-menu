@@ -16,7 +16,7 @@ test.describe('Delete Group', () => {
 
   test('User can delete a menu group using the delete button', async ({ page }) => {
     await setupLogCapture(page);
-    await page.goto('/');
+    await page.goto('/library');
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(5000);
 

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import "./SharePane.css";
 
 /**
@@ -19,17 +20,34 @@ export const SharePane = ({
   description?: string;
   title?: string;
 }) => {
+  const [copied, setCopied] = useState(false);
   return (
     <div className="share-pane">
       {title && <h3 className="title">{title}</h3>}
       {description && <p className="description">{description}</p>}
       <div className="share-input-container">
-        <input type="text" value={value} readOnly className="share-input" />
+        <input
+          type="text"
+          value={value}
+          readOnly
+          className="share-input"
+          aria-label={title || description || "Share value"}
+          onFocus={(e) => e.target.select()}
+        />
         <button
           className="share-button"
-          onClick={() => navigator.clipboard.writeText(value)}
+          onClick={async () => {
+            try {
+              await navigator.clipboard.writeText(value);
+              setCopied(true);
+              setTimeout(() => setCopied(false), 1500);
+            } catch (e) {
+              console.error("Copy failed:", e);
+            }
+          }}
+          aria-label={title ? `Copy ${title.toLowerCase()}` : "Copy"}
         >
-          Copy
+          {copied ? "Copied!" : "Copy"}
         </button>
       </div>
     </div>

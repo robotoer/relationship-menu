@@ -33,7 +33,7 @@ export const MenuGroup = ({
         {onDelete && (
           <button
             type="button"
-            className="menu-group-delete"
+            className="menu-group-delete icon-button"
             onClick={onDelete}
             aria-label={label}
             title={label}

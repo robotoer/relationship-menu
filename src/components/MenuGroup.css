@@ -1,46 +1,49 @@
 .menu-group {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  padding: 1rem;
-  background-color: #fff;
-  border-radius: 0.5rem;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-  box-sizing: border-box;
-  margin: 0.5rem;
-  transition: transform 0.2s;
+  gap: 0.35rem;
+  padding: 0.75rem;
+  color: var(--c-ink);
+  background: var(--c-white);
+  border: var(--line);
+  box-shadow: var(--drop);
+  min-width: 0;
 }
 
 .menu-group-header {
   display: flex;
   align-items: center;
+  gap: 0.5rem;
   width: 100%;
+  padding: 2px;
+  margin-bottom: 0.25rem;
+  border-bottom: var(--px) solid var(--c-ink);
+  padding-bottom: 0.5rem;
 }
 
 .menu-group-header > *:first-child {
   flex: 1;
 }
 
-.menu-group-delete {
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: #666;
-  font-size: 1.25rem;
-  padding: 0.25rem 0.5rem;
-  border-radius: 0.25rem;
-  transition: color 0.2s, background-color 0.2s;
+/* Keyboard row cursor on a group title. */
+.menu-group-header:focus {
+  outline: var(--px) solid var(--c-orange);
+  outline-offset: 2px;
+  background: #fff3c4;
 }
 
+.menu-group-delete {
+  flex: none;
+  color: var(--c-slate);
+}
 .menu-group-delete:hover,
 .menu-group-delete:focus-visible {
-  color: #e53e3e;
-  background-color: #fee2e2;
+  color: var(--c-white);
+  background: var(--c-red);
 }
 
 @media (max-width: 640px) {
   .menu-group {
     padding: 0.5rem;
-    margin: 0.25rem;
   }
 }
