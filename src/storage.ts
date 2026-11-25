@@ -1,4 +1,5 @@
 import { RelationshipMenuDocument } from "./model/menu";
+import { sanitizePerson } from "./compare-slug";
 
 /**
  * Represents a storage interface for managing RelationshipMenuDocuments.
@@ -65,10 +66,20 @@ export const parseLocalMenuEntry = (
       typeof parsed.title === "string" &&
       typeof parsed.encoded === "string"
     ) {
+      const doc: RelationshipMenuDocument = { title: parsed.title, encoded: parsed.encoded };
+      if (typeof parsed.createdAt === "number") doc.createdAt = parsed.createdAt;
+      if (typeof parsed.updatedAt === "number") doc.updatedAt = parsed.updatedAt;
+      const person = sanitizePerson(parsed.person);
+      if (person) doc.person = person;
       return {
         key,
-        doc: { title: parsed.title, encoded: parsed.encoded },
-        savedAt: typeof parsed.savedAt === "number" ? parsed.savedAt : 0,
+        doc,
+        savedAt:
+          typeof parsed.savedAt === "number"
+            ? parsed.savedAt
+            : typeof parsed.updatedAt === "number"
+            ? parsed.updatedAt
+            : 0,
       };
     }
   } catch {
@@ -133,7 +144,8 @@ const localStorageSaveDocuments = async (
   const ids: string[] = [];
   for (const doc of docs) {
     const key = `menu:${doc.title}`;
-    localStorage.setItem(key, doc.encoded);
+    // JSON (not the bare encoded menu) so dates and person info are kept.
+    localStorage.setItem(key, JSON.stringify({ ...doc, savedAt: Date.now() }));
     // Drop other copies of this menu (e.g. older IPFS entries) so it isn't listed twice.
     removeLocalMenuEntries(doc.title, key);
     ids.push(doc.title);

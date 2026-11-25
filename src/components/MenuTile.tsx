@@ -16,15 +16,21 @@ export const MenuTile = ({
   title,
   image,
   link,
+  children,
 }: {
   title: string;
   image: ReactNode;
   link: string;
+  /** Extra details shown under the title (person, counts, dates). */
+  children?: ReactNode;
 }) => {
   return (
     <div className="menu-tile">
-      <h2 className={title ? undefined : "untitled"}>{title || "Untitled menu"}</h2>
-      {image}
+      <div className="menu-tile-header">
+        {image}
+        <h2 className={title ? undefined : "untitled"}>{title || "Untitled menu"}</h2>
+      </div>
+      {children}
       <Link to={link}>View</Link>
     </div>
   );

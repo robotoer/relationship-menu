@@ -37,7 +37,22 @@ export type RelationshipMenu = {
 /**
  * Represents a relationship menu document.
  */
+/**
+ * Optional information about the person a menu belongs to. It travels with shared
+ * menu links (never with template links) so comparisons can show who's who.
+ */
+export type Person = {
+  name?: string;
+  pronouns?: string;
+  note?: string;
+};
+
 export type RelationshipMenuDocument = {
   title: string;
   encoded: string;
+  /** When this menu was first saved in this browser (ms since epoch). */
+  createdAt?: number;
+  /** When this menu was last saved (ms since epoch). */
+  updatedAt?: number;
+  person?: Person;
 };

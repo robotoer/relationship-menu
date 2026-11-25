@@ -144,3 +144,48 @@
   margin: 1.5rem 1rem 0;
   color: var(--c-cyan);
 }
+
+/* ---- Person info ---- */
+.person-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.6fr) minmax(0, 2fr);
+  gap: 0.5rem 1rem;
+  margin: 1.25rem 1rem 0;
+  padding: 0.75rem 1rem;
+  border: var(--px) dashed var(--c-slate);
+}
+.person-fields legend {
+  padding: 0 0.5rem;
+  font-family: var(--font-pixel);
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  color: var(--c-cyan);
+}
+.person-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+.person-fields label span {
+  font-size: 1rem;
+  color: var(--c-mist);
+}
+.person-fields input {
+  width: 100%;
+}
+.person-hint {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 1rem;
+  color: var(--c-mist);
+}
+@media (max-width: 760px) {
+  .person-fields {
+    grid-template-columns: 1fr 1fr;
+    margin: 1rem 0.75rem 0;
+  }
+  .person-note {
+    grid-column: 1 / -1;
+  }
+}

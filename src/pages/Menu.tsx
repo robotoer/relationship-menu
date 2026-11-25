@@ -6,7 +6,7 @@ import "./Menu.css";
 import { Fragment, KeyboardEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { MenuGroup } from "../components/MenuGroup";
 import { MenuItem } from "../components/MenuItem";
-import { RelationshipMenu } from "../model/menu";
+import { Person, RelationshipMenu } from "../model/menu";
 import { MenuChange } from "../menu-editing";
 import { SaveState } from "../autosave";
 import { KeyAction, PREFERENCE_CYCLE, SEQUENCE_TIMEOUT_MS, resolveKey } from "../keyboard";
@@ -116,6 +116,50 @@ const SaveIndicator = ({ status }: { status?: SaveStatus }) =>
     </span>
   ) : null;
 
+/**
+ * Optional "who is this menu for" fields. Shared in the menu link (so a comparison
+ * can show who's who) but never in the template link.
+ */
+const PersonFields = ({
+  person,
+  onChange,
+}: {
+  person: Person;
+  onChange: (person: Person) => void;
+}) => (
+  <fieldset className="person-fields">
+    <legend>Whose menu is this? (optional)</legend>
+    <label>
+      <span>Name</span>
+      <input
+        value={person.name ?? ""}
+        maxLength={60}
+        placeholder="e.g. Sam"
+        onChange={(e) => onChange({ ...person, name: e.target.value })}
+      />
+    </label>
+    <label>
+      <span>Pronouns</span>
+      <input
+        value={person.pronouns ?? ""}
+        maxLength={30}
+        placeholder="e.g. they/them"
+        onChange={(e) => onChange({ ...person, pronouns: e.target.value })}
+      />
+    </label>
+    <label className="person-note">
+      <span>Note</span>
+      <input
+        value={person.note ?? ""}
+        maxLength={280}
+        placeholder="Anything to add, like what you're looking for"
+        onChange={(e) => onChange({ ...person, note: e.target.value })}
+      />
+    </label>
+    <p className="person-hint">Included in your menu link, never in the template link.</p>
+  </fieldset>
+);
+
 /** Counter for keys of the trailing "new item" row, which become the new item's id. */
 let nextPendingItemId = 0;
 
@@ -142,6 +186,8 @@ export const MenuPage = ({
   onRedo,
   notice,
   onDismissNotice,
+  person,
+  onChangePerson,
 }: {
   title: string;
   menu: RelationshipMenu;
@@ -154,6 +200,8 @@ export const MenuPage = ({
   onRedo?: () => void;
   notice?: string | null;
   onDismissNotice?: () => void;
+  person?: Person;
+  onChangePerson?: (person: Person) => void;
 }) => {
   const groupNames = Object.keys(menu);
   // Key (and future id) of each group's "new item" row, by group name.
@@ -370,6 +418,9 @@ export const MenuPage = ({
           Compare
         </Link>
       </div>
+      {onChangePerson && (
+        <PersonFields person={person ?? {}} onChange={onChangePerson} />
+      )}
       {notice && (
         <div className="menu-notice" role="status">
           <span>{notice}</span>
