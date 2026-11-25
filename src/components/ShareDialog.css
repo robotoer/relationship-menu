@@ -101,7 +101,9 @@
   font-family: var(--font-pixel);
   font-size: 0.6rem;
   text-transform: uppercase;
-  padding: 0.5rem 0;
+  /* Padding (not flex) keeps the disclosure triangle and makes a 44px target. */
+  padding: 1rem 0;
+  line-height: 1;
 }
 .share-advanced p {
   margin: 0.5rem 0 0.75rem;

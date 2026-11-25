@@ -1,4 +1,5 @@
 import { test, expect, Page } from "@playwright/test";
+import { deflate } from "pako";
 import { getShareValues } from "./helpers";
 
 /**
@@ -337,6 +338,97 @@ test.describe("Cross-Viewport Sharing", () => {
     } finally {
       await desktopContext.close();
       await mobileContext.close();
+    }
+  });
+});
+
+// Links built the same way the app builds them (pako + base64).
+const encode = (data: unknown) => Buffer.from(deflate(JSON.stringify(data))).toString("base64");
+const slug = (title: string, menu: object, person?: object) =>
+  [encode(title), encode(menu), ...(person ? [encode(person)] : [])].join(":");
+
+const LONG_ITEMS = {
+  Communication: [
+    { item: "Talking through conflict the same day", value: "must-have" },
+    { item: "Weekly relationship check-in", value: "maybe" },
+  ],
+  Future: [{ item: "Marriage or legal partnership", value: "off-limits" }],
+};
+
+for (const viewport of [
+  { name: "small phone", width: 320, height: 640 },
+  { name: "tablet portrait", width: 810, height: 1080 },
+  { name: "tablet landscape", width: 1080, height: 810 },
+]) {
+  test.describe(`Layout on a ${viewport.name} (${viewport.width}px)`, () => {
+    test.beforeEach(async ({ page }) => {
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    });
+
+    test("no page scrolls sideways, including a filled menu and a compare link", async ({ page }) => {
+      for (const path of ["/", "/library", "/menu", "/compare"]) {
+        await page.goto(path);
+        await page.waitForLoadState("domcontentloaded");
+        await page.waitForTimeout(300);
+        await expectNoHorizontalOverflow(page);
+      }
+      await page.goto(`/menu?encoded=${encodeURIComponent(slug("Romantic Relationship Starter", LONG_ITEMS))}`);
+      await expect(page.locator(".menu-item").first()).toBeVisible();
+      await expectNoHorizontalOverflow(page);
+
+      const menus = [
+        slug("Ana", LONG_ITEMS, { name: "Ana" }),
+        slug("Ben", LONG_ITEMS, { name: "Benjamin-Alexander" }),
+        slug("Cy", LONG_ITEMS),
+      ];
+      await page.goto(`/compare?${menus.map((m) => `encoded=${encodeURIComponent(m)}`).join("&")}`);
+      await expect(page.locator(".menu-item-compare").first()).toBeVisible();
+      await expectNoHorizontalOverflow(page);
+    });
+  });
+}
+
+test.describe("Phone editing and comparing (320px)", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 640 });
+  });
+
+  test("answer pickers and row buttons are easy to tap", async ({ page }) => {
+    await page.goto(`/menu?encoded=${encodeURIComponent(slug("Mine", LONG_ITEMS))}`);
+    const row = page.locator(".menu-item").first();
+    await expect(row).toBeVisible();
+    const picker = await row.locator("select").boundingBox();
+    expect(picker!.height).toBeGreaterThanOrEqual(44);
+    for (const button of await row.getByRole("button").all()) {
+      expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    }
+  });
+
+  test("on a typical phone (375px), no template item's text is cut off", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 667 });
+    await page.goto("/menu");
+    const templates = page.locator(".template-picker button").filter({ hasNotText: /blank/i });
+    const count = await templates.count();
+    expect(count).toBeGreaterThan(0);
+    for (let i = 0; i < count; i++) {
+      await page.goto("/menu");
+      await templates.nth(i).click();
+      await expect(page.locator(".menu-item .menu-item-input").first()).toBeVisible();
+      const clipped = await page.$$eval(".menu-item .menu-item-input", (inputs) =>
+        inputs
+          .filter((i) => (i as HTMLInputElement).value && i.scrollWidth > i.clientWidth + 1)
+          .map((i) => (i as HTMLInputElement).value)
+      );
+      expect(clipped).toEqual([]);
+    }
+  });
+
+  test("compare inputs stay compact, so results follow right after them", async ({ page }) => {
+    const menus = [slug("Ana", LONG_ITEMS), slug("Ben", LONG_ITEMS)];
+    await page.goto(`/compare?${menus.map((m) => `encoded=${encodeURIComponent(m)}`).join("&")}`);
+    await expect(page.locator(".menu-item-compare").first()).toBeVisible();
+    for (const box of await page.locator(".compare-input").all()) {
+      expect((await box.boundingBox())!.height).toBeLessThan(120);
     }
   });
 });
