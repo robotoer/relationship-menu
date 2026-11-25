@@ -3,12 +3,45 @@
  * or a full "Share Menu Link" URL) into a decoded menu.
  */
 
-import { decodeData } from "./data-encoder";
-import { RelationshipMenu, RelationshipMenuItemValue } from "./model/menu";
+import { decodeData, encodeData } from "./data-encoder";
+import { Person, RelationshipMenu, RelationshipMenuItemValue } from "./model/menu";
 
 export type DecodedCompareSlug = {
   title: string;
   menu: RelationshipMenu;
+  person?: Person;
+};
+
+const PERSON_LIMITS: Record<keyof Person, number> = { name: 60, pronouns: 30, note: 280 };
+
+/** Keeps only short string fields of a person; returns undefined if nothing is left. */
+export const sanitizePerson = (value: unknown): Person | undefined => {
+  if (!value || typeof value !== "object") return undefined;
+  const person: Person = {};
+  for (const key of Object.keys(PERSON_LIMITS) as (keyof Person)[]) {
+    const field = (value as Record<string, unknown>)[key];
+    if (typeof field === "string" && field.trim()) {
+      person[key] = field.trim().slice(0, PERSON_LIMITS[key]);
+    }
+  }
+  return Object.keys(person).length ? person : undefined;
+};
+
+/**
+ * Builds a menu slug: `title:menu`, plus `:about` when person info is included.
+ * Base64 never contains ":", so the parts can be split unambiguously, and links
+ * without the third part (older links, templates) still decode.
+ *
+ * @param menu - The menu, or its already-encoded form.
+ */
+export const encodeMenuSlug = (
+  title: string,
+  menu: RelationshipMenu | string,
+  person?: Person
+): string => {
+  const menuPart = typeof menu === "string" ? menu : encodeData(menu);
+  const about = sanitizePerson(person);
+  return `${encodeData(title)}:${menuPart}${about ? `:${encodeData(about)}` : ""}`;
 };
 
 /** Returns every `encoded` query parameter in a share/compare link, or null if it isn't one. */
@@ -84,18 +117,25 @@ const sanitizeMenu = (menu: unknown): RelationshipMenu | null => {
  * @returns The decoded title and menu, or null if the entry is not a valid slug.
  */
 export const decodeCompareSlug = (raw: string): DecodedCompareSlug | null => {
-  const slug = normalizeCompareEntry(raw);
-  const colonIndex = slug.indexOf(":");
-  if (colonIndex === -1) {
+  const parts = normalizeCompareEntry(raw).split(":");
+  if (parts.length < 2 || parts.length > 3) {
     return null;
   }
   try {
-    const title = decodeData(slug.slice(0, colonIndex));
-    const menu = sanitizeMenu(decodeData(slug.slice(colonIndex + 1)));
+    const title = decodeData(parts[0]);
+    const menu = sanitizeMenu(decodeData(parts[1]));
     if (typeof title !== "string" || !menu) {
       return null;
     }
-    return { title, menu };
+    let person: Person | undefined;
+    if (parts[2]) {
+      try {
+        person = sanitizePerson(decodeData(parts[2]));
+      } catch {
+        // Unreadable person info shouldn't stop the menu from opening.
+      }
+    }
+    return person ? { title, menu, person } : { title, menu };
   } catch {
     return null;
   }

@@ -33,14 +33,17 @@ const savedMenus = (page: Page) =>
 const rows = (page: Page) => page.locator(".menu-page [data-row-key]");
 
 test.describe("Landing page", () => {
-  test("explains the app and opens the starter menu", async ({ page }) => {
+  test("explains the app and starts a menu from a template", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(/Relationship\s*Menu/);
     await expect(page.getByRole("heading", { name: "What are all these links?" })).toBeVisible();
-    await page.getByRole("link", { name: /Start with the starter menu/ }).click();
+    await page.getByRole("link", { name: /Start a menu/ }).first().click();
     await page.waitForURL("**/menu**");
-    await expect(page.locator("input.menu-title")).toHaveValue("Our relationship menu");
-    await expect(page.locator("input.new-group-title").first()).toHaveValue("Communication");
+    await expect(page.getByRole("heading", { name: "Pick a starting point" })).toBeVisible();
+    await page.getByRole("button", { name: /Close Friendship/ }).click();
+    await expect(page.locator("input.menu-title")).toHaveValue("Close Friendship");
+    await expect(page.locator("input.new-group-title").first()).toHaveValue("Staying in touch");
+    await expect(page.locator(".save-status")).toHaveText(/Saved/);
   });
 });
 
@@ -130,5 +133,61 @@ test.describe("Saving", () => {
     await page.locator("input.menu-title").fill("Back test");
     await page.goBack();
     await page.waitForURL("**/library");
+  });
+});
+
+const slugWithPerson = (title: string, menu: object, person?: object) =>
+  [encode(title), encode(menu), ...(person ? [encode(person)] : [])].join(":");
+
+test.describe("Compare filters and people", () => {
+  test("filters to conflicts and labels columns with names", async ({ page }) => {
+    const a = slugWithPerson(
+      "Ours",
+      { G: [{ item: "Kissing", value: "must-have" }, { item: "Dancing", value: "maybe" }] },
+      { name: "Ana" }
+    );
+    const b = slugWithPerson(
+      "Ours",
+      { G: [{ item: "kissing", value: "off-limits" }, { item: "Dancing", value: "maybe" }] },
+      { name: "Ben" }
+    );
+    await page.goto(`/compare?encoded=${encodeURIComponent(a)}&encoded=${encodeURIComponent(b)}`);
+    const grid = page.locator(".compare-page-grid");
+    await expect(grid.locator(".menu-item-compare")).toHaveCount(2);
+    await expect(grid.getByRole("img", { name: "Ana: Must Have" })).toBeVisible();
+    await expect(grid.getByRole("img", { name: "Ben: Off Limits" })).toBeVisible();
+
+    await page.getByRole("button", { name: /^Conflicts/ }).click();
+    await expect(grid.locator(".menu-item-compare")).toHaveCount(1);
+    await expect(grid).toContainText("Kissing");
+    await page.getByRole("button", { name: /^Agree/ }).click();
+    await expect(grid.locator(".menu-item-compare")).toHaveCount(1);
+    await expect(grid).toContainText("Dancing");
+  });
+});
+
+test.describe("Library details and person info", () => {
+  test("person info is saved, shared in the menu link only, and shown in the Library", async ({
+    page,
+  }) => {
+    await page.goto(menuPath("Mine", { G: [{ item: "Alpha", value: "maybe" }, { item: "Beta" }] }));
+    await page.getByLabel("Your name").fill("Sam");
+    await page.getByLabel("Pronouns").fill("they/them");
+    await expect(page.locator(".save-status")).toHaveText(/Saved/);
+
+    const menuSlug = await page.getByRole("textbox", { name: "Menu slug" }).inputValue();
+    const templateSlug = await page.getByRole("textbox", { name: "Template slug" }).inputValue();
+    expect(menuSlug.split(":")).toHaveLength(3);
+    expect(templateSlug.split(":")).toHaveLength(2);
+
+    await page.goto("/library");
+    const tile = page.locator(".menu-tile").filter({ hasText: "Mine" });
+    await expect(tile).toContainText("Sam (they/them)");
+    await expect(tile).toContainText("2 in 1 group");
+    await expect(tile.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "1");
+    await expect(tile).toContainText(/just now|minute/);
+
+    await page.getByLabel("Search").fill("nothing-matches");
+    await expect(page.locator(".menu-tile")).toHaveCount(0);
   });
 });

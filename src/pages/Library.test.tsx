@@ -119,4 +119,38 @@ describe("LibraryPage", () => {
     expect(screen.queryByText("View")).not.toBeInTheDocument();
     expect(screen.getByText("Create New Menu")).toBeInTheDocument();
   });
+
+  it("shows details and supports search and sort", () => {
+    const enc = (items: object) => require("../data-encoder").encodeData(items);
+    const rich = [
+      {
+        title: "Beta",
+        id: "b",
+        encoded: enc({ G: [{ item: "Trust", value: "maybe" }, { item: "Dancing" }] }),
+        person: { name: "Sam", pronouns: "they/them" },
+        createdAt: Date.UTC(2026, 2, 2),
+        updatedAt: Date.now() - 2 * 24 * 3600 * 1000,
+      },
+      { title: "Alpha", id: "a", encoded: enc({ G: [{ item: "Hiking" }] }) },
+    ];
+    render(
+      <MemoryRouter>
+        <LibraryPage menus={rich} />
+      </MemoryRouter>
+    );
+    expect(screen.getByText("Sam (they/them)")).toBeInTheDocument();
+    expect(screen.getByText("2 in 1 group")).toBeInTheDocument();
+    expect(screen.getByRole("progressbar", { name: "Beta: answered" })).toHaveAttribute(
+      "aria-valuenow",
+      "1"
+    );
+    expect(screen.getByText(/2 days ago/)).toBeInTheDocument();
+    const headings = () => screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
+    expect(headings()).toEqual(["Beta", "Alpha"]); // recently edited first
+    fireEvent.change(screen.getByLabelText("Sort by"), { target: { value: "title" } });
+    expect(headings()).toEqual(["Alpha", "Beta"]);
+    fireEvent.change(screen.getByLabelText("Search"), { target: { value: "hiking" } });
+    expect(headings()).toEqual(["Alpha"]);
+    expect(screen.getByText("1 of 2")).toBeInTheDocument();
+  });
 });

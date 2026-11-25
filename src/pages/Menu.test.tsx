@@ -5,6 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 import { MenuPage } from "./Menu";
 import { RelationshipMenu } from "../model/menu";
 import { applyMenuChange } from "../menu-editing";
+import { MENU_TEMPLATES, templateMenu } from "../templates";
 
 let ids = 0;
 
@@ -30,6 +31,9 @@ const Editor = ({ initial = {} }: { initial?: RelationshipMenu }) => {
           }
         }}
         onChangeTitle={() => {}}
+        onUseTemplate={(template) =>
+          setMenu(templateMenu(template))
+        }
       />
       <output data-testid="menu">{JSON.stringify(menu)}</output>
     </MemoryRouter>
@@ -196,6 +200,25 @@ describe("MenuPage editing", () => {
       const select = row("b").querySelector("select")!;
       await userEvent.selectOptions(select, "---");
       expect(menuState().Physical[1].value).toBeUndefined();
+    });
+  });
+
+  describe("templates", () => {
+    it("offers templates in an empty menu and loads the chosen one", async () => {
+      render(<Editor />);
+      expect(screen.getByRole("heading", { name: "Pick a starting point" })).toBeInTheDocument();
+      const friendship = MENU_TEMPLATES.find((t) => t.id === "close-friendship")!;
+      await userEvent.click(screen.getByRole("button", { name: new RegExp(friendship.name) }));
+      expect(Object.keys(menuState())).toEqual(Object.keys(friendship.groups));
+      // The picker goes away once the menu has groups.
+      expect(screen.queryByRole("heading", { name: "Pick a starting point" })).not.toBeInTheDocument();
+    });
+
+    it("adds a ready-made group from the picker below the menu", async () => {
+      render(<Editor initial={{ Mine: [] }} />);
+      await userEvent.selectOptions(screen.getByLabelText("Add a ready-made group"), "Finances");
+      expect(Object.keys(menuState())).toEqual(["Mine", "Finances"]);
+      expect(menuState().Finances.length).toBeGreaterThan(2);
     });
   });
 });

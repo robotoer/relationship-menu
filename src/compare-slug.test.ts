@@ -1,5 +1,6 @@
 import {
   decodeCompareSlug,
+  encodeMenuSlug,
   expandCompareEntry,
   normalizeCompareEntry,
 } from "./compare-slug";
@@ -89,5 +90,31 @@ describe("compare-slug", () => {
     expect(expandCompareEntry(link)).toEqual([slug, other]);
     expect(expandCompareEntry(slug)).toEqual([slug]);
     expect(expandCompareEntry("partial")).toEqual(["partial"]);
+  });
+
+  it("round-trips person info as an optional third part", () => {
+    const withPerson = encodeMenuSlug("Us", menu, {
+      name: "  Sam ",
+      pronouns: "they/them",
+      note: "",
+    });
+    expect(withPerson.split(":")).toHaveLength(3);
+    expect(decodeCompareSlug(withPerson)).toEqual({
+      title: "Us",
+      menu,
+      person: { name: "Sam", pronouns: "they/them" },
+    });
+    // No person info: two parts, same as older links.
+    expect(encodeMenuSlug("Us", menu).split(":")).toHaveLength(2);
+    expect(encodeMenuSlug("Us", menu, { name: " " }).split(":")).toHaveLength(2);
+  });
+
+  it("ignores unreadable person info but still opens the menu", () => {
+    expect(decodeCompareSlug(`${slug}:not-base64!`)).toEqual({ title: "Alice", menu });
+  });
+
+  it("caps person field lengths", () => {
+    const decoded = decodeCompareSlug(encodeMenuSlug("Us", menu, { name: "x".repeat(500) }));
+    expect(decoded?.person?.name).toHaveLength(60);
   });
 });

@@ -1,10 +1,15 @@
 {
-  "short_name": "relationship-menu",
+  "short_name": "Rel. Menu",
   "name": "Relationship Menu",
   "icons": [
     {
+      "src": "favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any"
+    },
+    {
       "src": "favicon.ico",
-      "sizes": "64x64 32x32 24x24 16x16",
+      "sizes": "64x64 48x48 32x32 16x16",
       "type": "image/x-icon"
     },
     {
@@ -16,10 +21,17 @@
       "src": "logo512.png",
       "type": "image/png",
       "sizes": "512x512"
+    },
+    {
+      "src": "logo-maskable-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "maskable"
     }
   ],
-  "start_url": ".",
+  "start_url": "/",
   "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#ffffff"
+  "theme_color": "#1a1c2c",
+  "background_color": "#1a1c2c",
+  "description": "Build a relationship menu, answer each item, and compare with your partner."
 }

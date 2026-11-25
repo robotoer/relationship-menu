@@ -13,6 +13,7 @@ import { LibraryPage } from "./pages/Library";
 import { LandingPage } from "./pages/Landing";
 import { ComparePage } from "./pages/Compare";
 import {
+  Person,
   RelationshipMenu,
 } from "./model/menu";
 import { MenuPage } from "./pages/Menu";
@@ -22,10 +23,13 @@ import { useStorage } from "./providers/Storage";
 import { compareMenus } from "./data-comparer";
 import { MenuChange, applyMenuChange } from "./menu-editing";
 import { useAutosave } from "./autosave";
+import { templateMenu } from "./templates";
 import {
   DecodedCompareSlug,
   decodeCompareSlug,
+  encodeMenuSlug,
   expandCompareEntry,
+  sanitizePerson,
   normalizeCompareEntry,
 } from "./compare-slug";
 
@@ -64,7 +68,7 @@ const WrappedLibraryPage = () => {
     () =>
       Object.values(documentsMap).map((doc) => ({
         ...doc,
-        id: `${encodeData(doc.title)}:${doc.encoded}`,
+        id: encodeMenuSlug(doc.title, doc.encoded, doc.person),
       })),
     [documentsMap]
   );
@@ -100,6 +104,9 @@ const uniqueTitle = (title: string, saved: { [title: string]: unknown }) => {
 const WrappedMenuPage = () => {
   const { storage, documents } = useStorage();
   const [title, setTitle] = useState("");
+  const [person, setPerson] = useState<Person>({});
+  // When this menu was first saved here; kept across saves and renames.
+  const createdAt = useRef<number | null>(null);
   const [menu, setMenuState] = useState<RelationshipMenu>({});
   // Latest menu, updated synchronously so rapid edits always build on each other.
   const menuRef = useRef<RelationshipMenu>({});
@@ -180,7 +187,7 @@ const WrappedMenuPage = () => {
     if (!raw || loadedFromUrl.current) return;
     let cancelled = false;
     (async () => {
-      let opened: { title: string; menu: RelationshipMenu } | null = null;
+      let opened: DecodedCompareSlug | null = null;
       let notFound = false;
       try {
         if (raw.includes(":")) {
@@ -189,7 +196,7 @@ const WrappedMenuPage = () => {
           const doc = (await storage.getDocuments(raw))[raw];
           notFound = !doc;
           opened = doc
-            ? decodeCompareSlug(`${encodeData(doc.title)}:${doc.encoded}`)
+            ? decodeCompareSlug(encodeMenuSlug(doc.title, doc.encoded, doc.person))
             : null;
         }
       } catch (e) {
@@ -235,7 +242,9 @@ const WrappedMenuPage = () => {
       } else {
         setNotice(null);
         ownedTitle.current = opened.title;
+        createdAt.current = existing?.createdAt ?? null;
       }
+      setPerson(opened.person ?? (openedTitle === opened.title ? existing?.person : undefined) ?? {});
       setTitle(openedTitle);
       setMenu(ensureItemIds(opened.menu));
       setLoaded(true);
@@ -253,13 +262,23 @@ const WrappedMenuPage = () => {
     () =>
       !loaded || titleTaken || (title === "" && Object.keys(menu).length === 0)
         ? null
-        : { title, encoded: encodeData(stripMenuIds(menu)) },
-    [title, menu, titleTaken, loaded]
+        : {
+            title,
+            encoded: encodeData(stripMenuIds(menu)),
+            ...(sanitizePerson(person) ? { person: sanitizePerson(person) } : {}),
+          },
+    [title, menu, person, titleTaken, loaded]
   );
   const saveState = useAutosave(docToSave, async (doc) => {
     // The storage provider reports failures by returning no IDs; treat that as an
     // error so a failed rename never goes on to delete the menu's old entry.
-    const ids = await storage.saveDocuments(doc);
+    const now = Date.now();
+    createdAt.current ??= now;
+    const ids = await storage.saveDocuments({
+      ...doc,
+      createdAt: createdAt.current,
+      updatedAt: now,
+    });
     if (ids.length === 0) throw new Error("Saving the menu failed");
     const previous = ownedTitle.current;
     ownedTitle.current = doc.title;
@@ -272,27 +291,29 @@ const WrappedMenuPage = () => {
   // the history entry rather than pushing one per edit, so Back leaves the editor.
   useEffect(() => {
     if (!loaded) return;
-    const encoded = `${encodeData(title)}:${encodeData(stripMenuIds(menu))}`;
+    const encoded = encodeMenuSlug(title, stripMenuIds(menu), person);
     if (params.get("encoded") !== encoded) {
       setParams({ encoded }, { replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [menu, title, loaded]);
+  }, [menu, title, person, loaded]);
 
+  // The menu link carries person info; the template link (for others to fill in)
+  // never does.
   const menuEncoded = useMemo(
-    () => `${encodeData(title)}:${encodeData(stripMenuIds(menu))}`,
-    [menu, title]
+    () => encodeMenuSlug(title, stripMenuIds(menu), person),
+    [menu, title, person]
   );
   const template = useMemo(() => {
     // Strip all values from the menu to create a template:
-    const template: RelationshipMenu = {};
+    const template: RelationshipMenu = Object.create(null);
     for (const group in menu) {
       template[group] = menu[group].map((item) => ({ item: item.item }));
     }
     return template;
   }, [menu]);
   const templateEncoded = useMemo(
-    () => `${encodeData(title)}:${encodeData(template)}`,
+    () => encodeMenuSlug(title, template),
     [title, template]
   );
 
@@ -306,6 +327,15 @@ const WrappedMenuPage = () => {
       onUndo={undo}
       onRedo={redo}
       onChangeTitle={setTitle}
+      person={person}
+      onChangePerson={setPerson}
+      onUseTemplate={(template) => {
+        editMenu({ kind: "replace", menu: ensureItemIds(templateMenu(template)) });
+        if (title === "") {
+          const taken = Object.prototype.hasOwnProperty.call(documents, template.name);
+          setTitle(taken ? uniqueTitle(template.name, documents) : template.name);
+        }
+      }}
       saveStatus={titleTaken ? "title-taken" : saveState}
       notice={notice}
       onDismissNotice={() => setNotice(null)}
@@ -405,7 +435,10 @@ const WrappedComparePage = () => {
 
   // Label for each input: the decoded menu title, if any.
   const inputTitles = useMemo(
-    () => decoded.map((d) => d?.title || ""),
+    () =>
+      decoded.map((d) =>
+        d ? [d.person?.name, d.title].filter(Boolean).join(" — ") : ""
+      ),
     [decoded]
   );
 
@@ -418,7 +451,11 @@ const WrappedComparePage = () => {
   );
 
   // One column per successfully decoded menu, in input order.
-  const legendTitles = useMemo(() => valid.map((d) => d.title), [valid]);
+  // Column headings: the person's name when the link has one, else the menu title.
+  const legendTitles = useMemo(
+    () => valid.map((d) => d.person?.name || d.title),
+    [valid]
+  );
 
   const comparison = useMemo(() => {
     if (valid.length === 0) return {} as MenuComparison;

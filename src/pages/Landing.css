@@ -326,3 +326,9 @@
     width: 100%;
   }
 }
+
+.landing-templates {
+  margin-top: 0.75rem !important;
+  font-size: 1.05rem;
+  color: var(--c-slate);
+}

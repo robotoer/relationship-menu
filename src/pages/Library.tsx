@@ -7,8 +7,15 @@ import "./Library.css";
 import { MenuTile } from "../components/MenuTile";
 import { RelationshipMenuDocument } from "../model/menu";
 import { Link } from "react-router-dom";
-import { useEffect, useRef, useState } from "react";
-import { starterMenuPath } from "../starter-menu";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  LibrarySort,
+  matchesSearch,
+  menuStats,
+  relativeTime,
+  shortDate,
+  sortMenus,
+} from "../library-info";
 import { RandomAvatar } from "react-random-avatars";
 
 /**
@@ -43,6 +50,13 @@ export const LibraryPage = ({
     }
   };
 
+  const [sort, setSort] = useState<LibrarySort>("edited");
+  const [query, setQuery] = useState("");
+  const shown = useMemo(
+    () => sortMenus(menus.filter((menu) => matchesSearch(menu, query)), sort),
+    [menus, query, sort]
+  );
+
   return (
     <div className="library-page">
       <div className="library-header">
@@ -51,57 +65,148 @@ export const LibraryPage = ({
           Menus you've made or opened are saved in this browser.{" "}
           {menus.length === 0 && "Nothing here yet: start one below."}
         </p>
+        {menus.length > 0 && (
+          <div className="library-controls">
+            <label>
+              <span>Search</span>
+              <input
+                type="search"
+                value={query}
+                placeholder="Title, name or item"
+                onChange={(e) => setQuery(e.target.value)}
+              />
+            </label>
+            <label>
+              <span>Sort by</span>
+              <select
+                value={sort}
+                onChange={(e) => setSort(e.target.value as LibrarySort)}
+              >
+                <option value="edited">Recently edited</option>
+                <option value="created">Newest</option>
+                <option value="title">Title (A–Z)</option>
+              </select>
+            </label>
+            <span className="library-count" role="status">
+              {shown.length === menus.length
+                ? `${menus.length} menu${menus.length === 1 ? "" : "s"}`
+                : `${shown.length} of ${menus.length}`}
+            </span>
+          </div>
+        )}
       </div>
       <div className="library">
-        {menus.map((menu) => (
-          <div key={menu.title} className="menu-tile-wrapper">
-            <MenuTile
-              title={menu.title}
-              image={<RandomAvatar name={menu.title} size={150} />}
-              link={`/menu?encoded=${encodeURIComponent(menu.id)}`}
-            />
-            {onDelete &&
-              (confirming === menu.title ? (
-                <div
-                  className="delete-menu-confirm"
-                  role="group"
-                  aria-label="Confirm delete"
-                >
-                  <span>Delete for good?</span>
+        {shown.map((menu) => {
+          const stats = menuStats(menu.encoded);
+          const name = menu.title || "Untitled menu";
+          return (
+            <div key={menu.title} className="menu-tile-wrapper">
+              <MenuTile
+                title={menu.title}
+                image={
+                  <RandomAvatar name={menu.person?.name || menu.title} size={56} />
+                }
+                link={`/menu?encoded=${encodeURIComponent(menu.id)}`}
+              >
+                <dl className="menu-tile-details">
+                  {menu.person?.name && (
+                    <div>
+                      <dt>For</dt>
+                      <dd>
+                        {menu.person.name}
+                        {menu.person.pronouns && ` (${menu.person.pronouns})`}
+                      </dd>
+                    </div>
+                  )}
+                  <div>
+                    <dt>Items</dt>
+                    <dd>
+                      {stats.items} in {stats.groups} group{stats.groups === 1 ? "" : "s"}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Answered</dt>
+                    <dd>
+                      <span
+                        className="menu-tile-progress"
+                        role="progressbar"
+                        aria-label={`${name}: answered`}
+                        aria-valuemin={0}
+                        aria-valuemax={stats.items}
+                        aria-valuenow={stats.answered}
+                      >
+                        <span
+                          style={{
+                            width: stats.items
+                              ? `${(stats.answered / stats.items) * 100}%`
+                              : 0,
+                          }}
+                        />
+                      </span>
+                      {stats.answered}/{stats.items}
+                    </dd>
+                  </div>
+                  {menu.updatedAt && (
+                    <div>
+                      <dt>Edited</dt>
+                      <dd>
+                        <time dateTime={new Date(menu.updatedAt).toISOString()}>
+                          {relativeTime(menu.updatedAt)}
+                        </time>
+                      </dd>
+                    </div>
+                  )}
+                  {menu.createdAt && (
+                    <div>
+                      <dt>Created</dt>
+                      <dd>
+                        <time dateTime={new Date(menu.createdAt).toISOString()}>
+                          {shortDate(menu.createdAt)}
+                        </time>
+                      </dd>
+                    </div>
+                  )}
+                </dl>
+              </MenuTile>
+              {onDelete &&
+                (confirming === menu.title ? (
+                  <div className="delete-menu-confirm" role="group" aria-label="Confirm delete">
+                    <span>Delete for good?</span>
+                    <button
+                      className="delete-menu-button"
+                      onClick={() => handleDelete(menu.title)}
+                      aria-label={`Yes, delete ${name}`}
+                    >
+                      Yes
+                    </button>
+                    <button
+                      ref={keepButton}
+                      className="delete-menu-cancel"
+                      onClick={() => setConfirming(null)}
+                      aria-label="Keep it"
+                    >
+                      No
+                    </button>
+                  </div>
+                ) : (
                   <button
                     className="delete-menu-button"
-                    onClick={() => handleDelete(menu.title)}
-                    aria-label={`Yes, delete ${menu.title || "Untitled menu"}`}
+                    onClick={() => setConfirming(menu.title)}
+                    aria-label={`Delete ${name}`}
                   >
-                    Yes
+                    Delete
                   </button>
-                  <button
-                    className="delete-menu-cancel"
-                    onClick={() => setConfirming(null)}
-                    aria-label="Keep it"
-                  >
-                    No
-                  </button>
-                </div>
-              ) : (
-                <button
-                  className="delete-menu-button"
-                  onClick={() => setConfirming(menu.title)}
-                  aria-label={`Delete ${menu.title || "Untitled menu"}`}
-                >
-                  Delete
-                </button>
-              ))}
-          </div>
-        ))}
+                ))}
+            </div>
+          );
+        })}
+        {menus.length > 0 && shown.length === 0 && (
+          <p className="library-empty">No menus match "{query}".</p>
+        )}
 
-        {/* Add a button to create a new menu */}
         <div className="create-menu">
           <Link className="button button-primary" to="/menu">
             Create New Menu
-          </Link>
-          <Link className="create-menu-starter" to={starterMenuPath()}>
-            or start from the starter menu
           </Link>
         </div>
       </div>
