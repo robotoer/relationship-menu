@@ -166,9 +166,12 @@ export const MenuPage = ({
   const [helpOpen, setHelpOpen] = useState(false);
   const sequence = useRef<{ key: string; at: number } | null>(null);
   // Row to focus after the next render (rows can move or disappear on edits).
-  const focusAfterRender = useRef<{ rowKey: string; mode: "row" | "input" } | null>(
-    null
-  );
+  // `index` is a fallback for when that row no longer exists (e.g. undo removed it).
+  const focusAfterRender = useRef<{
+    rowKey: string;
+    mode: "row" | "input";
+    index?: number;
+  } | null>(null);
 
   const rowElements = () =>
     Array.from(
@@ -194,10 +197,13 @@ export const MenuPage = ({
     const target = focusAfterRender.current;
     if (!target) return;
     focusAfterRender.current = null;
-    focusRow(
-      rowElements().find((row) => row.dataset.rowKey === target.rowKey),
-      target.mode
-    );
+    const rows = rowElements();
+    const match = rows.find((row) => row.dataset.rowKey === target.rowKey);
+    const fallback =
+      target.index === undefined
+        ? undefined
+        : rows[Math.min(target.index, rows.length - 1)];
+    focusRow(match ?? fallback, target.mode);
   });
 
   // Pressing j/k (or ?) with nothing focused starts keyboard navigation.
@@ -296,7 +302,7 @@ export const MenuPage = ({
         return;
       case "undo":
       case "redo":
-        focusAfterRender.current = { rowKey: row.dataset.rowKey!, mode: "row" };
+        focusAfterRender.current = { rowKey: row.dataset.rowKey!, mode: "row", index };
         return action.type === "undo" ? onUndo?.() : onRedo?.();
       case "help":
         return setHelpOpen(true);

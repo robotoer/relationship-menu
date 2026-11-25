@@ -163,27 +163,34 @@ const WrappedMenuPage = () => {
   const [loaded, setLoaded] = useState(!initialEncoded.current);
   const [notice, setNotice] = useState<string | null>(null);
 
+  // Latest title, for the async loader (its effect only re-runs when storage changes).
+  const titleRef = useRef(title);
+  titleRef.current = title;
+  // Set when an ID link couldn't be resolved yet (IPFS storage may still be starting).
+  const loadFailed = useRef(false);
+
   // Load the menu from the link. Two formats:
   // 1. "titleEncoded:menuEncoded" — self-contained link (all data in URL)
-  // 2. A document ID (CID or title) — looked up from storage (retried once
-  //    storage is ready, since IPFS starts asynchronously)
+  // 2. A document ID (CID or title) — looked up from storage, retried when storage
+  //    changes (IPFS starts asynchronously)
+  // The "loaded" guard is only set once the menu has actually been applied, so a load
+  // cancelled by a storage change (or React StrictMode) is retried rather than lost.
   useEffect(() => {
     const raw = initialEncoded.current;
     if (!raw || loadedFromUrl.current) return;
-    const selfContained = raw.includes(":");
-    if (selfContained) loadedFromUrl.current = true;
     let cancelled = false;
     (async () => {
       let opened: { title: string; menu: RelationshipMenu } | null = null;
+      let notFound = false;
       try {
-        if (selfContained) {
+        if (raw.includes(":")) {
           opened = decodeCompareSlug(raw);
         } else {
           const doc = (await storage.getDocuments(raw))[raw];
-          const decoded = doc && decodeCompareSlug(`${encodeData(doc.title)}:${doc.encoded}`);
-          if (!decoded) return; // Not found yet: retry when storage changes.
-          loadedFromUrl.current = true;
-          opened = decoded;
+          notFound = !doc;
+          opened = doc
+            ? decodeCompareSlug(`${encodeData(doc.title)}:${doc.encoded}`)
+            : null;
         }
       } catch (e) {
         console.error("Failed to open menu link:", e);
@@ -191,9 +198,22 @@ const WrappedMenuPage = () => {
       if (cancelled) return;
       if (!opened) {
         setNotice(
-          "This link couldn't be opened. It may have been cut off when it was copied; ask for it again."
+          notFound
+            ? "This menu wasn't found in this browser. If it was shared with you, ask for the full link."
+            : "This link couldn't be opened. It may have been cut off when it was copied; ask for it again."
         );
         setLoaded(true);
+        // An ID might still resolve once IPFS storage is ready; a broken link won't.
+        if (notFound) loadFailed.current = true;
+        else loadedFromUrl.current = true;
+        return;
+      }
+      // A late retry must not replace something the user has started in the meantime.
+      if (
+        loadFailed.current &&
+        (Object.keys(menuRef.current).length > 0 || titleRef.current !== "")
+      ) {
+        loadedFromUrl.current = true;
         return;
       }
       // Opening a link must never replace a different menu you already saved under
@@ -201,7 +221,10 @@ const WrappedMenuPage = () => {
       // open it as a copy with a free title instead.
       const saved = await storage.getDocuments();
       if (cancelled) return;
-      const existing = saved[opened.title];
+      loadedFromUrl.current = true;
+      const existing = Object.prototype.hasOwnProperty.call(saved, opened.title)
+        ? saved[opened.title]
+        : undefined;
       let openedTitle = opened.title;
       if (existing && !sameMenu(existing.encoded, opened.menu)) {
         openedTitle = uniqueTitle(opened.title, saved);
@@ -210,6 +233,7 @@ const WrappedMenuPage = () => {
         );
         ownedTitle.current = null;
       } else {
+        setNotice(null);
         ownedTitle.current = opened.title;
       }
       setTitle(openedTitle);
@@ -233,7 +257,10 @@ const WrappedMenuPage = () => {
     [title, menu, titleTaken, loaded]
   );
   const saveState = useAutosave(docToSave, async (doc) => {
-    await storage.saveDocuments(doc);
+    // The storage provider reports failures by returning no IDs; treat that as an
+    // error so a failed rename never goes on to delete the menu's old entry.
+    const ids = await storage.saveDocuments(doc);
+    if (ids.length === 0) throw new Error("Saving the menu failed");
     const previous = ownedTitle.current;
     ownedTitle.current = doc.title;
     if (previous !== null && previous !== doc.title) {

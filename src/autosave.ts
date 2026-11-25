@@ -71,7 +71,9 @@ export const useAutosave = (
       timer.current = null;
       return;
     }
-    if (JSON.stringify(doc) === lastSaved.current) return;
+    // Always replace the pending document, even when it matches the last save:
+    // reverting an edit (e.g. undo) within the debounce window must cancel the edit,
+    // not let it be saved. The queue skips writes that wouldn't change anything.
     pending.current = doc;
     setState("pending");
     if (timer.current) clearTimeout(timer.current);

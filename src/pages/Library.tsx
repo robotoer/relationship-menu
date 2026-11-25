@@ -7,7 +7,7 @@ import "./Library.css";
 import { MenuTile } from "../components/MenuTile";
 import { RelationshipMenuDocument } from "../model/menu";
 import { Link } from "react-router-dom";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { starterMenuPath } from "../starter-menu";
 import { RandomAvatar } from "react-random-avatars";
 
@@ -29,6 +29,11 @@ export const LibraryPage = ({
 }) => {
   // Title of the menu whose Delete was clicked and is waiting for confirmation.
   const [confirming, setConfirming] = useState<string | null>(null);
+  // Move keyboard focus into the confirmation when it appears.
+  const keepButton = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (confirming !== null) keepButton.current?.focus();
+  }, [confirming]);
   const handleDelete = async (title: string) => {
     setConfirming(null);
     try {

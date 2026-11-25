@@ -217,3 +217,16 @@ describe("localStorage menu entries", () => {
     expect(localStorage.getItem("other")).toBe("untouched");
   });
 });
+
+describe("menus with titles that match built-in object properties", () => {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const s = require("./storage");
+  beforeEach(() => localStorage.clear());
+
+  it("lists menus titled constructor or toString", async () => {
+    localStorage.setItem("menu:c1", JSON.stringify({ title: "constructor", encoded: "e1", savedAt: 1 }));
+    localStorage.setItem("menu:c2", JSON.stringify({ title: "toString", encoded: "e2", savedAt: 1 }));
+    const docs = await s.createLocalStorage().getDocuments();
+    expect(Object.keys(docs).sort()).toEqual(["constructor", "toString"]);
+  });
+});

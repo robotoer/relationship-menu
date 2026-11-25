@@ -47,7 +47,8 @@ export const applyMenuChange = (
     const to = from + change.offset;
     if (from === -1 || to < 0 || to >= names.length || to === from) return menu;
     names.splice(to, 0, names.splice(from, 1)[0]);
-    const result: RelationshipMenu = {};
+    // No prototype: group names are user text (e.g. "__proto__").
+      const result: RelationshipMenu = Object.create(null);
     for (const name of names) result[name] = menu[name];
     return result;
   }
@@ -71,7 +72,8 @@ export const applyMenuChange = (
 
     if (oldGroup !== undefined && newGroup === undefined) {
       if (!exists(oldGroup)) return menu;
-      const result: RelationshipMenu = {};
+      // No prototype: group names are user text (e.g. "__proto__").
+      const result: RelationshipMenu = Object.create(null);
       for (const group of Object.keys(menu)) {
         if (group !== oldGroup) result[group] = menu[group];
       }
@@ -82,7 +84,8 @@ export const applyMenuChange = (
       if (oldGroup === newGroup || !exists(oldGroup) || exists(newGroup)) {
         return menu;
       }
-      const result: RelationshipMenu = {};
+      // No prototype: group names are user text (e.g. "__proto__").
+      const result: RelationshipMenu = Object.create(null);
       for (const group of Object.keys(menu)) {
         result[group === oldGroup ? newGroup : group] = menu[group];
       }

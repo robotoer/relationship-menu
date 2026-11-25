@@ -107,4 +107,47 @@ describe("useAutosave", () => {
     });
     expect(save).toHaveBeenCalledWith(doc("Draft"));
   });
+
+  it("reverting an edit before it saves keeps the reverted version (undo)", async () => {
+    const save = jest.fn().mockResolvedValue(undefined);
+    const { rerender } = renderHook(({ d }) => useAutosave(d, save), {
+      initialProps: { d: doc("A") },
+    });
+    await act(async () => {
+      jest.advanceTimersByTime(AUTOSAVE_DELAY_MS);
+      await flushPromises();
+    });
+    expect(save).toHaveBeenCalledTimes(1);
+    rerender({ d: doc("B") });
+    rerender({ d: doc("A") }); // undo within the debounce window
+    await act(async () => {
+      jest.advanceTimersByTime(AUTOSAVE_DELAY_MS);
+      await flushPromises();
+    });
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(save).not.toHaveBeenCalledWith(doc("B"));
+  });
+
+  it("reports an error and keeps going when a save fails", async () => {
+    const save = jest
+      .fn()
+      .mockRejectedValueOnce(new Error("boom"))
+      .mockResolvedValue(undefined);
+    const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    const { rerender, result } = renderHook(({ d }) => useAutosave(d, save), {
+      initialProps: { d: doc("A") },
+    });
+    await act(async () => {
+      jest.advanceTimersByTime(AUTOSAVE_DELAY_MS);
+      await flushPromises();
+    });
+    expect(result.current).toBe("error");
+    rerender({ d: doc("B") });
+    await act(async () => {
+      jest.advanceTimersByTime(AUTOSAVE_DELAY_MS);
+      await flushPromises();
+    });
+    expect(result.current).toBe("saved");
+    errorSpy.mockRestore();
+  });
 });

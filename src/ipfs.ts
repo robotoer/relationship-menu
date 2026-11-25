@@ -130,7 +130,7 @@ const ipfsGetDocuments = (helJson: HeliaJSON) => async (id?: string) => {
         }
       })
     );
-    const byTitle: { [title: string]: RelationshipMenuDocument } = {};
+    const byTitle: { [title: string]: RelationshipMenuDocument } = Object.create(null);
     for (const doc of results) {
       if (doc && typeof doc.title === "string") {
         byTitle[doc.title] = doc;
@@ -147,7 +147,8 @@ const ipfsGetDocuments = (helJson: HeliaJSON) => async (id?: string) => {
     const doc = await helJson.get<RelationshipMenuDocument>(cid);
     
     // If we successfully fetched it from the network, store it locally as JSON fallback
-    if (doc) {
+    // Don't overwrite an existing entry: it carries the savedAt that orders versions.
+    if (doc && localStorage.getItem(`menu:${id}`) === null) {
       localStorage.setItem(`menu:${id}`, JSON.stringify(doc));
       console.log(`Retrieved and stored document with id: ${id} from network`);
     }

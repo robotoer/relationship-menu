@@ -49,6 +49,9 @@ export const SharePane = ({
         >
           {copied ? "Copied!" : "Copy"}
         </button>
+        <span className="sr-only" role="status" aria-live="polite">
+          {copied ? "Copied to clipboard" : ""}
+        </span>
       </div>
     </div>
   );

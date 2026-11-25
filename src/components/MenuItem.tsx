@@ -88,7 +88,7 @@ export const MenuItem = ({
         <MenuItemInput
           id={id}
           value={item}
-          aria-label={item ? undefined : "New item"}
+          aria-label={item ? "Item" : "New item"}
           onChange={(e) => onChange({ item: e.target.value })}
         />
       </label>

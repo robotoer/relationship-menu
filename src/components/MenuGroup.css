@@ -27,7 +27,7 @@
 
 /* Keyboard row cursor on a group title. */
 .menu-group-header:focus {
-  outline: var(--px) solid var(--c-orange);
+  outline: var(--px) solid var(--c-red);
   outline-offset: 2px;
   background: #fff3c4;
 }

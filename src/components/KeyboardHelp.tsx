@@ -15,6 +15,12 @@ export const KeyboardHelp = ({ onClose }: { onClose: () => void }) => {
     const previous = document.activeElement as HTMLElement | null;
     closeButton.current?.focus();
     const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Tab") {
+        // Keep focus in the dialog: its only control is the close button.
+        e.preventDefault();
+        closeButton.current?.focus();
+        return;
+      }
       if (e.key === "Escape" || e.key === "?") {
         e.preventDefault();
         e.stopPropagation();

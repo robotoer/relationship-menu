@@ -95,7 +95,8 @@ export const readLocalMenuEntries = (): LocalMenuEntry[] => {
  * saved before duplicates were cleaned up), the most recently saved one wins.
  */
 export const latestByTitle = (entries: LocalMenuEntry[]) => {
-  const best: { [title: string]: LocalMenuEntry } = {};
+  // No prototype: titles are user text (e.g. "constructor").
+  const best: { [title: string]: LocalMenuEntry } = Object.create(null);
   for (const entry of entries) {
     const current = best[entry.doc.title];
     if (!current || entry.savedAt >= current.savedAt) {
@@ -115,7 +116,7 @@ export const removeLocalMenuEntries = (title: string, exceptKey?: string) => {
 };
 
 const localStorageGetDocuments = async (id?: string) => {
-  const documents: { [id: string]: RelationshipMenuDocument } = {};
+  const documents: { [id: string]: RelationshipMenuDocument } = Object.create(null);
   for (const [title, entry] of Object.entries(
     latestByTitle(readLocalMenuEntries())
   )) {
