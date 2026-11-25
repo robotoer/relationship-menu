@@ -205,6 +205,20 @@ describe("localStorage menu entries", () => {
     });
   });
 
+  it("a pending copy written before a slow save is listed, and replaced by the final entry", () => {
+    localStorage.setItem("menu:cidOld", JSON.stringify({ title: "A", encoded: "old", savedAt: 1 }));
+    const pending = s.writePendingLocalCopy({ title: "A", encoded: "new" });
+    expect(pending).toBe("menu:pending:A");
+    // If the page closed now, the Library would still show the new version.
+    expect(s.latestByTitle(s.readLocalMenuEntries()).A.doc.encoded).toBe("new");
+    // The backend's final entry then replaces both older copies.
+    localStorage.setItem("menu:cidNew", JSON.stringify({ title: "A", encoded: "new", savedAt: Date.now() + 1 }));
+    s.removeLocalMenuEntries("A", "menu:cidNew");
+    expect(localStorage.getItem(pending)).toBeNull();
+    expect(localStorage.getItem("menu:cidOld")).toBeNull();
+    expect(s.latestByTitle(s.readLocalMenuEntries()).A.doc.encoded).toBe("new");
+  });
+
   it("removeLocalMenuEntries keeps the excepted key and other titles", () => {
     localStorage.setItem("menu:x", JSON.stringify({ title: "A", encoded: "1" }));
     localStorage.setItem("menu:y", JSON.stringify({ title: "A", encoded: "2" }));

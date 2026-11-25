@@ -189,6 +189,7 @@ sequenceDiagram
 | SV-7 | A menu is never saved under a title that belongs to a different saved menu; the editor says "Another menu already has this title" until it's renamed. | Test |
 | SV-8 | `createdAt` is set on the first save and never changes; `updatedAt` is set on every save. | Test |
 | SV-9 | Menus saved before the IPFS node started (plain `menu:<title>` entries) are listed like any other. | Test |
+| SV-10 | Every save is written to browser storage immediately, before the slower IPFS copy, so leaving or closing the page while a save is running keeps the edit. | Test (unit + e2e) |
 | LB-1 | The library shows each menu's title (or "Untitled menu"), person, item and group counts, answered progress, and edited/created dates when known. | Test |
 | LB-2 | Search matches title, person or item text, ignoring case. Sort by recently edited, newest, or title. Menus without dates sort last. | [Property](../../src/__props__/links-keyboard-library.props.test.ts) |
 | LB-3 | Deleting from the library asks for confirmation. | Test |
@@ -292,7 +293,7 @@ flowchart LR
 | ID | Rule | Checked by |
 | --- | --- | --- |
 | PR-1 | No menu content leaves the browser except inside links the user copies. There is no server-side storage. | Review |
-| PR-2 | Analytics receive the page path only, never the `?encoded=` query (the automatic page view is turned off). | Review + production check |
+| PR-2 | Analytics receive the page path (never the `?encoded=` query) and a fixed set of usage events ([`src/analytics.ts`](../../src/analytics.ts), listed in [`docs/analytics.md`](../analytics.md)). Event parameters are only template ids, link kinds, filter ids, counts and true/false: never titles, item or group text, notes, names, search queries or link contents. The types enforce this, and an e2e test drives the app with marker text and checks that none of it reaches analytics. | Test (e2e) + types |
 | PR-3 | The menu link includes answers, notes and person info and says so in the share dialog; the template link includes none of them. | [Property](../../src/__props__/links-keyboard-library.props.test.ts), Test |
 
 ---
@@ -306,7 +307,7 @@ flowchart LR
 | AX-3 | Text and focus indicators meet WCAG AA contrast (answer colors keep their meaning: blue, green, yellow, red). | Review |
 | AX-4 | No page scrolls sideways at any width from 320 px (small phone) up, including tablets in both orientations. | Test (e2e) |
 | AX-5 | Animations stop when the system asks for reduced motion. | Review |
-| AX-6 | On phones (≤ 520 px), each item's text gets the full row width, with its answer picker and buttons underneath at least 44 px tall. From 375 px wide, every template item's text fits without being cut off (at 320 px a few long ones scroll inside their field). Navigation links and the share dialog's "Advanced" toggle are also 44 px tall. | Test (e2e) for the editor rows; Review for the rest |
+| AX-6 | On phones (≤ 520 px), each item's text gets the full row width, with its answer picker and buttons underneath at least 44 px tall. Long item text wraps onto more lines instead of being cut off, at any width. Navigation links and the share dialog's "Advanced" toggle are also 44 px tall. | Test (e2e) for the editor rows; Review for the rest |
 
 ---
 
@@ -345,7 +346,7 @@ flowchart LR
 | Keyboard | KB-6, KB-7 | Test | `Menu.test.tsx`, `ShareDialog.test.tsx`, e2e |
 | Saving | SV-1, SV-2, SV-3, SV-5 | **Proof** (TLC, all interleavings up to the bounds) + Property | [`Autosave.tla`](formal/tla/Autosave.tla), [`autosave.props`](../../src/__props__/autosave.props.test.ts) |
 | Saving | SV-6 | Property | links-keyboard-library props |
-| Saving | SV-4, SV-7, SV-8, SV-9 | Test | `storage.test.ts`, `App.test.tsx`, e2e |
+| Saving | SV-4, SV-7, SV-8, SV-9, SV-10 | Test | `storage.test.ts`, `App.test.tsx`, e2e |
 | Library | LB-2 | Property | links-keyboard-library props |
 | Library | LB-1, LB-3 | Test | `Library.test.tsx`, e2e |
 | Links | LK-1…LK-5, LK-9 | Property (incl. arbitrary junk input) | links-keyboard-library props |
@@ -359,6 +360,7 @@ flowchart LR
 
 | Found by | Bug | Fix |
 | --- | --- | --- |
+| e2e (analytics test) | An edit saved while the IPFS node was busy was lost if the page was closed or left during the save: the browser-storage copy was only written after the IPFS write finished. | Write the browser-storage copy first (SV-10). |
 | Property CP-1 | A group named `__proto__` vanished from Compare, from opened links and from the library's in-memory list. | Prototype-free objects in `data-comparer.ts`, `compare-slug.ts`, `providers/Storage.tsx`. |
 | Property LK-4 | A pasted link whose slug ended in `+` didn't open (the `+` arrived as a space and was trimmed off). | Restore `+` before trimming (`compare-slug.ts`). |
 | Property LB-2 | Library search matched the stored JSON, so "item", "value" or "must" matched every menu. | Search only group and item text (`library-info.ts`). |

@@ -16,7 +16,7 @@ async function addGroup(page: Page, groupName: string) {
  * Helper function to add an item to a group
  */
 async function addItem(page: Page, itemName: string) {
-  const itemInput = page.locator('input.menu-item-input').last();
+  const itemInput = page.locator('.menu-item-input').last();
   await itemInput.click();
   await itemInput.pressSequentially(itemName);
   await page.locator('body').click({ position: { x: 10, y: 10 } });
@@ -49,7 +49,7 @@ test.describe('Delete Menu Item', () => {
 
     // Verify all 3 items exist (plus the empty "new item" input = 4 total)
     const menuGroup = page.locator('.menu-group').first();
-    const itemInputs = menuGroup.locator('input.menu-item-input');
+    const itemInputs = menuGroup.locator('.menu-item-input');
     await expect(itemInputs).toHaveCount(4);
 
     // Verify delete buttons exist for the 3 real items (not the "new item" row)
@@ -102,7 +102,7 @@ test.describe('Delete Menu Item', () => {
     await page.waitForTimeout(1000);
 
     // Verify the remaining item is "Second Item"
-    const itemInputs = menuGroup.locator('input.menu-item-input');
+    const itemInputs = menuGroup.locator('.menu-item-input');
     await expect(itemInputs.first()).toHaveValue('Second Item');
 
     // Edit the remaining item

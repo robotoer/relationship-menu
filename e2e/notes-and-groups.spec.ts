@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, Page } from "@playwright/test";
 import { deflate, inflate } from "pako";
 import { getShareValues } from "./helpers";
 
@@ -7,6 +7,9 @@ const encode = (data: unknown) => Buffer.from(deflate(JSON.stringify(data))).toS
 const decode = (data: string) => JSON.parse(inflate(Buffer.from(data, "base64"), { to: "string" }));
 const slug = (title: string, menu: object, person?: object) =>
   [encode(title), encode(menu), ...(person ? [encode(person)] : [])].join(":");
+/** The editor row for an item, found by its (exactly named) delete button. */
+const itemRow = (page: Page, text: string) =>
+  page.locator(".menu-item").filter({ has: page.getByRole("button", { name: `Delete item: ${text}`, exact: true }) });
 const menuPath = (title: string, menu: object) => `/menu?encoded=${encodeURIComponent(slug(title, menu))}`;
 
 const MENU = {
@@ -38,7 +41,7 @@ test.describe("Item notes (DM-6, LK-9, PR-3)", () => {
 
   test("n opens the note for the highlighted item", async ({ page }) => {
     await page.goto(menuPath("Keys", MENU));
-    await page.locator(".menu-item").filter({ has: page.locator('input[value="Kissing"]') }).focus();
+    await itemRow(page, "Kissing").focus();
     await page.keyboard.press("n");
     await expect(page.getByRole("textbox", { name: "Note on Kissing", exact: true })).toBeFocused();
     await page.keyboard.type("ask first");
@@ -71,7 +74,7 @@ test.describe("Make into group (ED-14)", () => {
     const newGroup = page.locator(".menu-group").nth(1);
     await expect(newGroup.locator(".menu-item-input").first()).toHaveValue("Kissing");
     await expect(newGroup.locator("select").first()).toHaveValue("must-have");
-    await expect(page.locator(".menu-group").nth(0).locator('input[value="Kissing"]')).toHaveCount(0);
+    await expect(page.locator(".menu-group").nth(0).getByRole("button", { name: "Delete item: Kissing", exact: true })).toHaveCount(0);
 
     // One undo step brings it back.
     await page.getByRole("button", { name: "Undo" }).click();
@@ -84,14 +87,14 @@ test.describe("Make into group (ED-14)", () => {
     const button = page.getByRole("button", { name: 'Make "Later" into a group' });
     await expect(button).toBeDisabled();
     await expect(button).toHaveAttribute("title", "There's already a group with this name");
-    await page.locator(".menu-item").filter({ has: page.locator('input[value="Later"]') }).first().focus();
+    await itemRow(page, "Later").focus();
     await page.keyboard.press("m");
     await expect(page.locator(".menu-group-header input")).toHaveCount(3);
   });
 
   test("m makes the highlighted item into a group", async ({ page }) => {
     await page.goto(menuPath("Keys", MENU));
-    await page.locator(".menu-item").filter({ has: page.locator('input[value="Cuddling"]') }).focus();
+    await itemRow(page, "Cuddling").focus();
     await page.keyboard.press("m");
     await expect(page.locator(".menu-group-header input").nth(1)).toHaveValue("Cuddling");
   });

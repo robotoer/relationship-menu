@@ -21,7 +21,7 @@ async function addGroup(page: Page, groupName: string) {
  */
 async function addItem(page: Page, itemName: string) {
   // Find the last menu-item-input (the empty one for adding new items)
-  const itemInput = page.locator('input.menu-item-input').last();
+  const itemInput = page.locator('.menu-item-input').last();
   await itemInput.click();
   await itemInput.pressSequentially(itemName);
   await page.locator('body').click({ position: { x: 10, y: 10 } });
@@ -98,7 +98,7 @@ test.describe('Application Workflow', () => {
     const items = ['Spring Rolls', 'Dumplings', 'Salad'];
     
     // Wait for menu-item inputs to be available (this means the group was created)
-    await expect(page.locator('input.menu-item-input').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('.menu-item-input').first()).toBeVisible({ timeout: 10000 });
     console.log(`✅ Group created and ready for items`);
     
     // Find all menu groups and use the first one (should be Appetizers)
@@ -109,7 +109,7 @@ test.describe('Application Workflow', () => {
       const itemName = items[i];
       
       // Find the last (empty) menu-item-input in this group
-      const itemInput = menuGroup.locator('input.menu-item-input').last();
+      const itemInput = menuGroup.locator('.menu-item-input').last();
       
       // Type the item name to trigger onChange events  
       await itemInput.click();
@@ -264,7 +264,7 @@ test.describe('Application Workflow', () => {
     await page.waitForTimeout(2000);
 
     // Verify item exists in the list (check for a non-empty input in the menu items)
-    const itemInputs = page.locator('.menu-item input.menu-item-input');
+    const itemInputs = page.locator('.menu-item .menu-item-input');
     await expect(itemInputs.first()).toBeVisible();
     
     // Count the items (should be at least 1 plus the empty one)

@@ -34,7 +34,7 @@ async function addItemToGroup(
   groupLocator: ReturnType<Page["locator"]>,
   itemName: string
 ) {
-  const itemInput = groupLocator.locator("input.menu-item-input").last();
+  const itemInput = groupLocator.locator(".menu-item-input").last();
   await itemInput.click();
   await itemInput.fill(itemName);
   await page.waitForTimeout(500);

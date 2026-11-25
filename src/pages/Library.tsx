@@ -17,6 +17,7 @@ import {
   sortMenus,
 } from "../library-info";
 import { RandomAvatar } from "react-random-avatars";
+import { track, trackOnce } from "../analytics";
 
 /**
  * Renders the Library page, displaying a list of relationship menus.
@@ -45,6 +46,7 @@ export const LibraryPage = ({
     setConfirming(null);
     try {
       await onDelete?.(title);
+      track("menu_deleted");
     } catch (e) {
       console.error("Failed to delete menu:", e);
     }
@@ -73,14 +75,21 @@ export const LibraryPage = ({
                 type="search"
                 value={query}
                 placeholder="Title, name or item"
-                onChange={(e) => setQuery(e.target.value)}
+                onChange={(e) => {
+                  // Only that a search happened (once per visit), never what was typed.
+                  if (e.target.value.trim()) trackOnce("library_searched", "library_searched");
+                  setQuery(e.target.value);
+                }}
               />
             </label>
             <label>
               <span>Sort by</span>
               <select
                 value={sort}
-                onChange={(e) => setSort(e.target.value as LibrarySort)}
+                onChange={(e) => {
+                  track("library_sorted", { sort: e.target.value as LibrarySort });
+                  setSort(e.target.value as LibrarySort);
+                }}
               >
                 <option value="edited">Recently edited</option>
                 <option value="created">Newest</option>

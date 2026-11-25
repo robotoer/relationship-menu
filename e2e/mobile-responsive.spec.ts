@@ -30,7 +30,7 @@ async function addItemToGroup(
   groupLocator: ReturnType<Page["locator"]>,
   itemName: string
 ) {
-  const itemInput = groupLocator.locator("input.menu-item-input").last();
+  const itemInput = groupLocator.locator(".menu-item-input").last();
   await itemInput.click();
   await itemInput.fill(itemName);
   await page.waitForTimeout(500);
@@ -154,7 +154,7 @@ test.describe("Mobile Responsive", () => {
         await group2.locator("input.new-group-title").inputValue()
       ).toBe("Connection");
 
-      const items2 = group2.locator("input.menu-item-input");
+      const items2 = group2.locator(".menu-item-input");
       expect(await items2.nth(0).inputValue()).toBe("Texting daily");
       expect(await items2.nth(1).inputValue()).toBe("Video calls");
 
@@ -323,7 +323,7 @@ test.describe("Cross-Viewport Sharing", () => {
         await mobileGroup.locator("input.new-group-title").inputValue()
       ).toBe("Shared Activities");
 
-      const items = mobileGroup.locator("input.menu-item-input");
+      const items = mobileGroup.locator(".menu-item-input");
       expect(await items.nth(0).inputValue()).toBe("Cooking together");
       expect(await items.nth(1).inputValue()).toBe("Board games");
       expect(await items.nth(2).inputValue()).toBe("Road trips");
@@ -404,23 +404,30 @@ test.describe("Phone editing and comparing (320px)", () => {
     }
   });
 
-  test("on a typical phone (375px), no template item's text is cut off", async ({ page }) => {
-    await page.setViewportSize({ width: 375, height: 667 });
+  test("long item text wraps instead of being cut off, even at 320px", async ({ page }) => {
     await page.goto("/menu");
     const templates = page.locator(".template-picker button").filter({ hasNotText: /blank/i });
     const count = await templates.count();
     expect(count).toBeGreaterThan(0);
+    let wrapped = 0;
     for (let i = 0; i < count; i++) {
       await page.goto("/menu");
       await templates.nth(i).click();
       await expect(page.locator(".menu-item .menu-item-input").first()).toBeVisible();
-      const clipped = await page.$$eval(".menu-item .menu-item-input", (inputs) =>
-        inputs
-          .filter((i) => (i as HTMLInputElement).value && i.scrollWidth > i.clientWidth + 1)
-          .map((i) => (i as HTMLInputElement).value)
+      const fields = await page.$$eval(".menu-item .menu-item-input", (els) =>
+        els
+          .filter((e) => (e as HTMLTextAreaElement).value)
+          .map((e) => ({
+            text: (e as HTMLTextAreaElement).value,
+            cutOff: e.scrollWidth > e.clientWidth + 1 || e.scrollHeight > e.clientHeight + 1,
+            lines: Math.round(e.clientHeight / parseFloat(getComputedStyle(e).lineHeight)),
+          }))
       );
-      expect(clipped).toEqual([]);
+      expect(fields.filter((f) => f.cutOff).map((f) => f.text)).toEqual([]);
+      wrapped += fields.filter((f) => f.lines > 1).length;
     }
+    // Some long template items really do need two lines at this width.
+    expect(wrapped).toBeGreaterThan(0);
   });
 
   test("compare inputs stay compact, so results follow right after them", async ({ page }) => {

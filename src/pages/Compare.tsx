@@ -4,6 +4,7 @@
 
 import "./Compare.css";
 import "../components/MenuItemCompare.css";
+import { track } from "../analytics";
 import { MenuCompareLegend } from "../components/MenuCompareLegend";
 import { MenuGroup } from "../components/MenuGroup";
 import {
@@ -103,7 +104,10 @@ export const ComparePage = ({
                   className={`compare-filter compare-filter-${id}`}
                   aria-pressed={filter === id}
                   title={description}
-                  onClick={() => setFilter(id)}
+                  onClick={() => {
+                    if (id !== filter) track("compare_filter_used", { filter: id });
+                    setFilter(id);
+                  }}
                 >
                   {label} <span className="compare-filter-count">{counts[id]}</span>
                 </button>

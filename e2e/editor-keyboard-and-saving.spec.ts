@@ -87,7 +87,7 @@ test.describe("Keyboard controls", () => {
   test("typing mode: Enter adds items one after another", async ({ page }) => {
     await page.goto("/menu");
     await page.locator("input.new-group-title").last().fill("Fun");
-    const firstItem = page.locator(".menu-group").first().locator("input.menu-item-input").last();
+    const firstItem = page.locator(".menu-group").first().locator(".menu-item-input").last();
     await firstItem.click();
     await page.keyboard.type("Dancing");
     await page.keyboard.press("Enter");
@@ -95,13 +95,29 @@ test.describe("Keyboard controls", () => {
     const values = await page
       .locator(".menu-group")
       .first()
-      .locator("input.menu-item-input")
+      .locator(".menu-item-input")
       .evaluateAll((els) => els.map((e) => (e as HTMLInputElement).value));
     expect(values).toEqual(["Dancing", "Hiking", ""]);
   });
 });
 
 test.describe("Saving", () => {
+  test("an edit is kept even if the page is left while IPFS is still saving it", async ({ page }) => {
+    // Saves go through IPFS (slow) once the node is up; before that they're local.
+    const ipfsStarted = page.waitForEvent("console", {
+      predicate: (m) => m.text().includes("IPFS node started"),
+      timeout: 60000,
+    });
+    await page.goto(menuPath("Quick exit", { G: [{ item: "Alpha" }, { item: "Beta" }] }));
+    await ipfsStarted;
+    await page.locator(".menu-item select").nth(1).selectOption("off-limits");
+    // Leave in the middle of the save.
+    await expect(page.locator(".save-status")).toHaveText(/Saving/);
+    await page.goto("/library");
+    await page.getByRole("link", { name: /View/ }).or(page.locator(".menu-tile a")).first().click();
+    await expect(page.locator(".menu-item select").nth(1)).toHaveValue("off-limits");
+  });
+
   test("a title-only edit is saved and the old title is removed", async ({ page }) => {
     await page.goto(menuPath("Before", { G: [{ item: "Alpha" }] }));
     await expect(page.locator(".save-status")).toHaveText(/Saved/);

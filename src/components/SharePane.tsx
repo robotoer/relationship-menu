@@ -15,10 +15,13 @@ export const SharePane = ({
   value,
   description,
   title,
+  onCopied,
 }: {
   value: string;
   description?: string;
   title?: string;
+  /** Called after the value was copied (used for analytics). */
+  onCopied?: () => void;
 }) => {
   const [copied, setCopied] = useState(false);
   return (
@@ -40,6 +43,7 @@ export const SharePane = ({
             try {
               await navigator.clipboard.writeText(value);
               setCopied(true);
+              onCopied?.();
               setTimeout(() => setCopied(false), 1500);
             } catch (e) {
               console.error("Copy failed:", e);

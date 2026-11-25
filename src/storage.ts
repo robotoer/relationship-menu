@@ -117,6 +117,18 @@ export const latestByTitle = (entries: LocalMenuEntry[]) => {
   return best;
 };
 
+/**
+ * Writes `doc` to localStorage right away under a temporary `menu:pending:<title>`
+ * key. Slower backends (IPFS) call this before their own write, so closing the tab
+ * mid-save can't lose the edit: the Library reads pending entries like any other,
+ * and the backend's final entry replaces it (via removeLocalMenuEntries).
+ */
+export const writePendingLocalCopy = (doc: RelationshipMenuDocument) => {
+  const key = `menu:pending:${doc.title}`;
+  localStorage.setItem(key, JSON.stringify({ ...doc, savedAt: Date.now() }));
+  return key;
+};
+
 /** Removes every localStorage entry for `title`, except the one stored under `exceptKey`. */
 export const removeLocalMenuEntries = (title: string, exceptKey?: string) => {
   for (const entry of readLocalMenuEntries()) {
