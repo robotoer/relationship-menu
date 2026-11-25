@@ -281,7 +281,8 @@
 
 @media (max-width: 960px) {
   .landing-hero {
-    grid-template-columns: 1fr;
+    /* minmax(0, …): a plain 1fr can't shrink below the title's longest word. */
+    grid-template-columns: minmax(0, 1fr);
     grid-template-areas:
       "kicker"
       "title"
@@ -331,4 +332,10 @@
   margin-top: 0.75rem !important;
   font-size: 1.05rem;
   color: var(--c-slate);
+}
+
+@media (max-width: 360px) {
+  .landing-title {
+    font-size: 1.4rem;
+  }
 }

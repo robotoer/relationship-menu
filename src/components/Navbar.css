@@ -107,3 +107,16 @@
     border-top: 2px dashed var(--c-slate);
   }
 }
+
+/* 44px-tall tap targets for the inline desktop links (on tablets too). Padding on
+   an inline element grows the tap area without changing the layout. */
+.navbar-desktop-link.link,
+.navbar-home {
+  padding: 0.95rem 0.25rem;
+}
+
+@media (max-width: 360px) {
+  .navbar-home {
+    font-size: 0.62rem;
+  }
+}

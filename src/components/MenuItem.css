@@ -100,3 +100,28 @@
     font-size: 1rem;
   }
 }
+
+/* Phones: text gets the full width on its own line; picker and delete sit below. */
+@media (max-width: 520px) {
+  .menu-item {
+    flex-wrap: wrap;
+    padding: 0.35rem 2px;
+    border-bottom: 2px dotted var(--c-mist);
+  }
+  .menu-item label {
+    order: -1;
+    flex: 1 1 100%;
+  }
+  .menu-item select {
+    flex: 1 1 auto;
+    width: auto;
+    min-height: 44px;
+  }
+  .menu-item-delete {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .menu-item-input {
+    font-size: 1.15rem;
+  }
+}

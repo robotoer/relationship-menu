@@ -298,8 +298,9 @@ flowchart LR
 | AX-1 | Everything can be done with the keyboard alone. | Test (e2e) |
 | AX-2 | Each page has one `<h1>`; inputs, pickers and icon buttons have names. | Test |
 | AX-3 | Text and focus indicators meet WCAG AA contrast (answer colors keep their meaning: blue, green, yellow, red). | Review |
-| AX-4 | No horizontal scrolling at 375 px wide. | Test (e2e) |
+| AX-4 | No page scrolls sideways at any width from 320 px (small phone) up, including tablets in both orientations. | Test (e2e) |
 | AX-5 | Animations stop when the system asks for reduced motion. | Review |
+| AX-6 | On phones (≤ 520 px), each item's text gets the full row width, with its answer picker and buttons underneath at least 44 px tall. From 375 px wide, every template item's text fits without being cut off (at 320 px a few long ones scroll inside their field). Navigation links and the share dialog's "Advanced" toggle are also 44 px tall. | Test (e2e) for the editor rows; Review for the rest |
 
 ---
 

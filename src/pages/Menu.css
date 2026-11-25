@@ -266,3 +266,12 @@
     width: 100%;
   }
 }
+
+/* Phones: the pixel font is too wide for most titles; use the body font. */
+@media (max-width: 520px) {
+  .menu-title {
+    font-family: var(--font-body);
+    font-size: 1.45rem;
+    line-height: 1.2;
+  }
+}
