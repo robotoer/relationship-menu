@@ -1,5 +1,6 @@
 .menu-item-compare {
   display: flex;
+  flex-wrap: wrap;
   flex-direction: row;
   align-items: center;
   gap: 0.5rem;
@@ -14,6 +15,21 @@
 .menu-item-compare .menu-item {
   margin-left: 0.5rem;
   font-size: 1.15rem;
+}
+
+/* Each person's note, on its own line under the item. */
+.compare-notes {
+  flex: 1 1 100%;
+  margin: 0.15rem 0 0.1rem;
+  padding: 0 0 0 0.75rem;
+  list-style: none;
+  border-left: var(--px) solid var(--c-mist);
+  font-size: 1.05rem;
+  color: var(--c-shade);
+}
+.compare-note-who {
+  font-weight: bold;
+  color: var(--c-ink);
 }
 
 /* Color swatches, shared by comparison rows and the color key on the compare page. */

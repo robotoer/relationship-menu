@@ -65,6 +65,7 @@ classDiagram
   class Item {
     item: string
     value?: Answer
+    note? ≤280   // personal, like the answer
     id?: string  // local only, never shared
   }
   class Person {
@@ -92,6 +93,7 @@ classDiagram
 | DM-3 | Item `id`s exist only inside the editor (for focus and undo). They are stripped before saving or sharing, and never used to match items between menus. | Review |
 | DM-4 | Any text can be a group name or title, including `__proto__` or `constructor`; such names behave like any other. | ED-12 |
 | DM-5 | The library holds at most one menu per title. | SV-6 |
+| DM-6 | An item may have a short note ("only on weekends"). Notes are personal, like answers: they travel in menu links but never in template links, and they never affect matching. | LK-9, CP-14, PR-3 |
 
 ---
 
@@ -113,6 +115,8 @@ classDiagram
 | ED-10 | **Purity:** the input menu is never modified. An edit with no effect returns the identical menu object. | [Property](../../src/__props__/menu-editing.props.test.ts) |
 | ED-11 | **No silent loss:** apart from delete and replace, every edit keeps every existing item's text and answer. | [Proof](formal/dafny/MenuEditing.dfy) |
 | ED-12 | Names that collide with JavaScript object internals (`__proto__`, `constructor`) behave like ordinary names. | [Property](../../src/__props__/menu-editing.props.test.ts) |
+| ED-14 | **Make into group:** turns an item into a new group named after its text (trimmed), placed right after its own group. The item (text, answer, note) becomes the new group's first entry, so nothing is lost; it's one undo step. Ignored if the text is blank or a group with that name exists (the button explains why). | [Proof](formal/dafny/MenuEditing.dfy), [Property](../../src/__props__/menu-editing.props.test.ts) |
+| ED-15 | **Notes:** adding, changing or clearing a note changes only that item's note; an empty note is stored as no note. | Test |
 | ED-13 | **Undo/redo:** undo restores the previous menu exactly; redo re-applies it. A run of typing in one text field is one undo step. At most 100 steps are kept. | Test |
 
 ### Editing the text
@@ -147,7 +151,7 @@ stateDiagram-v2
 | KB-2 | Keys with Alt are never intercepted; Ctrl/⌘ only for Z and Y (so Ctrl+R still reloads). | [Property](../../src/__props__/links-keyboard-library.props.test.ts) |
 | KB-3 | `gg` and `dd` need both keys within 800 ms; any other key in between cancels the sequence. | [Property](../../src/__props__/links-keyboard-library.props.test.ts) |
 | KB-4 | The help overlay lists exactly the bindings the editor uses (it is generated from the same table). | Review (single source) |
-| KB-5 | Arrow keys and vim keys do the same thing: ↓/j, ↑/k, ←/h, →/l. | [Property](../../src/__props__/links-keyboard-library.props.test.ts) |
+| KB-5 | Arrow keys and vim keys do the same thing: ↓/j, ↑/k, ←/h, →/l. `n` opens an item's note, `m` makes it into a group. | [Property](../../src/__props__/links-keyboard-library.props.test.ts) |
 | KB-6 | After a move, delete or undo, the highlight lands on a row that still exists. | Test |
 | KB-7 | Dialogs keep keyboard focus inside them, close on Esc and give focus back. | Test |
 
@@ -211,6 +215,7 @@ person      = { "name"?, "pronouns"?, "note"? }
 | LK-5 | A template link contains no answers and no person part. | [Property](../../src/__props__/links-keyboard-library.props.test.ts) |
 | LK-6 | Opening a link whose title matches a *different* saved menu opens it as a copy named "Title (2)", "Title (3)" … with a notice. Opening your own unchanged menu's link opens that menu. | Test (e2e) |
 | LK-7 | A link that can't be read shows a notice instead of an empty editor. | Test |
+| LK-9 | Item notes survive encoding and decoding. Read from a link, they're trimmed, capped at 280 characters, and dropped if blank or not text. | [Property](../../src/__props__/links-keyboard-library.props.test.ts) |
 | LK-8 | The editor keeps the address bar in sync by *replacing* the history entry, so Back always leaves the editor. | Test (e2e) |
 
 ---
@@ -256,6 +261,7 @@ flowchart TB
 | CP-10 | When everyone answered an item, it is in **exactly one** of Agree, Talk about it, Conflicts. | [Proof](../../src/answer-cells.ts), [Property](../../src/__props__/compare.props.test.ts) |
 | CP-11 | All want implies everyone answered; Agree and Conflicts never overlap. | [Proof](../../src/answer-cells.ts), [Property](../../src/__props__/compare.props.test.ts) |
 | CP-12 | A filter shows exactly the matching items, keeps their order, and hides groups left empty. The count on each filter equals what it shows. | [Property](../../src/__props__/compare.props.test.ts) |
+| CP-14 | Each person's note on an item is shown under it, labelled with their name. Notes never change matching, answers, filters or counts; if a menu has the item twice, its first note counts. | [Property](../../src/__props__/compare.props.test.ts), Test |
 | CP-13 | The comparison appears after pressing Compare; a shared compare link with two or more valid menus opens straight to it. Columns are labelled with the person's name when known, else the menu title. | Test (e2e) |
 
 ---
@@ -287,7 +293,7 @@ flowchart LR
 | --- | --- | --- |
 | PR-1 | No menu content leaves the browser except inside links the user copies. There is no server-side storage. | Review |
 | PR-2 | Analytics receive the page path only, never the `?encoded=` query (the automatic page view is turned off). | Review + production check |
-| PR-3 | The menu link includes answers and person info and says so in the share dialog; the template link includes neither. | [Property](../../src/__props__/links-keyboard-library.props.test.ts), Test |
+| PR-3 | The menu link includes answers, notes and person info and says so in the share dialog; the template link includes none of them. | [Property](../../src/__props__/links-keyboard-library.props.test.ts), Test |
 
 ---
 
@@ -312,7 +318,7 @@ flowchart LR
 flowchart LR
   subgraph Proved ["Proof (every input)"]
     LS["LemmaScript → Dafny<br/>src/answer-cells.ts<br/>CP-10, CP-11"]
-    DF["Dafny model<br/>formal/dafny/MenuEditing.dfy<br/>DM-1, ED-1…ED-9, ED-11"]
+    DF["Dafny model<br/>formal/dafny/MenuEditing.dfy<br/>DM-1, ED-1…ED-9, ED-11, ED-14"]
     TL["TLA+ model (TLC)<br/>formal/tla/Autosave.tla<br/>SV-1, SV-2, SV-3, SV-5"]
   end
   subgraph Prop ["Property tests (fast-check, real code)"]
@@ -331,9 +337,9 @@ flowchart LR
 | Area | Rules | Strongest check | Where |
 | --- | --- | --- | --- |
 | Data model | DM-1…DM-5 | Proof (DM-1), Property (DM-2, DM-4, DM-5) | via ED/LK/SV rules |
-| Editing | ED-1…ED-9, ED-11 | **Proof** + Property | [`MenuEditing.dfy`](formal/dafny/MenuEditing.dfy), [`menu-editing.props`](../../src/__props__/menu-editing.props.test.ts) |
+| Editing | ED-1…ED-9, ED-11, ED-14 | **Proof** + Property | [`MenuEditing.dfy`](formal/dafny/MenuEditing.dfy), [`menu-editing.props`](../../src/__props__/menu-editing.props.test.ts) |
 | Editing | ED-10, ED-12 | Property | same props file |
-| Editing | ED-13, ED-20…ED-22 | Test | `Menu.test.tsx`, e2e |
+| Editing | ED-13, ED-15, ED-20…ED-22 | Test | `Menu.test.tsx`, e2e |
 | Keyboard | KB-1, KB-2, KB-3, KB-5 | Property | [`links-keyboard-library.props`](../../src/__props__/links-keyboard-library.props.test.ts) |
 | Keyboard | KB-4 | Review (one table drives both) | `keyboard.ts` |
 | Keyboard | KB-6, KB-7 | Test | `Menu.test.tsx`, `ShareDialog.test.tsx`, e2e |
@@ -342,10 +348,10 @@ flowchart LR
 | Saving | SV-4, SV-7, SV-8, SV-9 | Test | `storage.test.ts`, `App.test.tsx`, e2e |
 | Library | LB-2 | Property | links-keyboard-library props |
 | Library | LB-1, LB-3 | Test | `Library.test.tsx`, e2e |
-| Links | LK-1…LK-5 | Property (incl. arbitrary junk input) | links-keyboard-library props |
+| Links | LK-1…LK-5, LK-9 | Property (incl. arbitrary junk input) | links-keyboard-library props |
 | Links | LK-6…LK-8 | Test (e2e) | `e2e/` |
 | Comparing | CP-10, CP-11 | **Proof** of the code itself + Property | [`answer-cells.ts`](../../src/answer-cells.ts), [`compare.props`](../../src/__props__/compare.props.test.ts) |
-| Comparing | CP-1…CP-5, CP-12 | Property (against a naive reference) | compare props |
+| Comparing | CP-1…CP-5, CP-12, CP-14 | Property (against a naive reference) | compare props |
 | Comparing | CP-13 | Test (e2e) | `e2e/` |
 | Pages, privacy, accessibility | NV, PR, AX | Test / Review | see each table |
 

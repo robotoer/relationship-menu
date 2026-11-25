@@ -150,8 +150,8 @@ export const ShareDialog = ({
           <SharePane
             value={menuUrl}
             title="Menu link"
-            description={`Includes your answers${
-              personName ? ` and your name (${personName})` : ""
+            description={`Includes your answers and notes${
+              personName ? `, and your name (${personName})` : ""
             }. Anyone with this link can see them, so send it only to the people you're comparing with.`}
           />
         </section>

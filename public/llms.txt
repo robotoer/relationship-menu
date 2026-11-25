@@ -18,10 +18,10 @@ A menu link is `https://relationship-menu.vercel.app/menu?encoded=<slug>` (URL-e
 A slug is `<title>:<menu>` or `<title>:<menu>:<person>`, where each part is `base64(zlib_deflate(utf8(JSON)))` (standard base64 with padding; the same as pako `deflate` in JavaScript or Python `base64.b64encode(zlib.compress(json.dumps(x).encode()))`).
 
 - `title`: a JSON string, e.g. `"Our menu"`.
-- `menu`: a JSON object mapping group name to a list of items: `{"Communication": [{"item": "Daily check-ins", "value": "must-have"}, {"item": "Calling each other pet names"}]}`. `value` is one of `must-have`, `like-to-have`, `maybe`, `off-limits`, or omitted for no answer.
+- `menu`: a JSON object mapping group name to a list of items: `{"Communication": [{"item": "Daily check-ins", "value": "must-have"}, {"item": "Calling each other pet names"}]}`. `value` is one of `must-have`, `like-to-have`, `maybe`, `off-limits`, or omitted for no answer. An item may also have a `note` (text, up to 280 characters), e.g. `{"item": "Sleeping over", "value": "maybe", "note": "weekends only"}`.
 - `person` (optional, menu links only): `{"name": "Sam", "pronouns": "they/them", "note": "..."}`.
 
-A template link is the same menu with every `value` removed and no `person` part. Items are matched across menus by their text, ignoring case and extra spaces, so menus don't need identical items to be compared.
+A template link is the same menu with every `value` and `note` removed and no `person` part. Items are matched across menus by their text, ignoring case and extra spaces, so menus don't need identical items to be compared.
 
 ## Privacy
 

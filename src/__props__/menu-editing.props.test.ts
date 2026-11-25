@@ -56,6 +56,7 @@ const changeArb = (m: RelationshipMenu): fc.Arbitrary<MenuChange> =>
     fc.tuple(nameIn(m), indexArb, dirArb).map(([group, itemIndex, offset]) => ({ kind: "move-item" as const, group, itemIndex, offset })),
     fc.tuple(nameIn(m), dirArb).map(([group, offset]) => ({ kind: "move-group" as const, group, offset })),
     fc.tuple(nameIn(m), fc.array(textArb, { maxLength: 5 })).map(([group, items]) => ({ kind: "insert-group" as const, group, items })),
+    fc.tuple(nameIn(m), indexArb).map(([group, itemIndex]) => ({ kind: "item-to-group" as const, group, itemIndex })),
     menuArb.map((menu) => ({ kind: "replace" as const, menu }))
   );
 
@@ -304,6 +305,34 @@ describe("applyMenuChange properties (mirrors MenuEditing.dfy)", () => {
     );
   });
 
+  it("ED-14: make-into-group adds one group right after, holding exactly the item; else a no-op", () => {
+    fc.assert(
+      fc.property(
+        withGroup((m, g) => fc.tuple(fc.constant(g), indexArb).map(([group, itemIndex]) => ({ kind: "item-to-group" as const, group, itemIndex }))),
+        ([m, c]) => {
+          if (c.kind !== "item-to-group") return;
+          const r = applyMenuChange(m, c, gen);
+          const item = m[c.group][c.itemIndex];
+          const name = item ? item.item.trim() : "";
+          if (!item || !name || own(m, name)) {
+            expect(r).toBe(m);
+            return;
+          }
+          orderable(m, name);
+          const before = keys(m);
+          const at = before.indexOf(c.group);
+          expect(keys(r)).toEqual([...before.slice(0, at + 1), name, ...before.slice(at + 1)]);
+          expect(r[name]).toEqual([item]);
+          expect(r[c.group]).toEqual(m[c.group].filter((_, q) => q !== c.itemIndex));
+          for (const k of before) if (k !== c.group) expect(r[k]).toBe(m[k]);
+          // Nothing lost or duplicated across the whole menu.
+          expect(sameMultiset(Object.values(r).flat(), Object.values(m).flat())).toBe(true);
+        }
+      ),
+      RUNS
+    );
+  });
+
   it("ED-11: no silent loss — every item survives (under its group's new name) except for delete/replace", () => {
     fc.assert(
       fc.property(caseArb, ([m, c]) => {
@@ -315,6 +344,12 @@ describe("applyMenuChange properties (mirrors MenuEditing.dfy)", () => {
           let protectedItems = m[k];
           if (c.kind === "item" && c.group === k && c.itemIndex >= 0 && c.itemIndex < m[k].length) {
             protectedItems = m[k].filter((_, q) => q !== c.itemIndex); // the edited item, ED-5
+          }
+          if (c.kind === "item-to-group" && c.group === k && r !== m) {
+            // The moved item leaves its group... but is the first item of the new group.
+            const moved = m[k][c.itemIndex];
+            protectedItems = m[k].filter((_, q) => q !== c.itemIndex);
+            expect(r[moved.item.trim()][0]).toBe(moved);
           }
           expect(includes(r[target], protectedItems)).toBe(true);
         }

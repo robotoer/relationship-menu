@@ -1,4 +1,5 @@
 import "./MenuItem.css";
+import { useState } from "react";
 import { RelationshipMenuItem, RelationshipMenuItemValue } from "../model/menu";
 
 /**
@@ -48,18 +49,32 @@ export const MenuItem = ({
   id,
   item,
   value,
+  note,
   onChange,
   onDelete,
+  onMakeGroup,
+  makeGroupBlockedReason,
   rowProps,
 }: {
   id?: string;
   item: string;
   value?: RelationshipMenuItemValue;
+  /** The item's note. Notes can only be added to existing items (rows with `onDelete`). */
+  note?: string;
   onChange: (value: Partial<RelationshipMenuItem>) => void;
   onDelete?: () => void;
+  /** Turns this item into a group. Omit for the "new item" row. */
+  onMakeGroup?: () => void;
+  /** When set, "make into group" is disabled and this explains why. */
+  makeGroupBlockedReason?: string;
   rowProps?: RowProps;
 }) => {
   const { className: rowClassName, ...restRowProps } = rowProps || {};
+  const [noteOpen, setNoteOpen] = useState(false);
+  // Focus the note field only when the user just opened it (not on first render).
+  const [focusNote, setFocusNote] = useState(false);
+  const showNote = !!onDelete && (noteOpen || !!note);
+  const label = item || "this item";
   return (
     <div
       {...restRowProps}
@@ -95,6 +110,37 @@ export const MenuItem = ({
       {onDelete && (
         <button
           type="button"
+          className={note ? "menu-item-note-toggle icon-button has-note" : "menu-item-note-toggle icon-button"}
+          onClick={() => {
+            if (showNote && !note) {
+              setNoteOpen(false);
+            } else {
+              setNoteOpen(true);
+              setFocusNote(true);
+            }
+          }}
+          aria-expanded={showNote}
+          aria-label={note ? `Edit note on ${label}` : `Add a note to ${label}`}
+          title={note ? "Edit note (n)" : "Add a note (n)"}
+        >
+          ✎
+        </button>
+      )}
+      {onMakeGroup && (
+        <button
+          type="button"
+          className="menu-item-make-group icon-button"
+          onClick={onMakeGroup}
+          disabled={!!makeGroupBlockedReason}
+          aria-label={`Make ${item ? `"${item}"` : "this item"} into a group`}
+          title={makeGroupBlockedReason || "Make into a group, to add more detailed items under it (m)"}
+        >
+          ⤴
+        </button>
+      )}
+      {onDelete && (
+        <button
+          type="button"
           className="menu-item-delete icon-button"
           onClick={onDelete}
           aria-label={item ? `Delete item: ${item}` : "Delete item"}
@@ -102,6 +148,22 @@ export const MenuItem = ({
         >
           ✕
         </button>
+      )}
+      {showNote && (
+        <label className="menu-item-note">
+          <span className="sr-only">Note on {label}</span>
+          <input
+            value={note ?? ""}
+            autoFocus={focusNote}
+            maxLength={280}
+            placeholder="Note: e.g. only on weekends, let's talk first…"
+            onChange={(e) => onChange({ note: e.target.value || undefined })}
+            onBlur={() => {
+              setFocusNote(false);
+              if (!note) setNoteOpen(false);
+            }}
+          />
+        </label>
       )}
     </div>
   );

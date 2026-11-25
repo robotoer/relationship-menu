@@ -121,4 +121,43 @@ describe("compare properties", () => {
       })
     );
   });
+
+  it("CP-14: notes never change matching, answers or filters; each menu's first note is kept", () => {
+    fc.assert(
+      fc.property(fc.array(menuArb, { minLength: 1, maxLength: 3 }), (menus) => {
+        const withNotes = compareMenus(menus);
+        const stripped = compareMenus(
+          menus.map((m) => {
+            const out: typeof m = Object.create(null);
+            for (const [g, items] of Object.entries(m))
+              Object.defineProperty(out, g, { value: items.map(({ note: _, ...rest }) => rest), enumerable: true });
+            return out;
+          })
+        );
+        const shape = (c: typeof withNotes) =>
+          Object.entries(c).map(([g, items]) => [g, items.map((i) => [i.item, i.values])]);
+        expect(shape(withNotes)).toEqual(shape(stripped));
+        for (const id of COMPARE_FILTERS.map((f) => f.id)) {
+          expect(countByFilter(withNotes)[id]).toBe(countByFilter(stripped)[id]);
+        }
+        // Expected notes: per menu, the first non-blank note among items matching this one.
+        for (const [group, items] of Object.entries(withNotes)) {
+          for (const item of items) {
+            const expected = menus.map((m) => {
+              for (const [g, list] of Object.entries(m)) {
+                if (itemId(g) !== itemId(group)) continue;
+                for (const i of list) {
+                  const note = (i.note ?? "").trim();
+                  if (itemId(i.item) === itemId(item.item) && note) return note;
+                }
+              }
+              return undefined;
+            });
+            if (expected.some(Boolean)) expect(item.notes).toEqual(expected);
+            else expect(item.notes).toBeUndefined();
+          }
+        }
+      })
+    );
+  });
 });

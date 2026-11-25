@@ -193,4 +193,15 @@ describe("data-comparer", () => {
       expect(compareMenus([{ Empty: [] }, {}])).toEqual({ Empty: [] });
     });
   });
+
+    it("collects each menu's note without affecting matching (CP-14)", () => {
+      const result = compareMenus([
+        { G: [{ item: "Kissing", value: "must-have", note: " not in public " }, { item: "Trust" }] },
+        { G: [{ item: "kissing", value: "maybe" }, { item: "Trust", note: "always" }] },
+      ]);
+      expect(result.G).toEqual([
+        { item: "Kissing", values: ["must-have", "maybe"], notes: ["not in public", undefined] },
+        { item: "Trust", values: [undefined, undefined], notes: [undefined, "always"] },
+      ]);
+    });
 });

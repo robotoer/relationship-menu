@@ -168,4 +168,43 @@ describe("applyMenuChange", () => {
       ).toBe(result);
     });
   });
+
+  describe("item-to-group (ED-14)", () => {
+    const m: RelationshipMenu = {
+      Touch: [
+        { id: "1", item: "Kissing", value: "must-have", note: "not in public" },
+        { id: "2", item: "Cuddling", value: "maybe" },
+      ],
+      Later: [{ id: "3", item: "Trust" }],
+    };
+
+    it("moves the item into a new group right after its own, keeping text, answer and note", () => {
+      const r = applyMenuChange(m, { kind: "item-to-group", group: "Touch", itemIndex: 0 }, gen);
+      expect(Object.keys(r)).toEqual(["Touch", "Kissing", "Later"]);
+      expect(r.Touch).toEqual([{ id: "2", item: "Cuddling", value: "maybe" }]);
+      expect(r.Kissing).toEqual([m.Touch[0]]);
+      expect(r.Later).toBe(m.Later);
+      expect(m.Touch).toHaveLength(2); // input untouched
+    });
+
+    it("uses the trimmed text as the group name", () => {
+      const r = applyMenuChange({ G: [{ item: "  Kids  " }] }, { kind: "item-to-group", group: "G", itemIndex: 0 }, gen);
+      expect(Object.keys(r)).toEqual(["G", "Kids"]);
+    });
+
+    it("is a no-op for blank text, an existing group name, or a missing item/group", () => {
+      const blank: RelationshipMenu = { G: [{ item: "  " }] };
+      expect(applyMenuChange(blank, { kind: "item-to-group", group: "G", itemIndex: 0 }, gen)).toBe(blank);
+      const taken: RelationshipMenu = { G: [{ item: "Later" }], Later: [] };
+      expect(applyMenuChange(taken, { kind: "item-to-group", group: "G", itemIndex: 0 }, gen)).toBe(taken);
+      expect(applyMenuChange(m, { kind: "item-to-group", group: "Touch", itemIndex: 5 }, gen)).toBe(m);
+      expect(applyMenuChange(m, { kind: "item-to-group", group: "constructor", itemIndex: 0 }, gen)).toBe(m);
+    });
+
+    it("works for awkward names like __proto__", () => {
+      const r = applyMenuChange({ G: [{ item: "__proto__" }] }, { kind: "item-to-group", group: "G", itemIndex: 0 }, gen);
+      expect(Object.keys(r)).toEqual(["G", "__proto__"]);
+      expect(Object.prototype.hasOwnProperty.call(r, "__proto__")).toBe(true);
+    });
+  });
 });

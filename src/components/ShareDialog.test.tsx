@@ -59,7 +59,7 @@ describe("ShareDialog", () => {
 
   it("warns that the menu link includes answers and the person's name", () => {
     renderDialog({ personName: "Sam" });
-    expect(screen.getByText(/Includes your answers and your name \(Sam\)/)).toBeInTheDocument();
+    expect(screen.getByText(/Includes your answers and notes, and your name \(Sam\)/)).toBeInTheDocument();
   });
 
   it("copies an invite message containing the template link", async () => {

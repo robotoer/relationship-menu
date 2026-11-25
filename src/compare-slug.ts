@@ -4,7 +4,7 @@
  */
 
 import { decodeData, encodeData } from "./data-encoder";
-import { Person, RelationshipMenu, RelationshipMenuItemValue } from "./model/menu";
+import { ITEM_NOTE_LIMIT, Person, RelationshipMenu, RelationshipMenuItemValue } from "./model/menu";
 
 export type DecodedCompareSlug = {
   title: string;
@@ -106,10 +106,15 @@ const sanitizeMenu = (menu: unknown): RelationshipMenu | null => {
     }
     result[group] = items
       .filter((item) => item && typeof item.item === "string")
-      .map((item) => ({
-        item: item.item,
-        value: PREFERENCES.has(item.value) ? item.value : undefined,
-      }));
+      .map((item) => {
+        const clean: RelationshipMenu[string][number] = {
+          item: item.item,
+          value: PREFERENCES.has(item.value) ? item.value : undefined,
+        };
+        const note = typeof item.note === "string" ? item.note.trim() : "";
+        if (note) clean.note = note.slice(0, ITEM_NOTE_LIMIT);
+        return clean;
+      });
   }
   return result;
 };

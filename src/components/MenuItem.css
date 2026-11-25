@@ -1,5 +1,6 @@
 .menu-item {
   display: flex;
+  flex-wrap: wrap;
   flex-direction: row;
   align-items: center;
   width: 100%;
@@ -14,7 +15,7 @@
   background: #fff3c4;
 }
 
-.menu-item label {
+.menu-item > label:not(.menu-item-note) {
   flex: 1;
   min-width: 0;
 }
@@ -66,18 +67,49 @@
   background: #ffffff;
 }
 
-.menu-item-delete {
+.menu-item-delete,
+.menu-item-note-toggle,
+.menu-item-make-group {
   flex: none;
   color: var(--c-slate);
   background: transparent;
   border-color: transparent;
   box-shadow: none;
 }
-.menu-item:hover .menu-item-delete,
-.menu-item:focus-within .menu-item-delete,
-.menu-item:focus .menu-item-delete {
+.menu-item:hover :is(.menu-item-delete, .menu-item-note-toggle, .menu-item-make-group),
+.menu-item:focus-within :is(.menu-item-delete, .menu-item-note-toggle, .menu-item-make-group),
+.menu-item:focus :is(.menu-item-delete, .menu-item-note-toggle, .menu-item-make-group) {
   border-color: var(--c-ink);
   background: var(--c-white);
+}
+/* An item with a note always shows its (filled) note button. */
+.menu-item .menu-item-note-toggle.has-note {
+  color: var(--c-ink);
+  background: var(--c-yellow);
+  border-color: var(--c-ink);
+}
+.menu-item .menu-item-make-group:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.menu-item .menu-item-note-toggle:hover,
+.menu-item .menu-item-make-group:not(:disabled):hover,
+.menu-item .menu-item-note-toggle:focus-visible,
+.menu-item .menu-item-make-group:focus-visible {
+  color: var(--c-ink);
+  background: var(--c-cyan);
+}
+
+/* The note field sits on its own line under the item. */
+.menu-item-note {
+  order: 10;
+  flex: 1 1 100%;
+  padding-left: 1.5rem;
+}
+.menu-item-note input {
+  width: 100%;
+  font-size: 1.05rem;
+  border-style: dashed;
 }
 /* After the row rules, so hovering/focusing the button itself still shows red. */
 .menu-item .menu-item-delete:hover,
@@ -108,7 +140,7 @@
     padding: 0.35rem 2px;
     border-bottom: 2px dotted var(--c-mist);
   }
-  .menu-item label {
+  .menu-item > label:not(.menu-item-note) {
     order: -1;
     flex: 1 1 100%;
   }
@@ -117,9 +149,14 @@
     width: auto;
     min-height: 44px;
   }
-  .menu-item-delete {
+  .menu-item-delete,
+  .menu-item-note-toggle,
+  .menu-item-make-group {
     min-width: 44px;
     min-height: 44px;
+  }
+  .menu-item-note {
+    padding-left: 0;
   }
   .menu-item-input {
     font-size: 1.15rem;

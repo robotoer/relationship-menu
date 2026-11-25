@@ -1,6 +1,6 @@
 # Dafny model of menu editing
 
-`MenuEditing.dfy` models `applyMenuChange` (`src/menu-editing.ts`): a menu is an ordered `seq` of `(name, items)` groups, an item is `(text, answer?)`, and `Apply(m, c)` covers every change kind (add/rename/delete group, add/update/delete item, move item/group by ±1, insert-group, replace). The case-folding used by insert-group is an uninterpreted `Fold`; no property of it is assumed. Like the code, insert-group ignores a blank group name, skips texts already present or repeated earlier in its own list, and an update that changes nothing returns the same menu. The file contains no `assume` or `{:axiom}`.
+`MenuEditing.dfy` models `applyMenuChange` (`src/menu-editing.ts`): a menu is an ordered `seq` of `(name, items)` groups, an item is `(text, answer?)`, and `Apply(m, c)` covers every change kind (add/rename/delete group, add/update/delete item, move item/group by ±1, insert-group, item-to-group, replace). The case-folding used by insert-group is an uninterpreted `Fold`; no property of it is assumed. Like the code, insert-group ignores a blank group name, skips texts already present or repeated earlier in its own list, and an update that changes nothing returns the same menu. The file contains no `assume` or `{:axiom}`.
 
 | Lemma | Rule | fast-check test (`src/__props__/menu-editing.props.test.ts`) |
 | --- | --- | --- |
@@ -15,12 +15,13 @@
 | `ED_8_InsertGroupOnlyAppendsMissing` | ED-8 | "ED-8: insert-group only appends missing items…" |
 | `ED_9_ReplaceReplaces` | ED-9 | "ED-9: replace returns the given menu" |
 | `ED_11_NoSilentLoss` | ED-11 | "ED-11: no silent loss…" |
+| `ED_14_ItemToGroup` | ED-14 | "ED-14: make-into-group adds one group right after…" |
 | (not modelled) | ED-10, ED-12 | "ED-10: …", "ED-12: …" and the "regressions found by these properties" block |
 
-Run: `dafny verify docs/spec/formal/dafny/MenuEditing.dfy` (Dafny 4.11; expect "0 errors") and
+Run: `dafny verify docs/spec/formal/dafny/MenuEditing.dfy` (Dafny 4.11; expect "47 verified, 0 errors") and
 `CI=true npx react-scripts test --watchAll=false src/__props__/menu-editing`.
 
-Deliberately left out: item `id`s and `generateId` (DM-3), JS object identity (ED-10: "same object" for no-ops), prototypes and `__proto__`-style keys (ED-12), offsets other than ±1, and the JS rule that array-index keys such as `"0"` are always listed first. The model assumes keys keep insertion order, which is false for those names. The fast-check tests cover the JS-only points.
+Deliberately left out: item notes (they ride along with the item and never affect any edit), item `id`s and `generateId` (DM-3), JS object identity (ED-10: "same object" for no-ops), prototypes and `__proto__`-style keys (ED-12), offsets other than ±1, and the JS rule that array-index keys such as `"0"` are always listed first. The model assumes keys keep insertion order, which is false for those names. The fast-check tests cover the JS-only points.
 
 The property tests first found four problems in `menu-editing.ts`, all now fixed and kept as regression tests:
 

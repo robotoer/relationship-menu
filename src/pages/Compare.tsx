@@ -134,6 +134,7 @@ export const ComparePage = ({
                     item={item.item}
                     menuItems={item.values}
                     titles={columnTitles}
+                    notes={item.notes}
                   />
                 ))}
               </MenuGroup>

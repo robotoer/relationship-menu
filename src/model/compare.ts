@@ -14,6 +14,11 @@ export type ComparedMenuItemValue = RelationshipMenuItemValue | null | undefined
 export type ComparedMenuItem = {
   item: string;
   values: ComparedMenuItemValue[];
+  /**
+   * Present only when someone wrote a note on this item: one entry per compared
+   * menu, holding that person's note (or undefined).
+   */
+  notes?: (string | undefined)[];
 };
 
 /**

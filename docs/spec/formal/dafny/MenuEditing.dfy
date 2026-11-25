@@ -38,6 +38,9 @@ module MenuEditing {
   // because lower-casing never turns a non-empty string into "" or vice versa.
   function Fold(s: string): string
 
+  // String trim (item text → group name for ItemToGroup). Uninterpreted, like Fold.
+  function Trim(s: string): string
+
   // ------------------------------------------------------------------ changes
 
   datatype Dir = Up | Down // offset -1 / +1; the editor only sends these
@@ -56,6 +59,7 @@ module MenuEditing {
     | MoveItem(group: string, index: int, dir: Dir)  // { kind: "move-item" }
     | MoveGroup(group: string, dir: Dir)             // { kind: "move-group" }
     | InsertGroup(group: string, texts: seq<string>) // { kind: "insert-group" }
+    | ItemToGroup(group: string, index: int)         // { kind: "item-to-group" }
     | Replace(menu: Menu)                            // { kind: "replace" }
 
   // A replacement menu must itself be a valid menu.
@@ -105,6 +109,14 @@ module MenuEditing {
     var i := IndexOf(m, g); if i >= 0 then m[i].items else []
   }
 
+  // ItemToGroup takes effect: the group and item exist, and the trimmed text is a
+  // non-empty name no group has yet.
+  predicate ItemToGroupApplies(m: Menu, g: string, k: int) {
+    var i := IndexOf(m, g);
+    i >= 0 && 0 <= k < |m[i].items|
+    && Trim(m[i].items[k].text) != "" && IndexOf(m, Trim(m[i].items[k].text)) < 0
+  }
+
   // ------------------------------------------------------ the function itself
 
   function Apply(m: Menu, c: Change): Menu {
@@ -149,6 +161,14 @@ module MenuEditing {
       else if |added| == 0 && i >= 0 then m   // nothing to add (ED-10)
       else if i >= 0 then SetItems(m, i, existing + added)
       else m + [Group(g, added)]
+    case ItemToGroup(g, k) =>
+      var i := IndexOf(m, g);
+      if i < 0 || !(0 <= k < |m[i].items|) then m
+      else
+        var x := m[i].items[k];
+        if Trim(x.text) == "" || IndexOf(m, Trim(x.text)) >= 0 then m
+        else m[..i] + [Group(m[i].name, m[i].items[..k] + m[i].items[k+1..]),
+                       Group(Trim(x.text), [x])] + m[i+1..]
     case Replace(n) => n
   }
 
@@ -220,6 +240,19 @@ module MenuEditing {
       }
     case InsertGroup(g, texts) =>
       if |r| == |m| { SameNames(m, r); }
+    case ItemToGroup(g, k) =>
+      if ItemToGroupApplies(m, g, k) {
+        var i := IndexOf(m, g);
+        var n := Trim(m[i].items[k].text);
+        // Name of r[a] in terms of m: m[a] up to i, then n, then m[a - 1].
+        forall a, b | 0 <= a < b < |r| ensures r[a].name != r[b].name {
+          var na := if a <= i then m[a].name else if a == i + 1 then n else m[a-1].name;
+          var nb := if b <= i then m[b].name else if b == i + 1 then n else m[b-1].name;
+          assert r[a].name == na && r[b].name == nb;
+        }
+      } else {
+        SameNames(m, r);
+      }
     case AddGroup(n) =>
     case Replace(n) =>
     case _ =>
@@ -373,6 +406,27 @@ module MenuEditing {
     }
   }
 
+  // ED-14: "Make into group: the item becomes a new group named after its
+  // (trimmed) text, placed right after its group and holding that item as its
+  // only entry. Ignored if the text is blank or the name is taken."
+  lemma ED_14_ItemToGroup(m: Menu, g: string, k: int)
+    ensures var r := Apply(m, ItemToGroup(g, k));
+      if !ItemToGroupApplies(m, g, k) then r == m
+      else
+        var i := IndexOf(m, g); var x := m[i].items[k];
+        |r| == |m| + 1
+        && r[..i] == m[..i] && r[i+2..] == m[i+1..]
+        && r[i] == Group(g, m[i].items[..k] + m[i].items[k+1..])
+        && r[i+1] == Group(Trim(x.text), [x])
+        // nothing lost or duplicated across the whole menu
+        && multiset(m[i].items) == multiset(r[i].items) + multiset(r[i+1].items)
+  {
+    if ItemToGroupApplies(m, g, k) {
+      var s := m[IndexOf(m, g)].items;
+      assert s == s[..k] + [s[k]] + s[k+1..];
+    }
+  }
+
   // ED-9: "Start from a template: replaces the whole menu."
   lemma ED_9_ReplaceReplaces(m: Menu, n: Menu)
     ensures Apply(m, Replace(n)) == n
@@ -388,13 +442,14 @@ module MenuEditing {
   }
 
   // Items of group j that must survive c: all of them, except the one item an
-  // update targets (whose given fields change by design, ED-5).
+  // update targets (whose given fields change by design, ED-5) or that becomes
+  // its own group (ED-14 proves it lands there).
   function Protected(m: Menu, c: Change, j: int): multiset<Item>
     requires 0 <= j < |m|
   {
     var items := m[j].items;
-    if c.EditItem? && m[j].name == c.group && 0 <= c.index < |items|
-    then multiset(items) - multiset{items[c.index]}
+    if (c.EditItem? || c.ItemToGroup?) && m[j].name == c.group && 0 <= c.index < |items|
+    then multiset(items) - multiset{items[c.index]}  // ItemToGroup: it moves (ED-14)
     else multiset(items)
   }
 
@@ -403,6 +458,8 @@ module MenuEditing {
     if c.MoveGroup? then
       var i := IndexOf(m, c.group); var to := i + Offset(c.dir);
       if i >= 0 && 0 <= to < |m| then (if j == i then to else if j == to then i else j) else j
+    else if c.ItemToGroup? && ItemToGroupApplies(m, c.group, c.index) then
+      (if j > IndexOf(m, c.group) then j + 1 else j)  // the new group sits at i + 1
     else j
   }
 
@@ -464,6 +521,20 @@ module MenuEditing {
       var i := IndexOf(m, g);
       if i == j {
         assert multiset(m[i].items) <= multiset(m[i].items + Missing(texts, Folds(m[i].items)));
+      }
+    case ItemToGroup(g, k) =>
+      if ItemToGroupApplies(m, g, k) {
+        var i := IndexOf(m, g);
+        var s := m[i].items;
+        if j < i {
+          assert r[j] == m[j];
+        } else if j == i {
+          assert r[i].items == s[..k] + s[k+1..];
+          assert s == s[..k] + [s[k]] + s[k+1..];
+          assert multiset(s) - multiset{s[k]} == multiset(s[..k]) + multiset(s[k+1..]);
+        } else {
+          assert r[j + 1] == m[j];
+        }
       }
     case _ =>
   }

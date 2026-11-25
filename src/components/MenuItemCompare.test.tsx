@@ -62,4 +62,23 @@ describe("MenuItemCompare", () => {
       screen.getByRole("img", { name: "Bob: Not on this menu" })
     ).toBeInTheDocument();
   });
+
+  it("lists each person's note under the item, labelled with whose it is", () => {
+    render(
+      <MenuItemCompare
+        item="Kissing"
+        menuItems={["must-have", "maybe", null]}
+        titles={["Ana", "Ben", "Cy"]}
+        notes={["not in public", undefined, undefined]}
+      />
+    );
+    const notes = screen.getByRole("list", { name: "Notes on Kissing" });
+    expect(notes).toHaveTextContent("Ana: not in public");
+    expect(notes).not.toHaveTextContent("Ben");
+  });
+
+  it("shows no notes list when nobody wrote one", () => {
+    render(<MenuItemCompare item="Kissing" menuItems={["maybe"]} titles={["Ana"]} />);
+    expect(screen.queryByRole("list")).not.toBeInTheDocument();
+  });
 });

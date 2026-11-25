@@ -21,7 +21,8 @@ export const itemId = (item: string): string =>
  *
  * Each item's `values` has one entry per menu: the selected preference, `undefined`
  * when the item is on that menu without a preference, or `null` when the item is
- * not on that menu at all. Items with blank text are ignored.
+ * not on that menu at all. Items with blank text are ignored. Items that have a
+ * note on any menu also get `notes`, with one entry per menu (that menu's note, if any).
  *
  * @param menus An array of RelationshipMenu objects to compare.
  * @returns A MenuComparison object representing the comparison result.
@@ -56,6 +57,13 @@ export const compareMenus = (menus: RelationshipMenu[]): MenuComparison => {
         // If an item appears twice in the same menu, keep the first answer given.
         if (!compared.values[menuIndex]) {
           compared.values[menuIndex] = item.value || undefined;
+        }
+        // ...and the first note. Notes never affect matching or filters.
+        const note = typeof item.note === "string" ? item.note.trim() : "";
+        if (note) {
+          // Only items someone wrote a note on carry a `notes` array.
+          compared.notes ??= new Array(menus.length).fill(undefined);
+          if (!compared.notes[menuIndex]) compared.notes[menuIndex] = note;
         }
       });
     });
