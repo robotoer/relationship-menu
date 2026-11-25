@@ -8,6 +8,7 @@ import { MenuGroup } from "../components/MenuGroup";
 import { MenuItem } from "../components/MenuItem";
 import { RelationshipMenu } from "../model/menu";
 import { MenuChange } from "../menu-editing";
+import { SaveState } from "../autosave";
 import { ShareSection } from "../components/ShareSection";
 import { Link } from "react-router-dom";
 
@@ -90,6 +91,28 @@ const GroupTitle = ({
   );
 };
 
+export type SaveStatus = SaveState | "title-taken";
+
+const SAVE_LABELS: { [status: string]: string } = {
+  pending: "Saving…",
+  saving: "Saving…",
+  saved: "Saved",
+  error: "Couldn't save",
+  "title-taken": "Another menu already has this title. Rename to save.",
+};
+
+/** Shows whether the menu's latest changes are saved. */
+const SaveIndicator = ({ status }: { status?: SaveStatus }) =>
+  status && SAVE_LABELS[status] ? (
+    <span
+      className={`save-status save-status-${status}`}
+      role="status"
+      aria-live="polite"
+    >
+      {SAVE_LABELS[status]}
+    </span>
+  ) : null;
+
 /** Counter for keys of the trailing "new item" row, which become the new item's id. */
 let nextPendingItemId = 0;
 
@@ -111,6 +134,7 @@ export const MenuPage = ({
   templateEncoded,
   onChange,
   onChangeTitle,
+  saveStatus,
 }: {
   title: string;
   menu: RelationshipMenu;
@@ -118,6 +142,7 @@ export const MenuPage = ({
   templateEncoded: string;
   onChange: (change: MenuChange) => void;
   onChangeTitle: (title: string) => void;
+  saveStatus?: SaveStatus;
 }) => {
   const groupNames = Object.keys(menu);
   // Key (and future id) of each group's "new item" row, by group name.
@@ -132,6 +157,7 @@ export const MenuPage = ({
           placeholder="Menu title"
           onChange={(e) => onChangeTitle(e.target.value)}
         />
+        <SaveIndicator status={saveStatus} />
         <Link
           to={`/compare?encoded=${encodeURIComponent(menuEncoded)}`}
           className="menu-compare"

@@ -14,6 +14,7 @@ import { MenuComparison } from "./model/compare";
 import { useStorage } from "./providers/Storage";
 import { compareMenus } from "./data-comparer";
 import { applyMenuChange } from "./menu-editing";
+import { useAutosave } from "./autosave";
 import {
   DecodedCompareSlug,
   decodeCompareSlug,
@@ -70,10 +71,13 @@ const WrappedLibraryPage = () => {
  * @returns The wrapped MenuPage component.
  */
 const WrappedMenuPage = () => {
-  const { storage } = useStorage();
+  const { storage, documents } = useStorage();
   const [title, setTitle] = useState("");
   const [menu, setMenu] = useState<RelationshipMenu>({});
   const loadedFromUrl = useRef(false);
+  // The title this editor's menu is saved under (set when a menu is loaded or first
+  // saved). Renaming saves under the new title and removes this entry.
+  const ownedTitle = useRef<string | null>(null);
   // Get path paremeters from react-router-dom:
   const [params, setParams] = useSearchParams();
 
@@ -101,6 +105,7 @@ const WrappedMenuPage = () => {
         const decodedMenu = decodeData(menuPart);
         if (decodedTitle !== undefined && decodedTitle !== null) {
           setTitle(decodedTitle);
+          ownedTitle.current = String(decodedTitle);
         }
         if (decodedMenu && typeof decodedMenu === "object") {
           setMenu(ensureItemIds(decodedMenu));
@@ -117,6 +122,7 @@ const WrappedMenuPage = () => {
           const doc = docs[encodedRaw];
           if (doc) {
             setTitle(doc.title);
+            ownedTitle.current = doc.title;
             const decodedMenu = decodeData(doc.encoded);
             if (decodedMenu && typeof decodedMenu === "object") {
               setMenu(ensureItemIds(decodedMenu));
@@ -131,22 +137,26 @@ const WrappedMenuPage = () => {
       })();
     }
   }, [encodedRaw, storage]);
-  // Save the menu to the browser local storage:
-  useEffect(() => {
-    (async () => {
-      // Don't save empty menus:
-      if (Object.keys(menu).length === 0) {
-        return;
-      }
+  // Save the menu (and its title) to storage, debounced, one save at a time.
+  const titleTaken =
+    title !== ownedTitle.current &&
+    Object.prototype.hasOwnProperty.call(documents, title);
+  const docToSave = useMemo(
+    () =>
+      titleTaken || (title === "" && Object.keys(menu).length === 0)
+        ? null
+        : { title, encoded: encodeData(stripMenuIds(menu)) },
+    [title, menu, titleTaken]
+  );
+  const saveState = useAutosave(docToSave, async (doc) => {
+    await storage.saveDocuments(doc);
+    const previous = ownedTitle.current;
+    ownedTitle.current = doc.title;
+    if (previous !== null && previous !== doc.title) {
+      await storage.deleteDocument(previous);
+    }
+  });
 
-      const value = encodeData(stripMenuIds(menu));
-      await storage.saveDocuments({
-        title,
-        encoded: value,
-      });
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [menu]); // We are purpusely not saving when the title changes to avoid creating a new document unnecessarily.
   // Update query parameters as menu or title changes:
   useEffect(() => {
     const strippedMenu = stripMenuIds(menu);
@@ -183,6 +193,7 @@ const WrappedMenuPage = () => {
         setMenu((prev) => applyMenuChange(prev, change, generateItemId))
       }
       onChangeTitle={setTitle}
+      saveStatus={titleTaken ? "title-taken" : saveState}
     />
   );
 };
