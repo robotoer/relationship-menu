@@ -36,7 +36,7 @@ function getGroup(page: Page, index: number) {
  * which avoids the race condition of pressSequentially creating multiple items.
  */
 async function addItemToGroup(page: Page, groupLocator: ReturnType<Page['locator']>, itemName: string) {
-  const itemInput = groupLocator.locator('input.menu-item-input').last();
+  const itemInput = groupLocator.locator('.menu-item-input').last();
   await itemInput.click();
   await itemInput.fill(itemName);
   // Wait for the item to be created and React to re-render
@@ -162,7 +162,7 @@ test.describe('Comprehensive Workflow Tests', () => {
       await page.waitForTimeout(500);
 
       // Now edit the item - first() is the item we just added (not the empty one)
-      const itemInput = group.locator('input.menu-item-input').first();
+      const itemInput = group.locator('.menu-item-input').first();
       await itemInput.click();
       await itemInput.fill('Mountain Biking');
       await page.locator('body').click({ position: { x: 10, y: 10 } });
@@ -233,7 +233,7 @@ test.describe('Comprehensive Workflow Tests', () => {
       expect(renamedValue).toBe('NewGroupName');
 
       // Verify item still exists in the renamed group
-      const itemInput = group.locator('input.menu-item-input').first();
+      const itemInput = group.locator('.menu-item-input').first();
       const itemValue = await itemInput.inputValue();
       expect(itemValue).toBe('Test Item');
     });
@@ -269,7 +269,7 @@ test.describe('Comprehensive Workflow Tests', () => {
       // Verify each group has items
       for (let i = 0; i < groups.length; i++) {
         const group = getGroup(page, i);
-        const itemCount = await group.locator('input.menu-item-input').count();
+        const itemCount = await group.locator('.menu-item-input').count();
         // 3 items + 1 empty "add new" input = 4
         expect(itemCount).toBe(4);
       }
@@ -300,7 +300,7 @@ test.describe('Comprehensive Workflow Tests', () => {
       // Verify group exists and has items
       const firstGroup = getGroup(page, 0);
       await expect(firstGroup).toBeVisible();
-      const firstItem = await firstGroup.locator('input.menu-item-input').nth(0).inputValue();
+      const firstItem = await firstGroup.locator('.menu-item-input').nth(0).inputValue();
       expect(firstItem).toBe('Cuddling');
 
       // Verify URL has encoded data

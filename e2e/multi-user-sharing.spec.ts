@@ -466,12 +466,12 @@ test.describe('Multi-User Data Sharing', () => {
           
           if (textCount > 0) {
             // Use the text-based locator
-            await expect(menuGroupByText.locator('input.menu-item-input').first()).toBeVisible({ timeout: 10000 });
+            await expect(menuGroupByText.locator('.menu-item-input').first()).toBeVisible({ timeout: 10000 });
             console.log(`✅ Created group: ${group.name}`);
             
             // Add items to this group
             for (const item of group.items) {
-              const itemInput = menuGroupByText.locator('input.menu-item-input').last();
+              const itemInput = menuGroupByText.locator('.menu-item-input').last();
               
               await itemInput.click();
               await itemInput.fill(item);
@@ -487,13 +487,13 @@ test.describe('Multi-User Data Sharing', () => {
           }
         } else {
           // Wait for menu items to be available in the group
-          await expect(menuGroup.locator('input.menu-item-input').first()).toBeVisible({ timeout: 10000 });
+          await expect(menuGroup.locator('.menu-item-input').first()).toBeVisible({ timeout: 10000 });
           
           console.log(`✅ Created group: ${group.name}`);
           
           // Add items to this group
           for (const item of group.items) {
-            const itemInput = menuGroup.locator('input.menu-item-input').last();
+            const itemInput = menuGroup.locator('.menu-item-input').last();
             
             await itemInput.click();
             await itemInput.fill(item);

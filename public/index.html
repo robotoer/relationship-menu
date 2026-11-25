@@ -42,11 +42,17 @@
     
       // Menus live in the URL's query string (?encoded=...), answers included, so
       // never report full URLs: no automatic page view, and only the path is sent.
-      gtag('config', 'G-JGP1J62LL4', {
+      var analyticsConfig = {
         send_page_view: false,
         page_location: location.origin + location.pathname,
         page_referrer: document.referrer ? document.referrer.split(/[?#]/)[0] : undefined,
-      });
+      };
+      // To watch your own events live in GA's DebugView, run this once in the
+      // browser console: localStorage.analytics_debug = "1"
+      try {
+        if (localStorage.getItem('analytics_debug') === '1') analyticsConfig.debug_mode = true;
+      } catch (e) {}
+      gtag('config', 'G-JGP1J62LL4', analyticsConfig);
     </script>
   </head>
   <body>

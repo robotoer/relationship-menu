@@ -29,7 +29,7 @@ async function addItemToGroup(
   groupLocator: ReturnType<Page["locator"]>,
   itemName: string
 ) {
-  const itemInput = groupLocator.locator("input.menu-item-input").last();
+  const itemInput = groupLocator.locator(".menu-item-input").last();
   await itemInput.click();
   await itemInput.fill(itemName);
   await page.waitForTimeout(500);
@@ -112,7 +112,7 @@ test.describe("Share Link Loading", () => {
       expect(groupTitle2).toBe("Communication");
 
       // Verify items exist with correct text
-      const items2 = group2.locator("input.menu-item-input");
+      const items2 = group2.locator(".menu-item-input");
       // 3 items + 1 empty "add new" = 4 inputs
       const itemCount = await items2.count();
       expect(itemCount).toBe(4);
@@ -195,7 +195,7 @@ test.describe("Share Link Loading", () => {
       expect(groupTitle2).toBe("Boundaries");
 
       // Verify items exist with correct text
-      const items2 = group2.locator("input.menu-item-input");
+      const items2 = group2.locator(".menu-item-input");
       expect(await items2.nth(0).inputValue()).toBe("Cohabitation");
       expect(await items2.nth(1).inputValue()).toBe("Shared finances");
       expect(await items2.nth(2).inputValue()).toBe("Pet names");
@@ -291,7 +291,7 @@ test.describe("Share Link Loading", () => {
       expect(await pg2g1.locator("input.new-group-title").inputValue()).toBe(
         "Physical"
       );
-      const g1Items = pg2g1.locator("input.menu-item-input");
+      const g1Items = pg2g1.locator(".menu-item-input");
       expect(await g1Items.nth(0).inputValue()).toBe("Holding hands");
       expect(await g1Items.nth(1).inputValue()).toBe("Kissing");
       const g1Selects = pg2g1.locator(".menu-item select");
@@ -303,7 +303,7 @@ test.describe("Share Link Loading", () => {
       expect(await pg2g2.locator("input.new-group-title").inputValue()).toBe(
         "Emotional"
       );
-      const g2Items = pg2g2.locator("input.menu-item-input");
+      const g2Items = pg2g2.locator(".menu-item-input");
       expect(await g2Items.nth(0).inputValue()).toBe("Vulnerability");
       expect(await g2Items.nth(1).inputValue()).toBe("Daily support");
       const g2Selects = pg2g2.locator(".menu-item select");
@@ -315,7 +315,7 @@ test.describe("Share Link Loading", () => {
       expect(await pg2g3.locator("input.new-group-title").inputValue()).toBe(
         "Social"
       );
-      const g3Items = pg2g3.locator("input.menu-item-input");
+      const g3Items = pg2g3.locator(".menu-item-input");
       expect(await g3Items.nth(0).inputValue()).toBe("Meeting family");
       expect(await g3Items.nth(1).inputValue()).toBe("Public displays");
       expect(await g3Items.nth(2).inputValue()).toBe("Social media posts");
@@ -384,7 +384,7 @@ test.describe("Share Link Loading", () => {
       expect(groupTitle).toBe("Favorites");
 
       // Verify items
-      const items = loadedGroup.locator("input.menu-item-input");
+      const items = loadedGroup.locator(".menu-item-input");
       expect(await items.nth(0).inputValue()).toBe("Movie nights");
       expect(await items.nth(1).inputValue()).toBe("Cooking together");
 
@@ -454,7 +454,7 @@ test.describe("Share Link Loading", () => {
       ).toBe("Activities");
 
       // Verify items
-      const items2 = group2.locator("input.menu-item-input");
+      const items2 = group2.locator(".menu-item-input");
       expect(await items2.nth(0).inputValue()).toBe("Hiking");
       expect(await items2.nth(1).inputValue()).toBe("Gaming");
 

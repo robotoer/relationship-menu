@@ -23,7 +23,9 @@ import { useStorage } from "./providers/Storage";
 import { compareMenus } from "./data-comparer";
 import { MenuChange, applyMenuChange } from "./menu-editing";
 import { useAutosave } from "./autosave";
-import { templateMenu } from "./templates";
+import { GROUP_TEMPLATES, templateMenu } from "./templates";
+import { progressMilestone, track, trackOnce } from "./analytics";
+import { countByFilter } from "./compare-filters";
 import {
   DecodedCompareSlug,
   decodeCompareSlug,
@@ -123,6 +125,15 @@ const WrappedMenuPage = () => {
     setMenuState(next);
   };
   const editMenu = (change: MenuChange) => {
+    // Analytics: which editing features get used (never what was typed).
+    if (change.kind === "item-to-group") track("item_made_group");
+    if (change.kind === "insert-group") {
+      const known = GROUP_TEMPLATES.some((g) => g.name === change.group);
+      track("ready_made_group_added", { group_name: known ? change.group : "other" });
+    }
+    if (change.kind === "item" && change.value?.note && !menuRef.current[change.group]?.[change.itemIndex]?.note) {
+      track("note_added");
+    }
     const prev = menuRef.current;
     const next = applyMenuChange(prev, change, generateItemId);
     if (next === prev) return;
@@ -204,6 +215,7 @@ const WrappedMenuPage = () => {
       }
       if (cancelled) return;
       if (!opened) {
+        track("link_open_failed", { reason: notFound ? "not_found" : "unreadable" });
         setNotice(
           notFound
             ? "This menu wasn't found in this browser. If it was shared with you, ask for the full link."
@@ -243,6 +255,17 @@ const WrappedMenuPage = () => {
         setNotice(null);
         ownedTitle.current = opened.title;
         createdAt.current = existing?.createdAt ?? null;
+      }
+      if (raw.includes(":")) {
+        // A full link (not a Library ID): someone shared it, or it's a bookmark.
+        const items = Object.values(opened.menu).flat();
+        track("shared_link_opened", {
+          link_type: items.some((i) => i.value) ? "menu" : "template",
+          has_person: !!opened.person,
+          own_menu: !!existing && openedTitle === opened.title,
+          opened_as_copy: openedTitle !== opened.title,
+          item_count: items.length,
+        });
       }
       setPerson(opened.person ?? (openedTitle === opened.title ? existing?.person : undefined) ?? {});
       setTitle(openedTitle);
@@ -287,6 +310,31 @@ const WrappedMenuPage = () => {
     }
   });
 
+  // Analytics: how far people get answering a menu. Milestones already reached when
+  // the editor opened (e.g. reopening a finished menu) aren't counted again.
+  const progressBaseline = useRef<number | null>(null);
+  useEffect(() => {
+    if (!loaded) return;
+    const items = Object.values(menu).flat().filter((i) => i.item.trim());
+    const answered = items.filter((i) => i.value).length;
+    const milestone = progressMilestone(answered, items.length) ?? 0;
+    if (progressBaseline.current === null) {
+      progressBaseline.current = milestone;
+      return;
+    }
+    if (milestone > progressBaseline.current) {
+      progressBaseline.current = milestone;
+      track("menu_progress", {
+        percent_answered: milestone as 25 | 50 | 75 | 100,
+        item_count: items.length,
+      });
+    }
+  }, [menu, loaded]);
+
+  useEffect(() => {
+    if (saveState === "error") track("save_failed");
+  }, [saveState]);
+
   // Keep the URL in sync with the menu so it can be bookmarked or reloaded. Replace
   // the history entry rather than pushing one per edit, so Back leaves the editor.
   useEffect(() => {
@@ -328,8 +376,14 @@ const WrappedMenuPage = () => {
       onRedo={redo}
       onChangeTitle={setTitle}
       person={person}
-      onChangePerson={setPerson}
+      onChangePerson={(next) => {
+        if (Object.values(next).some((v) => typeof v === "string" && v.trim())) {
+          trackOnce("person_info_added", "person_info_added");
+        }
+        setPerson(next);
+      }}
       onUseTemplate={(template) => {
+        track("template_chosen", { template_id: template.id });
         editMenu({ kind: "replace", menu: ensureItemIds(templateMenu(template)) });
         if (title === "") {
           const taken = Object.prototype.hasOwnProperty.call(documents, template.name);
@@ -400,10 +454,13 @@ const WrappedComparePage = () => {
   const [compareClicked, setCompareClicked] = useState(() =>
     opensCompared(paramEntries)
   );
+  /** Whether the comparison about to appear came from a compare link (analytics). */
+  const openedFromLink = useRef(opensCompared(paramEntries));
 
   useEffect(() => {
     setEncodedList(paramEntries);
     setCompareClicked(opensCompared(paramEntries));
+    openedFromLink.current = opensCompared(paramEntries);
   }, [paramEntries, navigationKey]);
 
   const updateEntries = (entries: string[]) => {
@@ -463,6 +520,23 @@ const WrappedComparePage = () => {
   }, [valid]);
 
   const canCompare = valid.length >= 2;
+  const showComparison = compareClicked && canCompare;
+
+  // Analytics: each time a comparison appears (from a shared compare link or the
+  // Compare button), with its size and how many conflicts it has.
+  useEffect(() => {
+    if (!showComparison) return;
+    const items = Object.values(comparison).flat();
+    track("comparison_shown", {
+      menu_count: valid.length,
+      source: openedFromLink.current ? "link" : "button",
+      item_count: items.length,
+      conflict_count: countByFilter(comparison).conflict,
+    });
+    openedFromLink.current = false;
+    // Only when it appears, not on every edit of the inputs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showComparison]);
 
   return (
     <ComparePage
@@ -471,7 +545,7 @@ const WrappedComparePage = () => {
       encoded={encodedList}
       errors={errors}
       legendTitles={legendTitles}
-      showComparison={compareClicked && canCompare}
+      showComparison={showComparison}
       canCompare={canCompare}
       onChangeCompared={updateEntries}
       onCompare={() => setCompareClicked(true)}

@@ -12,6 +12,7 @@ import {
   localStorageDeleteDocument,
   readLocalMenuEntries,
   removeLocalMenuEntries,
+  writePendingLocalCopy,
 } from "./storage";
 import { RelationshipMenuDocument } from "./model/menu";
 
@@ -90,6 +91,8 @@ const ipfsSaveDocuments =
   async (...docs: RelationshipMenuDocument[]) => {
     const ids: string[] = [];
     for (const doc of docs) {
+      // Keep the edit even if the page closes while IPFS is still writing.
+      writePendingLocalCopy(doc);
       const cid = await helJson.add(doc);
       const key = `menu:${cid.toString()}`;
       ids.push(cid.toString());

@@ -21,7 +21,13 @@
 }
 
 .menu-item-input {
+  display: block;
   width: 100%;
+  /* A textarea that looks like a one-line input and grows as the text wraps. */
+  resize: none;
+  overflow: hidden;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
   border-color: transparent;
   background: transparent;
 }

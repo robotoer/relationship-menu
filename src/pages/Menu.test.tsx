@@ -43,7 +43,7 @@ const Editor = ({ initial = {} }: { initial?: RelationshipMenu }) => {
 const groupInputs = () =>
   document.querySelectorAll<HTMLInputElement>("input.new-group-title");
 const itemInputs = (groupEl: Element) =>
-  groupEl.querySelectorAll<HTMLInputElement>("input.menu-item-input");
+  groupEl.querySelectorAll<HTMLInputElement>(".menu-item-input");
 const menuState = () => JSON.parse(screen.getByTestId("menu").textContent!);
 
 describe("MenuPage editing", () => {
@@ -152,7 +152,7 @@ describe("MenuPage editing", () => {
       render(<Editor initial={menu} />);
       row("a").focus();
       await userEvent.keyboard("{Enter}");
-      const input = row("a").querySelector("input.menu-item-input")!;
+      const input = row("a").querySelector(".menu-item-input")!;
       expect(input).toHaveFocus();
       await userEvent.keyboard("!");
       expect(items()[0][0]).toBe("Kissing!");
@@ -162,7 +162,7 @@ describe("MenuPage editing", () => {
       await userEvent.keyboard("{Escape}");
       expect(row("a")).toHaveFocus();
       await userEvent.keyboard("i{Enter}");
-      expect(row("b").querySelector("input.menu-item-input")).toHaveFocus();
+      expect(row("b").querySelector(".menu-item-input")).toHaveFocus();
     });
 
     it("o adds an item to the current group", async () => {

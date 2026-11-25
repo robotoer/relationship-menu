@@ -41,6 +41,8 @@ Other scripts:
 | `yarn storybook` | Component explorer on http://localhost:6006 |
 | `yarn chromatic` | Publish Storybook to Chromatic (needs `CHROMATIC_PROJECT_TOKEN`, see `example.env`) |
 
+Usage analytics (Google Analytics) and exactly what is and isn't sent are described in [`docs/analytics.md`](docs/analytics.md). No menu text, names or link contents ever leave the browser.
+
 CI (GitHub Actions) runs the build, unit tests and the full end-to-end suite on every push. Vercel deploys every branch as a preview and `main` to production.
 
 ### Code layout

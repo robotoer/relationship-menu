@@ -1,30 +1,73 @@
 import "./MenuItem.css";
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { RelationshipMenuItem, RelationshipMenuItemValue } from "../model/menu";
 
 /**
- * A custom input component for menu items.
- *
- * @component
- * @param {React.DetailedHTMLProps<React.InputHTMLAttributes<HTMLInputElement>, HTMLInputElement>} props - The input element props.
- * @param {string} props.className - The class name for the input element.
- * @param {string} props.placeholder - The placeholder text for the input element.
- * @returns {JSX.Element} The rendered input element.
+ * The text of a menu item: a one-row textarea that grows to fit, so long items
+ * wrap instead of being cut off (most visible on phones). Newlines are never kept:
+ * Enter moves to the next row (handled by the editor) and pasted line breaks
+ * become spaces.
  */
 const MenuItemInput = ({
   className,
   placeholder,
+  onChange,
+  value,
   ...params
 }: React.DetailedHTMLProps<
-  React.InputHTMLAttributes<HTMLInputElement>,
-  HTMLInputElement
->) => (
-  <input
-    className={className ? `menu-item-input ${className}` : "menu-item-input"}
-    placeholder={placeholder || "New item"}
-    {...params}
-  />
-);
+  React.TextareaHTMLAttributes<HTMLTextAreaElement>,
+  HTMLTextAreaElement
+>) => {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  // Height follows the text: on every change, when the field's width changes
+  // (layout, rotation, resizing), and once web fonts have loaded (they change how
+  // the text wraps).
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const fit = () => {
+      el.style.height = "auto";
+      // scrollHeight excludes the border, but height (border-box) includes it.
+      const border = el.offsetHeight - el.clientHeight;
+      el.style.height = `${el.scrollHeight + border}px`;
+    };
+    fit();
+    let width = el.clientWidth;
+    const observer =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(() => {
+            // Only width matters; ignore the height changes fit() itself causes.
+            if (el.clientWidth !== width) {
+              width = el.clientWidth;
+              fit();
+            }
+          });
+    observer?.observe(el);
+    let active = true;
+    document.fonts?.ready.then(() => active && fit());
+    return () => {
+      active = false;
+      observer?.disconnect();
+    };
+  }, [value]);
+  return (
+    <textarea
+      ref={ref}
+      rows={1}
+      className={className ? `menu-item-input ${className}` : "menu-item-input"}
+      placeholder={placeholder || "New item"}
+      value={value}
+      onChange={(e) => {
+        if (/[\r\n]/.test(e.target.value)) {
+          e.target.value = e.target.value.replace(/\s*[\r\n]+\s*/g, " ");
+        }
+        onChange?.(e);
+      }}
+      {...params}
+    />
+  );
+};
 
 /**
  * Color-coded display of a single relationship menu item. Selected preference (if any)

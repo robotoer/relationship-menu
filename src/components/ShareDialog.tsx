@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { SharePane } from "./SharePane";
 import "./ShareDialog.css";
+import { track } from "../analytics";
 
 /**
  * Share dialog for a menu, laid out in the order people actually use the links:
@@ -108,6 +109,7 @@ export const ShareDialog = ({
           <SharePane
             value={templateUrl}
             title="Template link"
+            onCopied={() => track("link_copied", { link_type: "template" })}
             description="Your groups and items with no answers, so they answer without seeing yours. Opening it saves a copy in their browser."
           />
           <div className="share-step-actions">
@@ -117,6 +119,7 @@ export const ShareDialog = ({
                 try {
                   await navigator.clipboard.writeText(invite);
                   setInviteCopied(true);
+                  track("link_copied", { link_type: "invite" });
                   setTimeout(() => setInviteCopied(false), 1500);
                 } catch (e) {
                   console.error("Copy failed:", e);
@@ -131,6 +134,7 @@ export const ShareDialog = ({
                 onClick={() =>
                   navigator
                     .share({ title: "Relationship menu", text: invite })
+                    .then(() => track("native_share_used"))
                     .catch(() => {})
                 }
               >
@@ -150,6 +154,7 @@ export const ShareDialog = ({
           <SharePane
             value={menuUrl}
             title="Menu link"
+            onCopied={() => track("link_copied", { link_type: "menu" })}
             description={`Includes your answers and notes${
               personName ? `, and your name (${personName})` : ""
             }. Anyone with this link can see them, so send it only to the people you're comparing with.`}
@@ -191,8 +196,18 @@ export const ShareDialog = ({
             Compare, or use it where long links get cut off.
           </p>
           <div className="share-advanced-panes">
-            <SharePane value={menuEncoded} title="Menu slug" description="With your answers." />
-            <SharePane value={templateEncoded} title="Template slug" description="No answers." />
+            <SharePane
+              value={menuEncoded}
+              title="Menu slug"
+              description="With your answers."
+              onCopied={() => track("link_copied", { link_type: "menu_slug" })}
+            />
+            <SharePane
+              value={templateEncoded}
+              title="Template slug"
+              description="No answers."
+              onCopied={() => track("link_copied", { link_type: "template_slug" })}
+            />
           </div>
         </details>
       </div>

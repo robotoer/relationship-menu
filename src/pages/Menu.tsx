@@ -18,6 +18,7 @@ import {
   templateItemCount,
 } from "../templates";
 import { ShareDialog } from "../components/ShareDialog";
+import { track } from "../analytics";
 import { Link } from "react-router-dom";
 
 /**
@@ -228,6 +229,10 @@ export const MenuPage = ({
   // ---- Keyboard controls (see src/keyboard.ts) ----
   const pageRef = useRef<HTMLDivElement>(null);
   const [helpOpen, setHelpOpen] = useState(false);
+  const openHelp = () => {
+    track("keyboard_help_opened");
+    setHelpOpen(true);
+  };
   const [shareOpen, setShareOpen] = useState(false);
   const sequence = useRef<{ key: string; at: number } | null>(null);
   // Row to focus after the next render (rows can move or disappear on edits).
@@ -246,7 +251,8 @@ export const MenuPage = ({
   const focusRow = (row: HTMLElement | undefined, mode: "row" | "input") => {
     if (!row) return;
     if (mode === "input") {
-      const input = row.querySelector<HTMLInputElement>("input");
+      // The row's first text field: an item's textarea, or a group title's input.
+      const input = row.querySelector<HTMLInputElement | HTMLTextAreaElement>("input, textarea");
       if (input) {
         input.focus();
         const end = input.value.length;
@@ -277,7 +283,7 @@ export const MenuPage = ({
       if (e.target !== document.body || e.ctrlKey || e.metaKey || e.altKey) return;
       if (e.key === "?") {
         e.preventDefault();
-        setHelpOpen(true);
+        openHelp();
       } else if (e.key === "j" || e.key === "k") {
         e.preventDefault();
         focusRow(rowElements()[0], "row");
@@ -384,7 +390,7 @@ export const MenuPage = ({
         focusAfterRender.current = { rowKey: row.dataset.rowKey!, mode: "row", index };
         return action.type === "undo" ? onUndo?.() : onRedo?.();
       case "help":
-        return setHelpOpen(true);
+        return openHelp();
     }
   };
 
@@ -437,7 +443,7 @@ export const MenuPage = ({
         <button
           type="button"
           className="keyboard-help-button"
-          onClick={() => setHelpOpen(true)}
+          onClick={() => openHelp()}
           aria-keyshortcuts="?"
         >
           Keys <kbd>?</kbd>
@@ -451,7 +457,10 @@ export const MenuPage = ({
         <button
           type="button"
           className="button-primary menu-share"
-          onClick={() => setShareOpen(true)}
+          onClick={() => {
+            track("share_dialog_opened");
+            setShareOpen(true);
+          }}
           aria-haspopup="dialog"
         >
           Share
@@ -509,11 +518,12 @@ export const MenuPage = ({
             <button
               type="button"
               className="template-card template-card-blank"
-              onClick={() =>
+              onClick={() => {
+                track("blank_menu_started");
                 pageRef.current
                   ?.querySelector<HTMLInputElement>('[data-row-key="new-group"] input')
-                  ?.focus()
-              }
+                  ?.focus();
+              }}
             >
               <span className="template-card-name">Blank menu</span>
               <span className="template-card-description">
