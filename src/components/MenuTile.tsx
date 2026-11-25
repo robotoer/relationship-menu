@@ -10,17 +10,20 @@ import { ReactNode } from "react";
  * @param {string} props.title - The title of the menu tile.
  * @param {ReactNode} props.image - The image to be displayed in the menu tile.
  * @param {string} props.link - The link to navigate when the menu tile is clicked.
+ * @param {unknown} [props.linkState] - Router state passed along with the link.
  * @returns {JSX.Element} The rendered menu tile component.
  */
 export const MenuTile = ({
   title,
   image,
   link,
+  linkState,
   children,
 }: {
   title: string;
   image: ReactNode;
   link: string;
+  linkState?: unknown;
   /** Extra details shown under the title (person, counts, dates). */
   children?: ReactNode;
 }) => {
@@ -31,7 +34,9 @@ export const MenuTile = ({
         <h2 className={title ? undefined : "untitled"}>{title || "Untitled menu"}</h2>
       </div>
       {children}
-      <Link to={link}>View</Link>
+      <Link to={link} state={linkState}>
+        View
+      </Link>
     </div>
   );
 };

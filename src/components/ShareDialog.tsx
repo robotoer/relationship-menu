@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { SharePane } from "./SharePane";
 import "./ShareDialog.css";
-import { track } from "../analytics";
+import { openedFromState, track } from "../analytics";
 
 /**
  * Share dialog for a menu, laid out in the order people actually use the links:
@@ -73,7 +73,9 @@ export const ShareDialog = ({
 
   const compare = () => {
     const entries = [menuEncoded, theirs.trim()].filter(Boolean);
-    navigate(`/compare?${entries.map((e) => `encoded=${encodeURIComponent(e)}`).join("&")}`);
+    navigate(`/compare?${entries.map((e) => `encoded=${encodeURIComponent(e)}`).join("&")}`, {
+      state: openedFromState("share_dialog"),
+    });
   };
 
   return (

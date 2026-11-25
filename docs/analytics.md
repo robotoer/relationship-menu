@@ -6,7 +6,8 @@ The app reports to Google Analytics 4 (property `G-JGP1J62LL4`, loaded in `publi
 
 Menus live inside their links, answers included, so the app never sends:
 - the address bar (only the path, like `/menu`);
-- anything a person typed: titles, groups, items, notes, names, search text.
+- anything a person typed: titles, groups, items, notes, names, search text;
+- error messages or stacks (they can quote menu text): only a fixed error name.
 
 Events carry only fixed values: template ids, link kinds, filter ids, counts and true/false. The types in [`src/analytics.ts`](../src/analytics.ts) enforce this, and [`e2e/analytics.spec.ts`](../e2e/analytics.spec.ts) drives the app with marker text and checks that none of it reaches GA (spec rule PR-2).
 
@@ -19,6 +20,7 @@ Google Analytics is loaded only on `relationship-menu.vercel.app`, and not in au
 | Event | When | Parameters |
 | --- | --- | --- |
 | `page_view` | Each page (path only) | `page_path` |
+| `landing_button_clicked` | A landing page button is used | `button_id`: `hero_start`, `hero_compare`, `hero_library` (My menus), `footer_start`, `footer_compare` |
 | `template_chosen` | A template is picked for a new menu | `template_id` (`romantic-starter`, `relationship-anarchy-smorgasbord`, `polyamory-agreements`, `close-friendship`, `early-dating`, `co-living-partnership`) |
 | `blank_menu_started` | "Blank menu" is picked | |
 | `ready_made_group_added` | A ready-made group is added | `group_name` (the built-in group's name) |
@@ -27,17 +29,24 @@ Google Analytics is loaded only on `relationship-menu.vercel.app`, and not in au
 | `item_made_group` | "Make into group" is used | |
 | `person_info_added` | Name/pronouns/note filled in (once per visit) | |
 | `keyboard_help_opened` | The shortcut help is opened | |
+| `menu_customized` | A menu's structure is changed, not just answered (once per kind per visit) | `edit_kind`: `item_added`, `item_edited` (an existing item reworded), `item_deleted`, `group_added`, `group_renamed`, `group_deleted`, `reordered` |
 | `share_dialog_opened` | The Share dialog is opened | |
 | `link_copied` | A link is copied | `link_type`: `template`, `menu`, `invite`, `menu_slug`, `template_slug` |
 | `native_share_used` | The phone's share sheet is used | |
 | `shared_link_opened` | Someone opens a menu link (not from their Library) | `link_type` (`menu` = has answers, `template` = none), `has_person`, `own_menu`, `opened_as_copy`, `item_count` |
 | `link_open_failed` | A link couldn't be opened | `reason`: `unreadable` (cut off) or `not_found` |
-| `comparison_shown` | A comparison appears | `menu_count`, `source` (`link` or `button`), `item_count`, `conflict_count` |
+| `library_menu_opened` | A saved menu is reopened from the Library | `item_count`, `percent_answered` (`0`, `25`, `50`, `75`, `100`) |
+| `comparison_shown` | A comparison appears | `menu_count`, `source` (`link` = a compare link, `share_dialog` = pasted into the Share dialog, `button` = the Compare page's button), `item_count`, `conflict_count` |
 | `compare_filter_used` | A compare filter is picked | `filter`: `agree`, `both-want`, `conflict`, `differ`, `unanswered`, `missing`, `all` |
 | `library_searched` | The Library is searched (once per visit; never the text) | |
 | `library_sorted` | The Library sort is changed | `sort`: `edited`, `created`, `title` |
 | `menu_deleted` | A menu is deleted from the Library | |
 | `save_failed` | A save fails | |
+| `app_error` | An uncaught error (at most 5 per page load, each kind once) | `error_type`: a fixed error name (`TypeError`, `ChunkLoadError`, `QuotaExceededError`…; see `KNOWN_ERROR_NAMES` in `src/analytics.ts`), `other_error`, `non_error` (something other than an Error was thrown) or `unknown` (hidden by the browser); `error_source`: `error`, `unhandledrejection` or `react` (a render crash that blanked the page) |
+| `web_vital` | A Core Web Vital is measured (about once per page load each) | `metric_name` (`CLS`, `FCP`, `INP`, `LCP`, `TTFB`), `metric_value` (milliseconds, rounded; CLS × 1000) |
+
+Until late November 2026, opening a menu from the Library was counted as `shared_link_opened` with `own_menu` = true; filter on `own_menu` = false to compare older data.
+
 
 ## One-time setup in Google Analytics (about 10 minutes)
 
@@ -45,8 +54,11 @@ GA only shows event parameters in reports after they're registered.
 
 1. **Register the parameters.** In **Admin → Data display → Custom definitions**, click **Create custom dimension** and add each of these with scope **Event**, using the parameter name as the dimension name:
    - `template_id`, `link_type`, `source`, `filter`, `group_name`, `sort`, `reason`, `has_person`, `own_menu`, `opened_as_copy`, `percent_answered`
+   - `button_id`, `edit_kind`, `error_type`, `error_source`, `metric_name`
 
-   Then, on the **Custom metrics** tab, add `item_count`, `menu_count` and `conflict_count` (unit: Standard).
+   Then, on the **Custom metrics** tab, add `item_count`, `menu_count`, `conflict_count` and `metric_value` (unit: Standard).
+
+   To read Core Web Vitals, build a free-form exploration with dimension `metric_name` and metrics **Event count** and `metric_value`: the average is `metric_value` ÷ Event count (CLS is × 1000, so 100 = 0.1).
 
 2. **Mark key events.** In **Admin → Data display → Events**, star these as key events. They're the moments the app is actually used, not just visited:
    - `link_copied`: someone shared a menu.
