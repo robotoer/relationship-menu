@@ -31,6 +31,14 @@ test.describe("Analytics (PR-2)", () => {
     // window.dataLayer starts empty on every full page load: collect before leaving.
     const calls: string[] = [];
     const collect = async () => calls.push(...(await gtagCalls(page)));
+    // Only production reports: nothing may reach Google from a test run (or localhost).
+    const googleRequests: string[] = [];
+    page.on("request", (request) => {
+      const host = new URL(request.url()).hostname;
+      if (/(^|\.)(googletagmanager\.com|google-analytics\.com|analytics\.google\.com|doubleclick\.net)$/.test(host)) {
+        googleRequests.push(host);
+      }
+    });
     // Arrive from a shared menu link.
     await page.goto(`/menu?encoded=${encodeURIComponent(slug(`${SECRET} title`, MENU, PERSON))}`);
     await expect(page.locator(".menu-item").first()).toBeVisible();
@@ -88,6 +96,8 @@ test.describe("Analytics (PR-2)", () => {
       source: "link",
       conflict_count: 1,
     });
+
+    expect(googleRequests).toEqual([]);
 
     // Nothing anyone typed, and no link contents, ever leaves the browser.
     const everything = calls.join("\n");
