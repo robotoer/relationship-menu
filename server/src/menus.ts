@@ -39,17 +39,24 @@ export const checkMenuId = (id: string) => {
   if (!ID_PATTERN.test(id)) throw new HttpError(400, "bad_menu_id");
 };
 
-/** GET /v1/menus?since=<seq> — changes after `since`, oldest first, 100 per page. */
+/**
+ * GET /v1/menus?since=<seq>[&full=1] — changes after `since`, oldest first, 100 per
+ * page. Every reply says `purged`: the account's newest forgotten tombstone.
+ */
 export const listMenus = async (env: Env, caller: Caller, url: URL): Promise<Response> => {
   const account = await requireAccount(env, caller);
   const sinceText = url.searchParams.get("since") ?? "0";
   if (!/^\d{1,15}$/.test(sinceText)) throw new HttpError(400, "bad_request");
   const since = Number(sinceText);
+  const purged = account.purged_seq;
   // Tombstones older than 180 days are forgotten. A device whose cursor is older
   // than one of them must pull everything and treat synced-but-missing menus as
-  // deleted (SY-23).
-  if (since > 0 && since < account.purged_seq) {
-    return json({ menus: [], next: 0, more: false, resync: true });
+  // deleted (SY-23, SY-32). The later pages of that full listing say `full=1`:
+  // they start above 0 but are part of the listing, so they don't get `resync`
+  // again. The device compares `purged` across the pages instead.
+  const full = url.searchParams.get("full") === "1";
+  if (!full && since > 0 && since < purged) {
+    return json({ menus: [], next: 0, more: false, resync: true, purged });
   }
   const { results } = await env.DB.prepare(
     "SELECT menu_id, version, seq, updated_at, deleted, size, ciphertext FROM menus WHERE account_id = ? AND seq > ? ORDER BY seq LIMIT ?"
@@ -58,7 +65,7 @@ export const listMenus = async (env: Env, caller: Caller, url: URL): Promise<Res
     .all<MenuRow>();
   const page = results.slice(0, PAGE_SIZE);
   const last = page[page.length - 1];
-  return json({ menus: page.map(toJson), next: last ? last.seq : since, more: results.length > PAGE_SIZE, resync: false });
+  return json({ menus: page.map(toJson), next: last ? last.seq : since, more: results.length > PAGE_SIZE, resync: false, purged });
 };
 
 const currentRow = (env: Env, accountId: string, menuId: string) =>

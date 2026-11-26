@@ -6,7 +6,7 @@ export type SavedDocument = RelationshipMenuDocument & { id: string };
 
 type StorageContextType = {
   storage: Storage;
-  /** Every saved menu, by menu id (SY-20). Kept in step with saves and deletes. */
+  /** Every saved menu, by menu id (SY-20). Kept in step with saves, deletes, sync and other tabs. */
   documents: { [id: string]: SavedDocument };
   /** Deletes the menu with this id. */
   deleteDocument: (id: string) => Promise<void>;
@@ -14,9 +14,12 @@ type StorageContextType = {
 
 const StorageContext = createContext<StorageContextType | undefined>(undefined);
 
+const copy = <T,>(from: { [id: string]: T }): { [id: string]: T } => Object.assign(Object.create(null), from);
+
 /**
  * Gives the app its menu storage (localStorage unless a `storage` is passed, e.g. in
- * tests) and the list of saved menus, updated as menus are saved and deleted.
+ * tests) and the list of saved menus, updated as menus are saved and deleted here,
+ * changed by sync, or changed in another tab.
  */
 export const StorageProvider: React.FC<{
   children: React.ReactNode;
@@ -26,21 +29,31 @@ export const StorageProvider: React.FC<{
   const [documents, setDocuments] = useState<StorageContextType["documents"]>({});
 
   useEffect(() => {
-    base.getDocuments().then(setDocuments);
+    let current = true;
+    const reload = () =>
+      base.getDocuments().then((docs) => {
+        if (current) setDocuments(docs);
+      });
+    void reload();
+    const off = base.subscribe(() => void reload());
+    return () => {
+      current = false;
+      off();
+    };
   }, [base]);
 
   const storage: Storage = useMemo(
     () => ({
       getDocuments: base.getDocuments,
+      subscribe: base.subscribe,
       saveDocuments: async (...docs) => {
         try {
           const ids = await base.saveDocuments(...docs);
+          // Re-read what was saved, with its revision (SY-24).
+          const saved = await Promise.all(ids.map((id) => base.getDocuments(id)));
           setDocuments((prev) => {
-            const next: typeof prev = Object.assign(Object.create(null), prev);
-            docs.forEach((doc, i) => {
-              const id = ids[i];
-              if (id !== undefined) next[id] = { ...doc, id };
-            });
+            const next = copy(prev);
+            for (const one of saved) Object.assign(next, one);
             return next;
           });
           return ids;
@@ -49,10 +62,20 @@ export const StorageProvider: React.FC<{
           return [];
         }
       },
+      saveMenu: async (doc, startedFrom) => {
+        const revision = await base.saveMenu(doc, startedFrom);
+        const { revision: _old, ...stored } = doc;
+        setDocuments((prev) => {
+          const next = copy(prev);
+          next[doc.id] = revision === null ? stored : { ...stored, revision };
+          return next;
+        });
+        return revision;
+      },
       deleteDocument: async (id: string) => {
         await base.deleteDocument(id);
         setDocuments((prev) => {
-          const next: typeof prev = Object.assign(Object.create(null), prev);
+          const next = copy(prev);
           delete next[id];
           return next;
         });

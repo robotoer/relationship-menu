@@ -36,6 +36,9 @@ import {
 } from "./analytics";
 import { SupportPage } from "./pages/Support";
 import { DiscussPage } from "./pages/Discuss";
+import { createCoachClient } from "./coach";
+import { isSupporter, useSync } from "./sync/context";
+import { useSyncRuntime } from "./providers/Sync";
 import { buildAgenda, discussionKey } from "./discussion";
 import { countByFilter } from "./compare-filters";
 import { uniqueTitle } from "./unique-title";
@@ -219,6 +222,9 @@ const WrappedMenuPage = () => {
   // The id this editor's menu is saved under (SY-20): set when a saved menu is opened,
   // or made up on its first save. Renaming keeps it, so a rename is an ordinary save.
   const menuId = useRef<string | null>(null);
+  // With sync on, the stored menu's revision this editor last loaded or saved (SY-24):
+  // a save from an older one keeps the synced version too (SY-35).
+  const revision = useRef<number | null>(null);
   // Get path paremeters from react-router-dom:
   const [params, setParams] = useSearchParams();
 
@@ -301,6 +307,7 @@ const WrappedMenuPage = () => {
       } else {
         setNotice(null);
         menuId.current = existing?.id ?? null;
+        revision.current = existing?.revision ?? null;
         createdAt.current = existing?.createdAt ?? null;
       }
       const items = Object.values(opened.menu).flat();
@@ -354,14 +361,42 @@ const WrappedMenuPage = () => {
     const now = Date.now();
     createdAt.current ??= now;
     const id = (menuId.current ??= newMenuId());
-    const ids = await storage.saveDocuments({
-      ...doc,
-      id,
-      createdAt: createdAt.current,
-      updatedAt: now,
-    });
-    if (ids.length === 0) throw new Error("Saving the menu failed");
+    revision.current = await storage.saveMenu(
+      { ...doc, id, createdAt: createdAt.current, updatedAt: now },
+      revision.current
+    );
   });
+
+  // A menu that sync moved to a new id (its first upload's answer was lost) carries on there.
+  useEffect(
+    () =>
+      storage.subscribe(({ moved }) => {
+        for (const { from, to } of moved) if (menuId.current === from) menuId.current = to;
+      }),
+    [storage]
+  );
+
+  // SY-33: a synced change to the open menu, with no unsaved edits here, replaces it
+  // in place. With unsaved edits, the next save keeps both versions (SY-35).
+  const openDoc = menuId.current !== null ? documents[menuId.current] : undefined;
+  useEffect(() => {
+    if (!loaded || !openDoc || openDoc.revision === undefined || revision.current === null) return;
+    if (openDoc.revision <= revision.current) return;
+    if (saveState !== "idle" && saveState !== "saved") return;
+    const decoded = decodeCompareSlug(encodeMenuSlug(openDoc.title, openDoc.encoded, openDoc.person));
+    if (!decoded) return;
+    revision.current = openDoc.revision;
+    const unchanged =
+      openDoc.title === title &&
+      openDoc.encoded === encodeData(stripMenuIds(menuRef.current)) &&
+      JSON.stringify(sanitizePerson(openDoc.person) ?? null) === JSON.stringify(sanitizePerson(person) ?? null);
+    if (unchanged) return;
+    setTitle(decoded.title);
+    setMenu(ensureItemIds(decoded.menu));
+    setPerson(decoded.person ?? {});
+    setNotice("Updated on another device.");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openDoc, saveState, loaded]);
 
   // Analytics: how far people get answering a menu. Milestones already reached when
   // the editor opened (e.g. reopening a finished menu) aren't counted again.
@@ -639,6 +674,14 @@ const WrappedDiscussPage = () => {
     [valid]
   );
   const compareLink = `/compare?${menuParams(entries)}`;
+  // The AI coach is for supporters (docs/spec/coach.md): it signs its requests with sync's keys.
+  const { state } = useSync();
+  const runtime = useSyncRuntime();
+  const supporter = isSupporter(state);
+  const coach = useMemo(() => {
+    const authorize = supporter ? runtime?.authorizer() : null;
+    return authorize ? createCoachClient({ origin: "", authorize }) : undefined;
+  }, [supporter, runtime]);
   if (valid.length < 2) {
     return (
       <div className="discuss-page">
@@ -656,6 +699,7 @@ const WrappedDiscussPage = () => {
       names={valid.map((d) => d.person?.name || d.title || "Untitled menu")}
       recordKey={discussionKey(valid)}
       compareLink={compareLink}
+      coach={coach}
     />
   );
 };

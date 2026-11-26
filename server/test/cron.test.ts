@@ -63,10 +63,14 @@ describe("SY-23, SY-45: forgetting old tombstones, pairings and event ids", () =
     // A device whose cursor predates the forgotten tombstone must pull everything again.
     const stale = await device.fetch("GET", `/v1/menus?since=${tombstoneSeq - 1}`);
     expect(await stale.json()).toMatchObject({ resync: true, menus: [] });
-    // A fresh pull works.
-    const full = (await (await device.fetch("GET", "/v1/menus?since=0")).json()) as { resync: boolean; menus: unknown[] };
+    // A fresh pull works, and says what was forgotten.
+    const full = (await (await device.fetch("GET", "/v1/menus?since=0")).json()) as { resync: boolean; menus: unknown[]; purged: number };
     expect(full.resync).toBe(false);
     expect(full.menus).toHaveLength(1);
+    expect(full.purged).toBe(tombstoneSeq);
+    // SY-32: a later page of that full listing starts above 0 but isn't told to resync again.
+    const page = await device.fetch("GET", `/v1/menus?since=${tombstoneSeq - 1}&full=1`);
+    expect(await page.json()).toMatchObject({ resync: false, purged: tombstoneSeq });
   });
 
   it("deletes pairings a day after expiry and webhook ids after 30 days", async () => {

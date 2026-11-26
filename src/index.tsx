@@ -7,7 +7,9 @@ import { App } from "./App";
 import reportWebVitals from "./reportWebVitals";
 import { BrowserRouter } from "react-router-dom";
 import { StorageProvider } from "./providers/Storage";
+import { SyncProvider } from "./providers/Sync";
 import { createLocalStorage } from "./storage";
+import { createLazySyncRuntime } from "./sync/lazy";
 import { trackError, trackUncaughtErrors, trackWebVital } from "./analytics";
 
 // Analytics: uncaught errors (their kind only) and Core Web Vitals.
@@ -23,12 +25,19 @@ const root = ReactDOM.createRoot(document.getElementById("root") as HTMLElement,
     else console.error(error);
   },
 });
+// Supporter sync (docs/spec/sync.md). Storage tells it about every save; it does
+// nothing over the network unless sync has been turned on in this browser.
+const sync = createLazySyncRuntime();
+const storage = createLocalStorage({ sync });
+
 root.render(
   <React.StrictMode>
     <BrowserRouter>
-      <StorageProvider storage={createLocalStorage()}>
-        <App />
-      </StorageProvider>
+      <SyncProvider runtime={sync}>
+        <StorageProvider storage={storage}>
+          <App />
+        </StorageProvider>
+      </SyncProvider>
     </BrowserRouter>
   </React.StrictMode>
 );

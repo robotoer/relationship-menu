@@ -11,13 +11,12 @@
  */
 
 import { track as trackEvent } from "../analytics";
-import { KeyValueStore, SavedMenu, readStoredMenus } from "../menu-store";
+import type { KeyValueStore } from "../menu-store";
 import { newMenuId } from "../menu-id";
 import { ApiError, ApiOptions, SyncApi, createApi, parseAccount, readPairing } from "./api";
 import {
   CheckoutPlan,
   PairingOffer,
-  SUPPORTER_STATUSES,
   SyncAccount,
   SyncActions,
   SyncError,
@@ -36,8 +35,6 @@ import {
   readReport,
   readSecret,
   readSkipped,
-  readState,
-  readStates,
   resetMenuStates,
   syncIsOn,
   writeAccount,
@@ -49,7 +46,8 @@ import {
   SYNC_KEY,
   SYNC_MENU_PREFIX,
 } from "./local-store";
-import { Local, MergeContext, RemoteRecord, applyLocalDelete, applyLocalSave, mergeRecords, recordVersion } from "./merge";
+import { MergeContext, RemoteRecord, recordVersion } from "./merge";
+import { LocalSync, SyncHooks, createLocalSync, pendingMenus, readSyncState } from "./hooks";
 import { PairingError, createPairing, openPairing, pairingIdForKey, pairingLink } from "./pairing";
 import { SyncRecordError, decryptRecord, encryptRecord } from "./records";
 import { newSyncSecret, parseSyncCode, secretToWords } from "./sync-code";
@@ -82,23 +80,11 @@ export type RuntimeOptions = {
   onVisibilityChange?: (listener: () => void) => () => void;
   onStorage?: (listener: (key: string | null) => void) => () => void;
   track?: typeof trackEvent;
+  /** The save hooks this runtime works with (lazy.ts makes them before the runtime loads). */
+  local?: LocalSync;
 };
 
-/** What storage tells sync about a save or deletion (src/storage.ts). Synchronous and never throws. */
-export type SyncHooks = {
-  /** A menu was just written. `previous` is what was stored before. Returns its new revision (SY-24), or null with sync off. */
-  saved(doc: SavedMenu, startedFrom: number | null, previous: SavedMenu | undefined): number | null;
-  /** A menu was just removed; `previous` is what was stored. */
-  deleted(id: string, previous: SavedMenu | undefined): void;
-  /** The menu's current revision, or null with sync off. */
-  revisionOf(id: string): number | null;
-  /**
-   * Calls `listener` when sync (in this tab) added, replaced or removed stored
-   * menus. `moved` lists menus that now live under a new id (merge.ts
-   * `applyUnknownCreate`): an editor showing `from` should carry on as `to`.
-   */
-  onMenusChanged(listener: (ids: string[], moved: { from: string; to: string }[]) => void): () => void;
-};
+export type { SyncHooks } from "./hooks";
 
 export type SyncRuntime = SyncActions &
   SyncHooks & {
@@ -150,6 +136,7 @@ export const createSyncRuntime = (options: RuntimeOptions = {}): SyncRuntime => 
   const isVisible = options.isVisible ?? (() => globalThis.document?.visibilityState !== "hidden");
   const isOnline = options.isOnline ?? (() => globalThis.navigator?.onLine !== false);
   const track = options.track ?? trackEvent;
+  const local = options.local ?? createLocalSync({ kv, now, ctx });
   const onVisibilityChange =
     options.onVisibilityChange ??
     ((listener) => {
@@ -166,7 +153,6 @@ export const createSyncRuntime = (options: RuntimeOptions = {}): SyncRuntime => 
 
   let state: SyncState = { kind: "loading" };
   const listeners = new Set<() => void>();
-  const menuListeners = new Set<(ids: string[], moved: { from: string; to: string }[]) => void>();
 
   /** Bumps whenever the code changes (on, off, replaced): an older loop stops. */
   let generation = 0;
@@ -181,54 +167,17 @@ export const createSyncRuntime = (options: RuntimeOptions = {}): SyncRuntime => 
   let accountCheckedAt = 0;
   let unsubscribe: (() => void)[] = [];
   let started = false;
+  /** Set once start has checked support and read the code: until then the state stays "loading". */
+  let ready = false;
 
   // ---- state for the screens --------------------------------------------------
 
-  const accountNotices = (account: SyncAccount | null): SyncNotice[] => {
-    if (!account) return [];
-    if (account.status === "none") return ["not_supporter"];
-    if (account.status === "lapsed" || account.readOnly) return ["read_only"];
-    return [];
-  };
-
-  /** Menus to upload: changed here, never synced (no state yet), or deleted and not yet pushed. */
-  const pendingMenus = () => {
-    const states = readStates(kv);
-    const skip = readSkipped(kv);
-    const ids = new Set(readStoredMenus(kv).map((m) => m.doc.id).filter((id) => !skip.has(id)));
-    let n = 0;
-    for (const id of ids) if (!states[id] || states[id].dirty) n++;
-    for (const [id, st] of Object.entries(states)) if (st.dirty && !ids.has(id)) n++;
-    return n;
-  };
-
-  const computeState = (): SyncState => {
-    if (state.kind === "loading" || state.kind === "unsupported") return state;
-    if (!syncIsOn(kv)) return { kind: "off" };
-    const report = readReport(kv);
-    const account = readAccount(kv);
-    const notices = [...new Set([...report.notices, ...accountNotices(account)])];
-    // A replaced code also reads as "no supporter status": say only the first.
-    const shown = notices.includes("code_replaced") ? notices.filter((n) => n !== "not_supporter") : notices;
-    return {
-      kind: "on",
-      account,
-      pending: pendingMenus(),
-      lastSyncedAt: report.lastSyncedAt,
-      notices: shown,
-      unreadable: report.unreadable,
-    };
-  };
+  const computeState = (): SyncState => (!ready || state.kind === "unsupported" ? state : readSyncState(kv));
 
   const publish = (next: SyncState = computeState()) => {
     if (JSON.stringify(next) === JSON.stringify(state)) return;
     state = next;
     for (const listener of listeners) listener();
-  };
-
-  const emitMenus = (ids: string[], moved: { from: string; to: string }[] = []) => {
-    if (ids.length === 0 && moved.length === 0) return;
-    for (const listener of menuListeners) listener(ids, moved);
   };
 
   /** The loop's own notices, for every tab (`sync:runtime`). */
@@ -265,28 +214,21 @@ export const createSyncRuntime = (options: RuntimeOptions = {}): SyncRuntime => 
 
   const poke = () => wake?.();
 
-  /** Menus and states as the merge sees them; menus without a state get one (to be pushed, SY-13). */
-  const currentLocal = (): Local => {
-    const local = readLocal(kv, readSkipped(kv));
-    const merged = mergeRecords(local, [], ctx);
-    return { menus: merged.menus, sync: merged.sync };
-  };
-
   /** The engine as `syncStep` sees it: the holder's loop state, with menus and cursor read afresh. */
   const engineIO = (holder: Holder) => ({
-    get: (): Engine => ({ ...holder.loop, local: currentLocal(), cursor: readCursor(kv) }),
+    get: (): Engine => ({ ...holder.loop, local: local.currentLocal(), cursor: readCursor(kv) }),
     set: (engine: Engine) => {
-      const { local, cursor, ...rest } = engine;
+      const { local: next, cursor, ...rest } = engine;
       holder.loop = rest;
       const before = readLocal(kv, readSkipped(kv));
-      const changed = writeLocal(kv, before, local, now());
+      const changed = writeLocal(kv, before, next, now());
       if (cursor !== readCursor(kv)) writeCursor(kv, cursor);
-      emitMenus(changed);
+      local.emitMenus(changed);
     },
   });
 
   const newLoop = (): Loop => {
-    const { local: _local, cursor: _cursor, ...fresh } = createEngine(currentLocal(), readCursor(kv), now(), ctx);
+    const { local: _local, cursor: _cursor, ...fresh } = createEngine(local.currentLocal(), readCursor(kv), now(), ctx);
     return fresh;
   };
 
@@ -393,7 +335,7 @@ export const createSyncRuntime = (options: RuntimeOptions = {}): SyncRuntime => 
           await sleep(PULL_EVERY_MS);
           continue;
         }
-        if (!isVisible() && pendingMenus() === 0) {
+        if (!isVisible() && pendingMenus(kv) === 0) {
           // Pulls wait while the page is hidden (SY-32); showing it again wakes us.
           await sleep(null);
           continue;
@@ -409,7 +351,7 @@ export const createSyncRuntime = (options: RuntimeOptions = {}): SyncRuntime => 
           continue;
         }
         if (gen !== generation) break;
-        if (step.events.moved.length > 0) emitMenus([], step.events.moved);
+        if (step.events.moved.length > 0) local.emitMenus([], step.events.moved);
         const changes: Parameters<typeof report>[0] = {};
         if (step.events.unreadable > 0) {
           changes.unreadable = readReport(kv).unreadable + step.events.unreadable;
@@ -478,6 +420,7 @@ export const createSyncRuntime = (options: RuntimeOptions = {}): SyncRuntime => 
     poke();
     const secret = readSecret(kv);
     if (!secret) {
+      ready = true;
       publish({ kind: "off" });
       return;
     }
@@ -487,14 +430,14 @@ export const createSyncRuntime = (options: RuntimeOptions = {}): SyncRuntime => 
     keys = derived;
     api = createApi(derived, apiOptions);
     deviceId = readDeviceId(kv, newId);
-    state = { kind: "off" }; // leave "loading" so computeState reads storage
+    ready = true;
     publish();
     lead(() => runLoop(gen));
     void refreshAccount();
   };
 
   const requireOn = (): { api: SyncApi; keys: SyncKeys } => {
-    if (state.kind === "unsupported" || state.kind === "loading") throw new SyncError("unavailable");
+    if (state.kind === "unsupported" || !ready) throw new SyncError("unavailable");
     if (!api || !keys) throw new SyncError("unavailable", "Sync is off.");
     return { api, keys };
   };
@@ -664,56 +607,6 @@ export const createSyncRuntime = (options: RuntimeOptions = {}): SyncRuntime => 
     },
   };
 
-  // ---- storage hooks ----------------------------------------------------------
-
-  /** `local` with `id` as it was before the save or deletion that was just written. */
-  const withPrevious = (local: Local, id: string, previous: SavedMenu | undefined): Local => {
-    const menus = Object.assign(Object.create(null), local.menus);
-    if (previous) menus[id] = previous;
-    else delete menus[id];
-    return { menus, sync: local.sync };
-  };
-
-  const hooks: SyncHooks = {
-    saved: (doc, startedFrom, previous) => {
-      if (!syncIsOn(kv)) return null;
-      try {
-        const skip = readSkipped(kv);
-        if (skip.delete(doc.id)) writeSkipped(kv, skip); // it changed: try syncing it again
-        const stored = currentLocal();
-        const result = applyLocalSave(withPrevious(stored, doc.id, previous), doc, startedFrom, ctx);
-        const changed = writeLocal(kv, stored, { menus: result.menus, sync: result.sync }, now());
-        emitMenus(changed.filter((id) => id !== doc.id));
-        pushSoon();
-        publish();
-        return result.revision;
-      } catch {
-        // Sync never fails a save (SY-30); the next round picks the menu up.
-        return readState(kv, doc.id)?.revision ?? null;
-      }
-    },
-
-    deleted: (id, previous) => {
-      if (!syncIsOn(kv)) return;
-      try {
-        const stored = currentLocal();
-        const after = applyLocalDelete(withPrevious(stored, id, previous), id, ctx);
-        writeLocal(kv, stored, after, now());
-        pushSoon();
-        publish();
-      } catch {
-        // As above.
-      }
-    },
-
-    revisionOf: (id) => (syncIsOn(kv) ? (readState(kv, id)?.revision ?? 0) : null),
-
-    onMenusChanged: (listener) => {
-      menuListeners.add(listener);
-      return () => menuListeners.delete(listener);
-    },
-  };
-
   // ---- page events ------------------------------------------------------------
 
   const visibilityChanged = () => {
@@ -752,7 +645,7 @@ export const createSyncRuntime = (options: RuntimeOptions = {}): SyncRuntime => 
 
   return {
     ...actions,
-    ...hooks,
+    ...local.hooks,
 
     start: async () => {
       if (started) return;
@@ -761,8 +654,15 @@ export const createSyncRuntime = (options: RuntimeOptions = {}): SyncRuntime => 
         publish({ kind: "unsupported" });
         return;
       }
-      unsubscribe = [onVisibilityChange(visibilityChanged), onStorage(storageChanged)];
-      state = { kind: "off" };
+      unsubscribe = [
+        onVisibilityChange(visibilityChanged),
+        onStorage(storageChanged),
+        // A save or deletion in this tab: push it soon (SY-31), and update the screens.
+        local.onLocalChange(() => {
+          pushSoon();
+          publish();
+        }),
+      ];
       await activate();
     },
 

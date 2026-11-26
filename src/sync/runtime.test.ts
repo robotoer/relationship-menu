@@ -7,7 +7,7 @@ import type { KeyValueStore, SavedMenu } from "../menu-store";
 import { menuKey, parseStoredMenu, readStoredMenus, writeStoredMenu } from "../menu-store";
 import { deriveKeys } from "./keys";
 import { createFakeServer, FakeServer } from "./fake-server";
-import { readSecret, readState, SYNC_KEY } from "./local-store";
+import { readSecret, readState, writeSecret, SYNC_KEY } from "./local-store";
 import { createSyncRuntime, SyncRuntime } from "./runtime";
 import { SyncError } from "./context";
 import { pairingKeyFromFragment } from "./pairing";
@@ -154,6 +154,19 @@ describe("SY-1, SY-9: turning sync on and off", () => {
     expect(server.requests.map((r) => `${r.method} ${r.path}`)).toEqual(["GET /v1/account"]);
     expect(server.requests.some((r) => r.path.startsWith("/v1/menus"))).toBe(false);
     expect(a.runtime.getState()).toMatchObject({ kind: "on", notices: ["not_supporter"], pending: 1 });
+  });
+});
+
+describe("SY-71: starting up never shows sync as off when it's on", () => {
+  test("the state stays \"loading\" until the code has been read (so the heart doesn't flicker)", async () => {
+    const a = makeDevice(server);
+    writeSecret(a.kv, new Uint8Array(32).fill(3));
+    const seen: string[] = [];
+    a.runtime.subscribe(() => seen.push(a.runtime.getState().kind));
+    expect(a.runtime.getState().kind).toBe("loading");
+    await a.runtime.start();
+    expect(seen).not.toContain("off");
+    expect(a.runtime.getState().kind).toBe("on");
   });
 });
 
@@ -388,7 +401,7 @@ describe("SY-68: deleting synced data", () => {
   });
 });
 
-describe("SY-23: a menu too large to sync", () => {
+describe("SY-23, SY-26: a menu too large to sync", () => {
   test("is set aside with a notice; the others still sync; it's tried again once it changes", async () => {
     const a = makeDevice(server);
     const accountId = await supporter(server, a);
@@ -406,7 +419,7 @@ describe("SY-23: a menu too large to sync", () => {
   });
 });
 
-describe("SY-31: offline and back", () => {
+describe("SY-27, SY-31: offline and back", () => {
   test("changes wait on the device, the screen says it's offline, and they're sent once it's back", async () => {
     const a = makeDevice(server);
     const accountId = await supporter(server, a);
@@ -433,7 +446,7 @@ describe("SY-31: offline and back", () => {
   });
 });
 
-describe("a first push whose reply was lost", () => {
+describe("SY-27: a first push whose reply was lost", () => {
   test("moves the menu to a fresh id (merge.ts applyUnknownCreate), says so, and nothing is duplicated", async () => {
     const a = makeDevice(server);
     const accountId = await supporter(server, a);
@@ -478,7 +491,7 @@ describe("SY-30: sync never blocks or fails a save", () => {
   });
 });
 
-describe("SY-6, SY-16, SY-44: what the server sees", () => {
+describe("SY-6, SY-16, SY-80: what the server sees", () => {
   test("every call but the pairing read is signed, and no title, item or name appears in any request", async () => {
     const a = makeDevice(server);
     a.save({ ...menu(ID(1), "Secret title"), encoded: "secret-items", person: { name: "Secret name" } });
@@ -516,7 +529,7 @@ describe("SY-75: sync analytics carry no ids, codes, words or links", () => {
   });
 });
 
-describe("one tab syncs for the whole browser", () => {
+describe("SY-25: one tab syncs for the whole browser", () => {
   test("a save in a tab that isn't syncing is pushed by the one that is", async () => {
     const kv = new MemoryStore();
     let holder: (() => void) | null = null;
