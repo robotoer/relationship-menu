@@ -68,11 +68,15 @@ export const writeSecret = (kv: KeyValueStore, secret: Uint8Array) => kv.setItem
  * answer was lost. Kept until a check settles it, so the account is never left
  * under a code this device has forgotten.
  */
-export const readNextSecret = (kv: KeyValueStore): Bytes | null => {
-  const bytes = fromBase64Url(kv.getItem(SYNC_KEY.nextCode) ?? "");
-  return bytes?.length === 32 ? bytes : null;
+export const readNextSecret = (kv: KeyValueStore): { secret: Bytes; at: number } | null => {
+  const parsed = parseJson(kv.getItem(SYNC_KEY.nextCode)) as { code?: unknown; at?: unknown } | undefined;
+  const secret = typeof parsed?.code === "string" ? fromBase64Url(parsed.code) : null;
+  if (secret?.length !== 32) return null;
+  return { secret, at: typeof parsed?.at === "number" ? parsed.at : 0 };
 };
-export const writeNextSecret = (kv: KeyValueStore, secret: Uint8Array) => kv.setItem(SYNC_KEY.nextCode, toBase64Url(secret));
+/** `at`: when the replacement started (another tab waits a while before checking it itself). */
+export const writeNextSecret = (kv: KeyValueStore, secret: Uint8Array, at: number) =>
+  kv.setItem(SYNC_KEY.nextCode, JSON.stringify({ code: toBase64Url(secret), at }));
 export const clearNextSecret = (kv: KeyValueStore) => kv.removeItem(SYNC_KEY.nextCode);
 
 /** Whether sync is on in this browser (a cheap, synchronous check). */
@@ -180,8 +184,16 @@ const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
  * the caller can simply try the whole thing again. Returns the ids whose stored
  * menu changed.
  */
-export const writeLocal = (kv: KeyValueStore, before: Local, after: Local, now: number): string[] => {
-  const undo: [string, string | null][] = [];
+export const writeLocal = (
+  kv: KeyValueStore,
+  before: Local,
+  after: Local,
+  now: number,
+  /** More keys to write in the same all-or-nothing step (the pull cursor, say). */
+  also: [string, string][] = []
+): string[] => {
+  /** Each key written: its value before, and the value written. */
+  const undo: [string, string | null, string | null][] = [];
   // The same store, remembering each key's old value before it's written.
   const recording: KeyValueStore = {
     get length() {
@@ -190,18 +202,23 @@ export const writeLocal = (kv: KeyValueStore, before: Local, after: Local, now: 
     key: (i) => kv.key(i),
     getItem: (key) => kv.getItem(key),
     setItem: (key, value) => {
-      undo.push([key, kv.getItem(key)]);
+      undo.push([key, kv.getItem(key), value]);
       kv.setItem(key, value);
     },
     removeItem: (key) => {
-      undo.push([key, kv.getItem(key)]);
+      undo.push([key, kv.getItem(key), null]);
       kv.removeItem(key);
     },
   };
   try {
-    return writeChanges(recording, before, after, now);
+    const changed = writeChanges(recording, before, after, now);
+    for (const [key, value] of also) if (kv.getItem(key) !== value) recording.setItem(key, value);
+    return changed;
   } catch (error) {
-    for (const [key, value] of undo.reverse()) {
+    for (const [key, value, written] of undo.reverse()) {
+      // Only a key that still holds what this write put there: never undo a change
+      // made since by someone else.
+      if (kv.getItem(key) !== written) continue;
       try {
         if (value === null) kv.removeItem(key);
         else kv.setItem(key, value);

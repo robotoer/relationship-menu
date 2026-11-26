@@ -74,8 +74,14 @@ export const StorageProvider: React.FC<{
         setDocuments((prev) => {
           const next = copy(prev);
           ids.forEach((id, i) => {
+            if (stored) {
+              // Read afresh: shown as stored (absent if it was deleted meanwhile).
+              if (stored[id]) next[id] = stored[id];
+              else delete next[id];
+              return;
+            }
             const { revision: _revision, ...doc } = docs[i] ?? { title: "", encoded: "" };
-            next[id] = stored?.[id] ?? { ...doc, id };
+            next[id] = { ...doc, id };
           });
           return next;
         });

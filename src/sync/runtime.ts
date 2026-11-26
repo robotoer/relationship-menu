@@ -23,7 +23,17 @@ import {
   SyncNotice,
   SyncState,
 } from "./context";
-import { Engine, Reply, Request, createEngine, retryDelayMs, syncStep, PUSH_DELAY_MS, PULL_EVERY_MS } from "./engine";
+import {
+  Engine,
+  Reply,
+  Request,
+  createEngine,
+  pendingPushes,
+  retryDelayMs,
+  syncStep,
+  PUSH_DELAY_MS,
+  PULL_EVERY_MS,
+} from "./engine";
 import { SyncKeys, deriveKeys } from "./keys";
 import {
   RuntimeReport,
@@ -37,10 +47,10 @@ import {
   readReport,
   readSecret,
   readSkipped,
+  readState,
   resetMenuStates,
   syncIsOn,
   writeAccount,
-  writeCursor,
   writeLocal,
   writeNextSecret,
   writeReport,
@@ -50,7 +60,7 @@ import {
   SYNC_MENU_PREFIX,
 } from "./local-store";
 import { MergeContext, RemoteRecord, recordVersion } from "./merge";
-import { LocalSync, SyncHooks, createLocalSync, pendingMenus, readSyncState } from "./hooks";
+import { LocalSync, SyncHooks, createLocalSync, readSyncState } from "./hooks";
 import { PairingError, createPairing, openPairing, pairingIdForKey, pairingLink } from "./pairing";
 import { SyncRecordError, decryptRecord, encryptRecord } from "./records";
 import { newSyncSecret, parseSyncCode, secretToWords } from "./sync-code";
@@ -60,6 +70,11 @@ import { syncSupported } from "./supported";
 export const SYNC_LOCK = "wantsandwonts-sync";
 /** How often to check again whether a code replacement whose answer was lost happened. */
 const ROTATION_RETRY_MS = 30_000;
+/**
+ * How long another tab leaves a code replacement to the tab doing it before
+ * checking the outcome itself (that tab may have been closed part-way).
+ */
+const ROTATION_GRACE_MS = 2 * 60_000;
 /** At most one account check a minute from tab switches. */
 const ACCOUNT_CHECK_MS = 60_000;
 /** The longest single timer (browsers overflow past 2^31 ms). */
@@ -176,8 +191,10 @@ export const createSyncRuntime = (options: RuntimeOptions = {}): SyncRuntime => 
   let startToken = 0;
   /** A request for the sync lock is queued (Web Locks would otherwise queue two). */
   let leadPending = false;
-  /** A code replacement's outcome is unknown (its answer was lost, SY-8); checked again later. */
+  /** Sync is paused for a code replacement (SY-8): under way in another tab, or its answer lost. */
   let rotationPending = false;
+  /** This tab is replacing the code: it alone decides the outcome. */
+  let rotation: Promise<void> | null = null;
   /** Set once start has checked support and read the code: until then the state stays "loading". */
   let ready = false;
 
@@ -247,9 +264,9 @@ export const createSyncRuntime = (options: RuntimeOptions = {}): SyncRuntime => 
         holder.loop = rest;
         return;
       }
-      // All or nothing (writeLocal); if it throws, the round is tried again.
-      const changed = writeLocal(kv, readLocal(kv), next, now());
-      if (cursor !== readCursor(kv)) writeCursor(kv, cursor);
+      // Menus, their states and the cursor: all or nothing (writeLocal). If it throws,
+      // the round is tried again from where it was, and its changes are announced then.
+      const changed = writeLocal(kv, readLocal(kv), next, now(), [[SYNC_KEY.cursor, String(cursor)]]);
       holder.loop = rest;
       local.emitMenus(changed);
     },
@@ -275,7 +292,7 @@ export const createSyncRuntime = (options: RuntimeOptions = {}): SyncRuntime => 
     }
   };
 
-  const replyFor = async (error: unknown, request: Request, skip: (id: string) => void): Promise<Reply> => {
+  const replyFor = async (error: unknown, request: Request, skip: (id: string, revision: number) => void): Promise<Reply> => {
     if (!(error instanceof ApiError)) return { kind: "failed" };
     if (error.status === 0 || error.status >= 500) {
       failing = true;
@@ -300,16 +317,19 @@ export const createSyncRuntime = (options: RuntimeOptions = {}): SyncRuntime => 
     }
     if (error.status === 507 && request.kind !== "pull") return { kind: "refused", reason: "storage_full" };
     if (error.status === 413 && request.kind !== "pull") {
-      skip(request.id);
+      skip(request.id, request.revision);
       return { kind: "failed", notApplied: true };
     }
     return { kind: "failed", notApplied: true };
   };
 
   const transport = (current: SyncApi, currentKeys: SyncKeys, gen: number) => async (request: Request): Promise<Reply> => {
-    // Only for the code this was sent under: another account's menus aren't set aside.
-    const skip = (id: string) => {
-      if (gen === generation) skipMenu(id);
+    // Only for the code this was sent under (another account's menus aren't set aside),
+    // and only if the version that was too large is still the latest one here.
+    const skip = (id: string, revision: number) => {
+      if (gen !== generation) return;
+      if ((readState(kv, id)?.revision ?? -1) !== revision) return;
+      skipMenu(id);
     };
     if (!isOnline()) {
       failing = true;
@@ -332,7 +352,7 @@ export const createSyncRuntime = (options: RuntimeOptions = {}): SyncRuntime => 
     } catch (error) {
       if (error instanceof SyncRecordError && error.problem === "too_large") {
         // Set aside until it changes (SY-26): the rest keep syncing.
-        skip(request.id);
+        skip(request.id, request.revision);
         return { kind: "failed", notApplied: true, retryAfterMs: 0 };
       }
       return { kind: "failed", notApplied: true };
@@ -355,9 +375,12 @@ export const createSyncRuntime = (options: RuntimeOptions = {}): SyncRuntime => 
 
   /** Asks for the sync lock (SY-25), unless this tab already has it or is waiting for it. */
   const requestLead = () => {
-    if (main || leadPending || !api || rotationPending) return;
+    if (main || leadPending || !api || rotationPending || rotation) return;
+    const token = startToken;
     leadPending = true;
     lead(async () => {
+      // Stopped since it was asked for: give the lock back (a later start asks again).
+      if (token !== startToken || !started) return;
       leadPending = false;
       // Whatever code is current once the lock is ours (it may have changed while queued).
       await runLoop(generation);
@@ -373,16 +396,17 @@ export const createSyncRuntime = (options: RuntimeOptions = {}): SyncRuntime => 
     let crashes = 0;
     try {
       while (gen === generation) {
-        if (!mayPull(readAccount(kv))) {
+        const account = readAccount(kv);
+        if (!isVisible() && (!mayPull(account) || pendingPushes(io.get()).length === 0)) {
+          // Hidden, and nothing that can be sent now: pulls wait while the page is hidden
+          // (SY-32), so let a tab that's in view sync instead (SY-25). Showing this one
+          // again, or a save here, asks for the lock again.
+          break;
+        }
+        if (!mayPull(account)) {
           // Nothing to sync with until there's supporter status; refreshAccount wakes us.
           await sleep(PULL_EVERY_MS);
           continue;
-        }
-        if (!isVisible() && pendingMenus(kv) === 0) {
-          // Hidden with nothing to send: pulls wait while the page is hidden (SY-32), so
-          // let a tab that's in view sync instead (SY-25). Showing this one again, or a
-          // save here, asks for the lock again.
-          break;
         }
         let step: Awaited<ReturnType<typeof syncStep>>;
         try {
@@ -464,19 +488,25 @@ export const createSyncRuntime = (options: RuntimeOptions = {}): SyncRuntime => 
   };
 
   const activate = async () => {
+    // This tab is replacing the code: it restarts sync itself when that's settled.
+    if (rotation) return;
     const gen = ++generation;
     keys = null;
     api = null;
     main = null;
     poke();
-    // A code replacement whose answer was lost: settle it before syncing anything (SY-8).
+    // A code replacement under way, or whose answer was lost: nothing syncs until it's
+    // settled (SY-8). Another tab may be doing it: leave it to that tab for a while.
     const next = readNextSecret(kv);
     if (next && readSecret(kv)) {
-      const outcome = await rotationOutcome(await deriveKeys(next));
-      if (gen !== generation) return;
-      if (outcome === "moved") adoptNewCode(next);
-      else if (outcome === "not_moved") clearNextSecret(kv);
-      next.fill(0);
+      let outcome: "moved" | "not_moved" | "unknown" = "unknown";
+      if (now() - next.at >= ROTATION_GRACE_MS) {
+        outcome = await rotationOutcome(await deriveKeys(next.secret));
+        if (gen !== generation) return;
+        if (outcome === "moved") adoptNewCode(next.secret);
+        else if (outcome === "not_moved") clearNextSecret(kv);
+      }
+      next.secret.fill(0);
       rotationPending = outcome === "unknown";
     } else {
       rotationPending = false;
@@ -515,7 +545,10 @@ export const createSyncRuntime = (options: RuntimeOptions = {}): SyncRuntime => 
    */
   const rotationOutcome = async (next: SyncKeys): Promise<"moved" | "not_moved" | "unknown"> => {
     try {
-      return (await createApi(next, apiOptions).account()).status === "none" ? "not_moved" : "moved";
+      const status = await createApi(next, apiOptions).accountStatus();
+      // Only a plain answer decides; anything else is asked again later.
+      if (status === null) return "unknown";
+      return status === "none" ? "not_moved" : "moved";
     } catch {
       return "unknown";
     }
@@ -538,6 +571,8 @@ export const createSyncRuntime = (options: RuntimeOptions = {}): SyncRuntime => 
   /** Turns sync on with `secret`, keeping this device's menus (SY-13). */
   const enable = async (secret: Uint8Array, how: "new" | "restored", method?: "qr" | "words") => {
     if (state.kind === "unsupported") throw new SyncError("unavailable");
+    await rotation?.catch(() => undefined);
+    if (readNextSecret(kv)) throw new SyncError("offline", "The new sync code isn't confirmed yet.");
     const existing = readSecret(kv);
     if (existing && sameBytes(existing, secret)) {
       if (!api) await activate();
@@ -628,6 +663,11 @@ export const createSyncRuntime = (options: RuntimeOptions = {}): SyncRuntime => 
     },
 
     turnOff: async () => {
+      // Never in the middle of a code replacement: its outcome decides which code is live.
+      await rotation?.catch(() => undefined);
+      if (readNextSecret(kv)) {
+        throw new SyncError("offline", "The new sync code isn't confirmed yet. Try again when you're online.");
+      }
       generation++;
       keys = null;
       api = null;
@@ -639,42 +679,57 @@ export const createSyncRuntime = (options: RuntimeOptions = {}): SyncRuntime => 
 
     replaceCode: async () => {
       const on = requireOn();
-      // Stop the loop: nothing is pushed under the old code from here.
-      generation++;
-      poke();
-      let secret: Uint8Array | null = null;
-      try {
-        await catchUp(on.api, on.keys);
-        secret = newSyncSecret();
-        const next = await deriveKeys(secret);
-        // Kept until the server's answer is known: if the answer is lost, the account
-        // may already be under the new code, and forgetting it would lose the account.
-        writeNextSecret(kv, secret);
+      if (rotation || readNextSecret(kv)) throw new SyncError("failed", "A new sync code is already being made.");
+      const run = (async () => {
+        // Stop the loop: nothing is pushed under the old code from here.
+        generation++;
+        poke();
+        let secret: Uint8Array | null = null;
         try {
-          await on.api.rotate(next);
-        } catch (error) {
-          const lost = error instanceof ApiError && (error.status === 0 || error.status >= 500);
-          if (!lost) {
-            // A clear refusal: nothing moved.
-            clearNextSecret(kv);
-            throw toSyncError(error);
+          await catchUp(on.api, on.keys);
+          secret = newSyncSecret();
+          const next = await deriveKeys(secret);
+          // Kept until the server's answer is known: if the answer is lost, the account
+          // may already be under the new code, and forgetting it would lose the account.
+          // Other tabs see it and pause their syncing.
+          writeNextSecret(kv, secret, now());
+          try {
+            await on.api.rotate(next);
+          } catch (error) {
+            // Only a plain refusal (4xx) means nothing moved. No answer, a 5xx, or an
+            // answer that can't be read: check the new account.
+            const refused = error instanceof ApiError && error.status >= 400 && error.status < 500;
+            if (refused) {
+              clearNextSecret(kv);
+              throw toSyncError(error);
+            }
+            const outcome = await rotationOutcome(next);
+            if (outcome !== "moved") {
+              if (outcome === "not_moved") clearNextSecret(kv);
+              // Unknown: the new code stays kept, and checking again settles it. This tab
+              // is done with it, so any tab may check from now on (at 0).
+              else writeNextSecret(kv, secret, 0);
+              throw new SyncError("offline");
+            }
           }
-          const outcome = await rotationOutcome(next);
-          if (outcome !== "moved") {
-            if (outcome === "not_moved") clearNextSecret(kv);
-            // Unknown: the new code stays kept, and starting up again settles it.
-            throw new SyncError("offline");
-          }
+          adoptNewCode(secret);
+        } finally {
+          secret?.fill(0);
         }
-        adoptNewCode(secret);
+      })();
+      rotation = run;
+      try {
+        await run;
       } finally {
-        secret?.fill(0);
+        rotation = null;
         // The new code if it was kept; otherwise the old one, as before.
         await activate();
       }
     },
 
     deleteSyncedData: async () => {
+      await rotation?.catch(() => undefined);
+      if (readNextSecret(kv)) throw new SyncError("offline", "The new sync code isn't confirmed yet.");
       const on = requireOn();
       try {
         await on.api.deleteAccount();
@@ -752,6 +807,8 @@ export const createSyncRuntime = (options: RuntimeOptions = {}): SyncRuntime => 
       return;
     }
     if (key === POKE_KEY) return pullNow(true);
+    // Another tab started or finished replacing the code: pause, or carry on (SY-8).
+    if (key === SYNC_KEY.nextCode) return void activate();
     if (key.startsWith(SYNC_MENU_PREFIX)) pushSoon();
     if (key.startsWith("sync:")) publish();
   };
@@ -786,6 +843,7 @@ export const createSyncRuntime = (options: RuntimeOptions = {}): SyncRuntime => 
 
     stop: () => {
       startToken++;
+      leadPending = false;
       generation++;
       poke();
       for (const off of unsubscribe) off();

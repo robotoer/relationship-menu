@@ -7,7 +7,7 @@
  * the server's error code and, for 412, the current record.
  */
 
-import type { CheckoutPlan, SyncAccount } from "./context";
+import type { AccountStatus, CheckoutPlan, SyncAccount } from "./context";
 import type { SyncKeys } from "./keys";
 import { Bytes, toBase64Url, utf8 } from "./bytes";
 import { PROTOCOL, authorizationHeader } from "./sign";
@@ -180,6 +180,12 @@ export const createApi = (keys: Signer, options: ApiOptions = {}) => {
     /** `GET /v1/account`. */
     account: async (): Promise<SyncAccount> => parseAccount(await readJson(await send("GET", "/v1/account"))),
 
+    /** `GET /v1/account`'s status, strictly: null unless the answer plainly says one. */
+    accountStatus: async (): Promise<AccountStatus | null> => {
+      const body = await readJson(await send("GET", "/v1/account"));
+      return STATUSES.find((s) => s === body.status) ?? null;
+    },
+
     /**
      * `GET /v1/menus?since=` (SY-32). `full` marks the pages of a full listing.
      * A page that isn't exactly what the server sends is refused as a whole: a
@@ -192,6 +198,8 @@ export const createApi = (keys: Signer, options: ApiOptions = {}) => {
       const bad = () => new ApiError(response.status, "bad_response");
       if (!Array.isArray(body.menus) || typeof body.next !== "number" || typeof body.more !== "boolean") throw bad();
       if (typeof body.resync !== "boolean" || (body.purged !== undefined && typeof body.purged !== "number")) throw bad();
+      // A page that asks for another must move the cursor on, or the next pull asks for the same one forever.
+      if (body.more && !body.resync && !(Number.isSafeInteger(body.next) && body.next > since)) throw bad();
       const rows = body.menus.map((m: unknown): ServerRow => {
         if (!isObject(m)) throw bad();
         const { id, version, seq, deleted, updatedAt, ciphertext } = m;

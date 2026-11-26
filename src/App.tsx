@@ -115,6 +115,13 @@ const WrappedLibraryPage = () => {
   return <LibraryPage menus={documents} onDelete={deleteDocument} />;
 };
 
+/** The document the editor saves for this title, menu and person. */
+const editorDoc = (title: string, menu: RelationshipMenu, person: Person): RelationshipMenuDocument => ({
+  title,
+  encoded: encodeData(stripMenuIds(menu)),
+  ...(sanitizePerson(person) ? { person: sanitizePerson(person) } : {}),
+});
+
 /** Whether a stored encoded menu has the same groups, items and answers as `menu`. */
 const sameMenu = (encoded: string, menu: RelationshipMenu): boolean => {
   try {
@@ -352,15 +359,12 @@ const WrappedMenuPage = () => {
     Object.values(documents).some((d) => d.title === title && d.id !== menuId.current);
   const docToSave = useMemo(
     () =>
-      !loaded || titleTaken || (title === "" && Object.keys(menu).length === 0)
-        ? null
-        : {
-            title,
-            encoded: encodeData(stripMenuIds(menu)),
-            ...(sanitizePerson(person) ? { person: sanitizePerson(person) } : {}),
-          },
+      !loaded || titleTaken || (title === "" && Object.keys(menu).length === 0) ? null : editorDoc(title, menu, person),
     [title, menu, person, titleTaken, loaded]
   );
+  // What storage holds after a synced change was shown in the editor (SY-33), so
+  // autosave knows it needn't save that, but must save a change back to the old one.
+  const [syncedDoc, setSyncedDoc] = useState<RelationshipMenuDocument | null>(null);
   const saveState = useAutosave(docToSave, async (doc) => {
     // Saved under the menu's id, whatever its title: a rename is just a save (SY-21).
     // The storage provider reports failures by returning no ids.
@@ -372,7 +376,7 @@ const WrappedMenuPage = () => {
       revision.current
     );
     committed.current = doc;
-  });
+  }, syncedDoc);
 
   // A menu that sync moved to a new id (its first upload's answer was lost) carries on there.
   useEffect(
@@ -390,11 +394,7 @@ const WrappedMenuPage = () => {
     if (!loaded || !openDoc || openDoc.revision === undefined) return;
     // Null: opened before sync was on here; any revision is news.
     if (revision.current !== null && openDoc.revision <= revision.current) return;
-    const shown: RelationshipMenuDocument = {
-      title,
-      encoded: encodeData(stripMenuIds(menuRef.current)),
-      ...(sanitizePerson(person) ? { person: sanitizePerson(person) } : {}),
-    };
+    const shown = editorDoc(title, menuRef.current, person);
     if (sameMenuContent(openDoc, shown)) {
       // Already showing it (say, sync was just turned on): just note the revision.
       revision.current = openDoc.revision;
@@ -414,9 +414,11 @@ const WrappedMenuPage = () => {
     if (!decoded) return;
     revision.current = openDoc.revision;
     committed.current = openDoc;
+    const synced = ensureItemIds(decoded.menu);
     setTitle(decoded.title);
-    setMenu(ensureItemIds(decoded.menu));
+    setMenu(synced);
     setPerson(decoded.person ?? {});
+    setSyncedDoc(editorDoc(decoded.title, synced, decoded.person ?? {}));
     setNotice("Updated on another device.");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openDoc, saveState, loaded, title, menu, person]);

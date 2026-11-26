@@ -64,13 +64,16 @@ class TabStore implements KeyValueStore {
   getItem(key: string) {
     return this.shared.getItem(key);
   }
+  // Like browsers: other tabs hear about a write only if it changed the value.
   setItem(key: string, value: string) {
+    const before = this.shared.getItem(key);
     this.shared.setItem(key, value);
-    this.tell(key);
+    if (before !== value) this.tell(key);
   }
   removeItem(key: string) {
+    const before = this.shared.getItem(key);
     this.shared.removeItem(key);
-    this.tell(key);
+    if (before !== null) this.tell(key);
   }
   keys() {
     return this.shared.keys();
@@ -118,11 +121,10 @@ const makeDevice = <K extends MemoryStore | TabStore = MemoryStore>(
     readStoredMenus(kv)
       .map((m) => m.doc)
       .sort((a, b) => a.title.localeCompare(b.title));
-  /** A save as storage makes it: written first (SY-30), then sync is told. */
+  /** A save as storage makes it (src/storage.ts): the write is handed to sync, which does it. */
   const save = (doc: SavedMenu, startedFrom: number | null = runtime.revisionOf(doc.id)) => {
     const previous = parseStoredMenu(menuKey(doc.id), kv.getItem(menuKey(doc.id)))?.doc;
-    writeStoredMenu(kv, { doc, savedAt: Date.now() });
-    return runtime.saved(doc, startedFrom, previous);
+    return runtime.saved(doc, startedFrom, previous, () => writeStoredMenu(kv, { doc, savedAt: Date.now() }));
   };
   const remove = (id: string) => {
     const previous = parseStoredMenu(menuKey(id), kv.getItem(menuKey(id)))?.doc;
@@ -560,13 +562,42 @@ describe("SY-27: a first push whose reply was lost", () => {
 });
 
 describe("SY-30: sync never blocks or fails a save", () => {
-  test("a save is recorded even when sync state can't be written, and the hook doesn't throw", async () => {
+  test("a save that storage can't hold together with its sync state fails, and changes nothing", async () => {
     const a = makeDevice(server);
     await supporter(server, a);
-    writeStoredMenu(a.kv, { doc: menu(ID(1), "Ours"), savedAt: 1 });
-    a.kv.failWrites = true;
-    expect(() => a.runtime.saved(menu(ID(1), "Ours", "e2"), 0, menu(ID(1), "Ours"))).not.toThrow();
-    a.kv.failWrites = false;
+    a.save(menu(ID(1), "Ours", "e1"));
+    const stateBefore = a.kv.getItem(`sync:menu:${ID(1)}`);
+    a.kv.failKeys.add(`sync:menu:${ID(1)}`);
+    expect(() => a.save(menu(ID(1), "Ours", "e2"))).toThrow();
+    a.kv.failKeys.clear();
+    expect(a.menus()[0]).toMatchObject({ encoded: "e1" });
+    expect(a.kv.getItem(`sync:menu:${ID(1)}`)).toBe(stateBefore);
+  });
+
+  test("SY-35: a save whose conflict copy can't be stored fails, and the version it would have kept is still there", async () => {
+    const a = makeDevice(server);
+    a.save(menu(ID(1), "Ours", "base"));
+    await supporter(server, a);
+    await settle();
+    const b = makeDevice(server);
+    await b.runtime.start();
+    await b.runtime.restore((await a.runtime.syncCode()).join(" "));
+    await settle();
+    const loadedAt = b.runtime.revisionOf(ID(1));
+    a.save(menu(ID(1), "Ours", "from A"));
+    await settle();
+    b.runtime.syncNow();
+    await settle();
+    // B's editor saves over the version it never saw, but there's no room for the copy.
+    const copyFails = (key: string) => key.startsWith("menu-v2:") && key !== menuKey(ID(1));
+    const real = b.kv.setItem.bind(b.kv);
+    vi.spyOn(b.kv, "setItem").mockImplementation((key, value) => {
+      if (copyFails(key)) throw new DOMException("full", "QuotaExceededError");
+      real(key, value);
+    });
+    expect(() => b.save(menu(ID(1), "Ours", "from B's editor", Date.now() + 5000), loadedAt)).toThrow();
+    vi.mocked(b.kv.setItem).mockRestore();
+    expect(b.menus().map((m) => [m.title, m.encoded])).toEqual([["Ours", "from A"]]);
   });
 
   test("with sync off, saves are untouched and have no revision", () => {
@@ -728,6 +759,89 @@ describe("SY-8: the server's answer to a code replacement is lost", () => {
     expect(a.kv.getItem(SYNC_KEY.nextCode)).toBeNull();
   });
 
+  test("an answer that can't be read counts as lost, not as a refusal", async () => {
+    const a = makeDevice(server);
+    a.save(menu(ID(1), "Ours"));
+    const oldId = await supporter(server, a);
+    await settle();
+    const real = server.fetch;
+    vi.spyOn(server, "fetch").mockImplementation(async (input, init) => {
+      const response = await real(input, init);
+      if (String(input).endsWith("/v1/account/rotate")) return new Response("{}", { status: 200 });
+      return response;
+    });
+    await a.runtime.replaceCode();
+    await settle();
+    expect(await accountIdOf(a)).not.toBe(oldId);
+    expect(server.liveMenuIds(await accountIdOf(a))).toEqual([ID(1)]);
+  });
+
+  test("a check that comes back without a status doesn't count as \"it didn't happen\"", async () => {
+    const a = makeDevice(server);
+    await supporter(server, a);
+    await settle();
+    const real = server.fetch;
+    let blankChecks = true;
+    vi.spyOn(server, "fetch").mockImplementation(async (input, init) => {
+      const response = await real(input, init);
+      if (String(input).endsWith("/v1/account/rotate")) throw new TypeError("connection reset");
+      if (blankChecks && String(input).endsWith("/v1/account")) return new Response("{}", { status: 200 });
+      return response;
+    });
+    await expect(a.runtime.replaceCode()).rejects.toMatchObject({ reason: "offline" });
+    expect(a.kv.getItem(SYNC_KEY.nextCode)).not.toBeNull();
+    blankChecks = false;
+    await settle(20);
+    expect(a.kv.getItem(SYNC_KEY.nextCode)).toBeNull();
+    expect(server.accounts.get(await accountIdOf(a))?.status).toBe("active");
+  });
+
+  test("turning sync off waits for a replacement under way, and doesn't turn it back on", async () => {
+    const a = makeDevice(server);
+    await supporter(server, a);
+    await settle();
+    const replacing = a.runtime.replaceCode();
+    const off = a.runtime.turnOff();
+    await replacing;
+    await off;
+    await settle();
+    expect(a.runtime.getState()).toEqual({ kind: "off" });
+    expect(a.kv.keys().filter((k) => k.startsWith("sync:"))).toEqual([]);
+  });
+
+  test("another tab pauses its syncing while one tab replaces the code, and carries on with the new code", async () => {
+    const shared = new MemoryStore();
+    const lock = fakeLock();
+    const tab1 = makeDevice(server, new TabStore(shared), lock.lead);
+    const tab2 = makeDevice(server, new TabStore(shared), lock.lead);
+    await tab1.runtime.start();
+    await tab1.runtime.turnOn();
+    const oldId = await accountIdOf(tab1);
+    server.setStatus(oldId, "active");
+    await tab1.runtime.refreshAccount();
+    await tab2.runtime.start();
+    await settle();
+    // Tab 1 leads; tab 2 replaces the code, and tab 1 keeps saving meanwhile.
+    const replacing = tab2.runtime.replaceCode();
+    tab1.save(menu(ID(1), "Saved during the replacement"));
+    for (let i = 0; i < 10; i++) {
+      tab1.save(menu(ID(1), "Saved during the replacement", `edit ${i}`));
+      await settle(1, 500);
+    }
+    await replacing;
+    await settle();
+    // Once the replacement was under way (from its request on), nothing went to the old account.
+    const rotated = server.requests.findIndex((r) => r.path === "/v1/account/rotate");
+    expect(rotated).toBeGreaterThan(-1);
+    const afterwards = server.requests.slice(rotated).filter((r) => r.account === oldId && r.path !== "/v1/account/rotate");
+    expect(afterwards.filter((r) => r.method === "PUT" || r.method === "DELETE")).toEqual([]);
+    const newId = await accountIdOf(tab2);
+    expect(newId).not.toBe(oldId);
+    expect(server.liveMenuIds(newId)).toEqual([ID(1)]);
+    // And tab 1 carries on under the new code.
+    expect(await accountIdOf(tab1)).toBe(newId);
+  });
+
   test("a clear refusal: nothing moved, and the old code stays", async () => {
     const a = makeDevice(server);
     await supporter(server, a);
@@ -779,6 +893,75 @@ describe("SY-26: a menu set aside as too large is still merged and deleted prope
   });
 });
 
+describe("SY-26: a late \"too large\" for an older version", () => {
+  test("doesn't hold back the newer, smaller version saved meanwhile", async () => {
+    const a = makeDevice(server);
+    const accountId = await supporter(server, a);
+    await settle();
+    const real = server.fetch;
+    let answered: () => void = () => undefined;
+    let firstPut = true;
+    vi.spyOn(server, "fetch").mockImplementation(async (input, init) => {
+      if (firstPut && init?.method === "PUT") {
+        firstPut = false;
+        // While this upload is on its way, the menu is edited again.
+        a.save(menu(ID(1), "Ours", "smaller now"));
+        answered();
+        return new Response(JSON.stringify({ error: "too_large" }), { status: 413 });
+      }
+      return real(input, init);
+    });
+    void answered;
+    a.save(menu(ID(1), "Ours", "first version"));
+    await settle();
+    expect(server.liveMenuIds(accountId)).toEqual([ID(1)]);
+    expect(a.runtime.getState()).toMatchObject({ notices: [] });
+  });
+});
+
+describe("SY-25: a hidden tab that can't send anything gives up the lock", () => {
+  test("even with changes waiting, if the account is read-only", async () => {
+    const shared = new MemoryStore();
+    const lock = fakeLock();
+    const tab1 = makeDevice(server, new TabStore(shared), lock.lead);
+    const tab2 = makeDevice(server, new TabStore(shared), lock.lead);
+    await tab1.runtime.start();
+    await tab1.runtime.turnOn();
+    const accountId = await accountIdOf(tab1);
+    server.setStatus(accountId, "lapsed");
+    await tab1.runtime.refreshAccount();
+    await tab2.runtime.start();
+    tab1.save(menu(ID(1), "Waiting"));
+    await settle();
+    tab1.setVisible(false);
+    await settle();
+    expect(lock.queue).toHaveLength(0); // tab 2 has it
+  });
+});
+
+describe("SY-32: a page that asks for more without moving on is refused", () => {
+  test("so the tab never asks for the same page forever", async () => {
+    const a = makeDevice(server);
+    await supporter(server, a);
+    await settle();
+    const real = server.fetch;
+    let pulls = 0;
+    vi.spyOn(server, "fetch").mockImplementation(async (input, init) => {
+      if (String(input).startsWith("/v1/menus?")) {
+        pulls++;
+        await real(input, init);
+        const since = Number(new URL(String(input), "http://x").searchParams.get("since"));
+        return new Response(JSON.stringify({ menus: [], next: since, more: true, resync: false }), { status: 200 });
+      }
+      return real(input, init);
+    });
+    a.runtime.syncNow();
+    await settle(10, 1000);
+    // Refused and retried with backoff, not asked again in a tight loop.
+    expect(pulls).toBeLessThan(10);
+  });
+});
+
 describe("SY-32: a garbled page of a full listing is refused, not taken as \"nothing there\"", () => {
   test("an empty-looking answer deletes nothing", async () => {
     const a = makeDevice(server);
@@ -810,13 +993,22 @@ describe("the code changing while a request is in flight", () => {
     await supporter(server, a);
     await settle();
     let release: () => void = () => undefined;
+    let arrived: () => void = () => undefined;
+    const inFlight = new Promise<void>((r) => (arrived = r));
     const real = server.fetch;
     vi.spyOn(server, "fetch").mockImplementation(async (input, init) => {
-      if (String(input).startsWith("/v1/menus?")) await new Promise<void>((r) => (release = r));
+      if (String(input).startsWith("/v1/menus?")) {
+        const held = new Promise<void>((r) => (release = r));
+        arrived();
+        await held;
+      }
       return real(input, init);
     });
     a.runtime.syncNow();
-    await settle(2);
+    // Only once the pull has really reached the server.
+    while (!(await Promise.race([inFlight.then(() => true), realPause().then(() => false)]))) {
+      await vi.advanceTimersByTimeAsync(100);
+    }
     await a.runtime.turnOff();
     release();
     await settle(3);
@@ -847,6 +1039,26 @@ describe("SY-31: sync keeps going when its own status can't be stored", () => {
       await realPause();
     }
     expect(server.liveMenuIds(accountId)).toEqual([ID(1)]);
+  });
+});
+
+describe("stopping while waiting for the lock", () => {
+  test("a stopped tab doesn't start syncing when the lock comes through", async () => {
+    const shared = new MemoryStore();
+    const lock = fakeLock();
+    const tab1 = makeDevice(server, new TabStore(shared), lock.lead);
+    const tab2 = makeDevice(server, new TabStore(shared), lock.lead);
+    await tab1.runtime.start();
+    await tab1.runtime.turnOn();
+    server.setStatus(await accountIdOf(tab1), "active");
+    await tab1.runtime.refreshAccount();
+    await tab2.runtime.start();
+    await settle();
+    tab2.runtime.stop();
+    const before = server.requests.length;
+    tab1.runtime.stop(); // tab 1 gives the lock up; tab 2's old request comes through
+    await settle();
+    expect(server.requests.slice(before)).toEqual([]);
   });
 });
 

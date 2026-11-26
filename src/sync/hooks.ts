@@ -26,11 +26,11 @@ export type MovedMenu = { from: string; to: string };
 /** What storage tells sync about a save or deletion (src/storage.ts). Synchronous. */
 export type SyncHooks = {
   /**
-   * A save. `previous` is what's stored now; `write` stores `doc` (without it, the
-   * caller has already). If the save makes a conflict copy (SY-35), the copy is
-   * stored first: if it can't be (storage is full), this throws and nothing is
-   * written, so the version it would have kept isn't lost. Otherwise it never
-   * throws. Returns the menu's new revision (SY-24), or null with sync off.
+   * A save. `previous` is what's stored now. With sync off, `write` stores `doc`;
+   * with it on, sync stores it together with its sync state, all or nothing, after
+   * any conflict copy (SY-35) it makes. If storage can't hold them, this throws
+   * and the version a copy would have kept is still there. Returns the menu's new
+   * revision (SY-24), or null with sync off.
    */
   saved(doc: SavedMenu, startedFrom: number | null, previous: SavedMenu | undefined, write?: () => void): number | null;
   /** A menu was just removed; `previous` is what was stored. */
@@ -117,9 +117,11 @@ export const createLocalSync = ({ kv, now, ctx }: { kv: KeyValueStore; now: () =
         for (const id of copies) withCopies.menus[id] = result.menus[id];
         writeLocal(kv, stored, withCopies, now());
       }
-      // 2. The save itself.
+      // 2. The save itself, together with its sync state (its new revision, and that it
+      //    needs pushing): one all-or-nothing write (writeLocal), so a stored save is
+      //    never left looking already synced. If storage can't hold both, the save fails.
       try {
-        write?.();
+        writeLocal(kv, currentLocal(), { menus: result.menus, sync: result.sync }, now());
       } catch (error) {
         if (copies.length > 0) {
           try {
@@ -132,13 +134,6 @@ export const createLocalSync = ({ kv, now, ctx }: { kv: KeyValueStore; now: () =
           }
         }
         throw error;
-      }
-      // 3. Sync states: best effort. writeLocal is all or nothing, so if this fails the
-      //    menu keeps its old state, and the next save records it again.
-      try {
-        writeLocal(kv, currentLocal(), { menus: result.menus, sync: result.sync }, now());
-      } catch {
-        return revisionNow(doc.id);
       }
       // A conflict copy is a menu the page doesn't know about yet.
       emitMenus(copies);
