@@ -51,9 +51,10 @@ const INDEPENDENCE = [
   "Pursuing our own interests",
   "Equal say in the relationship",
   "Sharing our locations",
-  // A pair: what each of us wants for ourselves can differ from what we'd accept.
-  "My partner can veto my other relationships",
-  "I can veto my partner's other relationships",
+  // Items are answered by both people and compared by their text, so each one names
+  // an arrangement that applies to both of us. A "me" / "my partner" pair would
+  // compare each row only with itself and could show agreement where there is none.
+  "Veto over each other's other relationships",
 ];
 
 const HEALTH_AND_EMERGENCIES = [
@@ -255,10 +256,8 @@ export const MENU_TEMPLATES: MenuTemplate[] = [
       Independence: INDEPENDENCE,
       "Other relationships": [
         "Other romantic relationships",
-        "Marrying someone else",
-        "My partner marrying someone else",
-        "Having kids with someone else",
-        "My partner having kids with someone else",
+        "Either of us marrying someone else",
+        "Either of us having kids with someone else",
       ],
       "Health & emergencies": HEALTH_AND_EMERGENCIES,
     },

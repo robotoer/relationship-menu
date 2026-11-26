@@ -28,6 +28,15 @@ describe("templates", () => {
     expect(new Set(items.map(key)).size).toBe(items.length);
   });
 
+  // Both people answer the same text and comparison matches rows by text, so an item
+  // written from one side ("my partner can…") would compare against itself, not its
+  // mirror, and could show agreement that isn't there.
+  it.each(allGroups)("$where words items for both people, not one side", ({ items }) => {
+    for (const item of items) {
+      expect(item).not.toMatch(/\bmy partner\b|^I\b/i);
+    }
+  });
+
   it("start menus with no answers or notes", () => {
     for (const template of MENU_TEMPLATES) {
       for (const items of Object.values(templateMenu(template))) {
