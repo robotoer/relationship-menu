@@ -87,6 +87,7 @@ export type AnalyticsEvent =
   // Starting a menu
   | { name: "template_chosen"; params: { template_id: string } }
   | { name: "blank_menu_started"; params?: undefined }
+  | { name: "reorder_mode_opened"; params?: undefined }
   | { name: "ready_made_group_added"; params: { group_name: string } }
   // Filling it in
   | { name: "menu_progress"; params: { percent_answered: 25 | 50 | 75 | 100; item_count: number } }

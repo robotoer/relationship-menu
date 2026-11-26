@@ -168,3 +168,19 @@
     font-size: 1.15rem;
   }
 }
+
+/* Reorder mode (ED-23): ▲▼ on every row, always visible. */
+.move-buttons {
+  display: inline-flex;
+  flex: none;
+  gap: 4px;
+}
+.move-buttons .icon-button {
+  color: var(--c-ink);
+  background: var(--c-white);
+  border-color: var(--c-ink);
+}
+.move-buttons .icon-button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}

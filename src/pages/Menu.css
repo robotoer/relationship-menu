@@ -281,3 +281,8 @@
     line-height: 1.2;
   }
 }
+
+.menu-reorder.active {
+  color: var(--c-ink);
+  background: var(--c-yellow);
+}
