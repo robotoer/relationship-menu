@@ -24,8 +24,11 @@ export const runDailyPurge = async (env: Env, nowMs = Date.now()) => {
     env.DB.prepare("DELETE FROM pairings WHERE expires_at < ?").bind(nowMs - DAY_MS),
     // SY-62: webhook event ids after 30 days.
     env.DB.prepare("DELETE FROM stripe_events WHERE received_at < ?").bind(nowMs - 30 * DAY_MS),
-    // CO-8: coach counters are only needed for the current day.
-    env.DB.prepare("DELETE FROM coach_usage WHERE day < ?").bind(new Date(nowMs - DAY_MS).toISOString().slice(0, 10)),
+    // CO-8: coach counters are only needed for the current day, or for monthly ones
+    // ("m:…", whose `day` is a month like "2026-11") the current month.
+    env.DB.prepare(
+      "DELETE FROM coach_usage WHERE (key NOT LIKE 'm:%' AND day < ?1) OR (key LIKE 'm:%' AND day < ?2)"
+    ).bind(new Date(nowMs - DAY_MS).toISOString().slice(0, 10), new Date(nowMs).toISOString().slice(0, 7)),
   ]);
   const counts = {
     purgedMenus: results[0]?.meta.changes ?? 0,

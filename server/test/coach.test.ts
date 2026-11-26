@@ -8,6 +8,7 @@ import {
   callClaude,
   coachUserMessage,
   handleCoach,
+  COACH_LIMITS,
   parseCoachRequest,
   sanitizeGuide,
   type CoachRequest,
@@ -95,7 +96,8 @@ describe("request (CO-3)", () => {
   it("rejects bad or repeated ids", bad({ ...REQUEST, topics: [REQUEST.topics[0], { ...REQUEST.topics[1], id: "t0" }] }));
   it("rejects too many topics or people", () => {
     const topic = REQUEST.topics[0]!;
-    bad({ people: 2, topics: Array.from({ length: 41 }, (_, i) => ({ ...topic, id: `t${i}` })) })();
+    bad({ people: 2, topics: Array.from({ length: 16 }, (_, i) => ({ ...topic, id: `t${i}` })) })();
+    expect(() => parseCoachRequest(body({ people: 2, topics: Array.from({ length: 15 }, (_, i) => ({ ...topic, id: `t${i}` })) }))).not.toThrow();
     bad({ people: 7, topics: [{ ...topic, answers: Array(7).fill("maybe") }] })();
   });
   it("rejects over-long text", bad({ ...REQUEST, topics: [{ ...REQUEST.topics[0], item: "x".repeat(161) }] }));
@@ -227,6 +229,56 @@ describe("daily limits (CO-8)", () => {
     expect(await status(handleCoach(limited, b.caller, body(REQUEST), stub, now))).toBe("429 coach_quota");
   });
 
+  it("by default: 2 a day and 4 a month per account, 50 a day and 500 a month in total", () => {
+    expect(COACH_LIMITS).toMatchObject({ perAccountPerDay: 2, perAccountPerMonth: 4, totalPerDay: 50, totalPerMonth: 500 });
+  });
+
+  it("limits each account by month too, and says which limit was reached", async () => {
+    const stub = async () => GUIDE;
+    const a = await caller();
+    await seedAccount(a.device.accountId, "lifetime");
+    const day = (d: number) => Date.UTC(2030, 4, d, 12);
+    const outcome = async (nowMs: number) => {
+      try {
+        await handleCoach(ON, a.caller, body(REQUEST), stub, nowMs);
+        return "ok";
+      } catch (e) {
+        return e instanceof HttpError ? `${e.code} ${String(e.extra.scope)} ${String(e.extra.period)}` : "threw";
+      }
+    };
+    expect(await outcome(day(1))).toBe("ok");
+    expect(await outcome(day(1))).toBe("ok");
+    expect(await outcome(day(1))).toBe("coach_quota account day");
+    expect(await outcome(day(2))).toBe("ok");
+    expect(await outcome(day(3))).toBe("coach_quota account month"); // the third went over 4 this month (the refused one counts)
+    expect(await outcome(Date.UTC(2030, 5, 1, 12))).toBe("ok"); // a new month
+  });
+
+  it("caps the total by month as well as by day", async () => {
+    const stub = async () => GUIDE;
+    const capped: Env = { ...ON, COACH_MONTHLY_TOTAL: "1", COACH_DAILY_PER_ACCOUNT: "100", COACH_MONTHLY_PER_ACCOUNT: "100" };
+    const a = await caller();
+    await seedAccount(a.device.accountId, "active");
+    const nowMs = Date.UTC(2031, 2, 3, 12);
+    expect(await status(handleCoach(capped, a.caller, body(REQUEST), stub, nowMs))).toBe(200);
+    const b = await caller();
+    await seedAccount(b.device.accountId, "active");
+    expect(await status(handleCoach(capped, b.caller, body(REQUEST), stub, nowMs + 86_400_000))).toBe("429 coach_quota");
+  });
+
+  it("the daily clean-up keeps this month's counters until the month is over", async () => {
+    const a = await caller();
+    await seedAccount(a.device.accountId, "active");
+    await handleCoach(ON, a.caller, body(REQUEST), async () => GUIDE, Date.UTC(2032, 6, 2, 12));
+    const count = async (key: string) =>
+      (await env.DB.prepare("SELECT COUNT(*) AS n FROM coach_usage WHERE key = ?").bind(key).first<{ n: number }>())?.n;
+    await runDailyPurge(env, Date.UTC(2032, 6, 20));
+    expect(await count(`m:a:${a.device.accountId}`)).toBe(1);
+    expect(await count(`a:${a.device.accountId}`)).toBe(0);
+    await runDailyPurge(env, Date.UTC(2032, 7, 2));
+    expect(await count(`m:a:${a.device.accountId}`)).toBe(0);
+  });
+
   it("the daily clean-up forgets old counters, and deleting an account removes its own", async () => {
     const a = await caller();
     await seedAccount(a.device.accountId, "active");
@@ -238,7 +290,9 @@ describe("daily limits (CO-8)", () => {
 
     await handleCoach(ON, a.caller, body(REQUEST), async () => GUIDE);
     await a.device.fetch("DELETE", "/v1/account");
-    const mine = await env.DB.prepare("SELECT COUNT(*) AS n FROM coach_usage WHERE key = ?").bind(`a:${a.device.accountId}`).first<{ n: number }>();
+    const mine = await env.DB.prepare("SELECT COUNT(*) AS n FROM coach_usage WHERE key IN (?, ?)")
+      .bind(`a:${a.device.accountId}`, `m:a:${a.device.accountId}`)
+      .first<{ n: number }>();
     expect(mine?.n).toBe(0);
   });
 });
@@ -275,7 +329,8 @@ describe("talking to Claude (CO-5, CO-6, CO-7)", () => {
       model: COACH_DEFAULT_MODEL,
       fallbacks: "default",
       system: COACH_SYSTEM,
-      output_config: { effort: "medium", format: { type: "json_schema", schema: COACH_SCHEMA } },
+      max_tokens: 8000,
+      output_config: { effort: "low", format: { type: "json_schema", schema: COACH_SCHEMA } },
     });
     const userText = JSON.stringify(sent.body.messages);
     expect(userText).toContain("Person 1: Must have; Person 2: Off limits");

@@ -39,6 +39,8 @@ import { SupportPage } from "./pages/Support";
 import { platform } from "./platform";
 import { TalkRoute } from "./pages/Talk";
 import { SaveComparison } from "./components/SaveComparison";
+import { SyncSettingsRoute } from "./pages/SyncSettingsRoute";
+import { PairPage } from "./pages/Pair";
 import { createCoachClient } from "./coach";
 import { sameMenuContent } from "./storage";
 import { isSupporter, useSync } from "./sync/context";
@@ -759,6 +761,8 @@ export const App = () => {
         <Route path="/discuss" element={<WrappedTalkRoute />} />
         <Route path="/talk" element={<WrappedTalkRoute />} />
         {platform().support && <Route path="/support" element={<SupportPage />} />}
+        <Route path="/sync" element={<SyncSettingsRoute />} />
+        <Route path="/pair" element={<PairPage />} />
         <Route path="/about" element={<Navigate to="/" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
