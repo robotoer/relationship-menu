@@ -127,6 +127,7 @@ classDiagram
 | ED-20 | Typing into the "new group" or "new item" box turns that box into the new entry; focus stays where you are typing, however fast you type. | Test (unit + e2e) |
 | ED-21 | A group name already used by another group shows "A group with this name already exists" and is not applied until it's unique. | Test |
 | ED-22 | Choosing "---" in an answer picker clears the answer. | Test |
+| ED-23 | **Reorder mode:** "↕ Reorder" shows ▲▼ on every item and group, in place of their other buttons and the empty "new" rows. They make exactly the moves of ED-7 (one undo step each; Shift+J / Shift+K do the same from the keyboard). At either end a button is shown disabled. After a move, focus stays on the same button of the moved row, or the other one at an end, so it can be pressed again. Works with touch on a 320px phone. | Test (unit + e2e) |
 
 ---
 
@@ -473,13 +474,13 @@ flowchart LR
 
 | Found by | Bug | Fix |
 | --- | --- | --- |
+| Test (`push.test.tsx`, flaky in CI) | Turning on notifications while a pull of a live conversation was in flight: the pull finished afterwards and wrote back the entry it started with, without the push subscription, in the page and in storage. The panel went back to "Notify me" while the device stayed subscribed on the server. Renewing an invite or stopping sharing had the same race. | Turning push on or off, renewing and stopping now wait in the same queue as pulls, and each step reads the newest entry, updated the moment it changes (`useLive.ts`). A test holds a pull open across the tap. |
 | Property HO-5 (import) | Reading a link trimmed a note and then cut it at 280 characters, which could leave spaces at the end that the next read trimmed. The same menu read differently the second time, so a repeated hand-off would have added a copy of an unchanged menu. | Trim again after cutting (`compare-slug.ts`, and `person.ts` for person fields); a new LK-1/LK-3 property checks that reading is stable. |
 | Review (sync plan, Nov 2026) | After IPFS was removed, menus that the IPFS version had kept only in IndexedDB (browser storage held just a date under `menu:<CID>`) showed up in the Library as unreadable entries titled with a CID; their content was no longer read. | Read them back from the old block store with plain IndexedDB, checking each block's hash, and hide pointers that can't be resolved (SV-9, SY-91). |
 | e2e (analytics test) | An edit saved while the IPFS node was busy was lost if the page was closed or left during the save: the browser-storage copy was only written after the IPFS write finished. | Write the browser-storage copy first; later IPFS was removed altogether, so saves are now synchronous (SV-10). |
 | Property CP-1 | A group named `__proto__` vanished from Compare, from opened links and from the library's in-memory list. | Prototype-free objects in `data-comparer.ts`, `compare-slug.ts`, `providers/Storage.tsx`. |
 | Property LK-4 | A pasted link whose slug ended in `+` didn't open (the `+` arrived as a space and was trimmed off). | Restore `+` before trimming (`compare-slug.ts`). |
 | Property LK-4 (Nov 2026) | A pasted slug whose last two characters were `+`, turned into spaces, still didn't open: only one trimmed `+` was put back. | Pad each part back to a multiple of 4 with `+` (`compare-slug.ts`), with an example test. |
-| Flaky CI test (Notify me, Nov 2026) | Tapping "Notify me" while a pull was in flight could be undone by that pull: it wrote back the device's entry without the subscription, so the device showed notifications off while the server kept sending them. Turning them off had the same race the other way. | Turning notifications on and off now waits in the same queue as pulls and pushes (`useLive.ts`), with a test that holds a pull (NT-33). |
 | Property LB-2 | Library search matched the stored JSON, so "item", "value" or "must" matched every menu. | Search only group and item text (`library-info.ts`). |
 | Property ED-12 | Editing an item in a missing group named `constructor` crashed. | Own-property check (`menu-editing.ts`). |
 | Property ED-10 | Edits that changed nothing still created an undo step (same values, nothing to add, a group move that can't happen). | Return the same menu (`menu-editing.ts`). |

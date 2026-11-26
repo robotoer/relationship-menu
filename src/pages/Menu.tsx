@@ -33,6 +33,9 @@ import { useAfterSave } from "../persistence";
 import { HomeScreenHint } from "../components/HomeScreenHint";
 import { platform } from "../platform";
 
+/** Where focus goes after an edit: a row, its text field, or its ▲/▼ (ED-23). */
+type FocusMode = "row" | "input" | "move-up" | "move-down";
+
 /** "Just for fun" (docs/spec/insights.md), downloaded on its own so the main bundle stays small. */
 const MenuInsights = lazy(() =>
   import("../components/MenuInsights").then((m) => ({ default: m.MenuInsights }))
@@ -254,12 +257,14 @@ export const MenuPage = ({
     setHelpOpen(true);
   };
   const [shareOpen, setShareOpen] = useState(false);
+  // ED-23: reorder mode shows ▲▼ on every item and group instead of their other actions.
+  const [reordering, setReordering] = useState(false);
   const sequence = useRef<{ key: string; at: number } | null>(null);
   // Row to focus after the next render (rows can move or disappear on edits).
   // `index` is a fallback for when that row no longer exists (e.g. undo removed it).
   const focusAfterRender = useRef<{
     rowKey: string;
-    mode: "row" | "input";
+    mode: FocusMode;
     index?: number;
   } | null>(null);
 
@@ -268,8 +273,20 @@ export const MenuPage = ({
       pageRef.current?.querySelectorAll<HTMLElement>("[data-row-key]") ?? []
     );
 
-  const focusRow = (row: HTMLElement | undefined, mode: "row" | "input") => {
+  const focusRow = (row: HTMLElement | undefined, mode: FocusMode) => {
     if (!row) return;
+    if (mode === "move-up" || mode === "move-down") {
+      // The same ▲/▼ on the moved row, so it can be pressed again; at an end, the other one.
+      const [want, other] = mode === "move-up" ? ["up", "down"] : ["down", "up"];
+      const button =
+        row.querySelector<HTMLButtonElement>(`[data-move="${want}"]:not(:disabled)`) ??
+        row.querySelector<HTMLButtonElement>(`[data-move="${other}"]`);
+      if (button) {
+        button.focus();
+        button.scrollIntoView?.({ block: "nearest" });
+        return;
+      }
+    }
     if (mode === "input") {
       // The row's first text field: an item's textarea, or a group title's input.
       const input = row.querySelector<HTMLInputElement | HTMLTextAreaElement>("input, textarea");
@@ -282,6 +299,16 @@ export const MenuPage = ({
     }
     row.focus();
     row.scrollIntoView?.({ block: "nearest" });
+  };
+
+  /** ED-7 from the ▲▼ buttons: the same moves as Shift+J / Shift+K. */
+  const moveItem = (group: string, itemIndex: number, rowKey: string, offset: 1 | -1) => {
+    focusAfterRender.current = { rowKey, mode: offset < 0 ? "move-up" : "move-down" };
+    onChange({ kind: "move-item", group, itemIndex, offset });
+  };
+  const moveGroup = (group: string, groupIndex: number, offset: 1 | -1) => {
+    focusAfterRender.current = { rowKey: `group-${groupIndex + offset}`, mode: offset < 0 ? "move-up" : "move-down" };
+    onChange({ kind: "move-group", group, offset });
   };
 
   useLayoutEffect(() => {
@@ -462,6 +489,18 @@ export const MenuPage = ({
         )}
         <button
           type="button"
+          className={reordering ? "menu-reorder active" : "menu-reorder"}
+          aria-pressed={reordering}
+          onClick={() => {
+            setReordering((on) => !on);
+            if (!reordering) track("reorder_mode_opened");
+          }}
+          title="Move items and groups up or down (or Shift+J / Shift+K)"
+        >
+          {reordering ? "✓ Done reordering" : "↕ Reorder"}
+        </button>
+        <button
+          type="button"
           className="keyboard-help-button"
           onClick={() => openHelp()}
           aria-keyshortcuts="?"
@@ -569,6 +608,7 @@ export const MenuPage = ({
         {[...groupNames, null].map((group, groupIndex) => {
           const inputId = `menu-group-input-${groupIndex}`;
           if (group === null) {
+            if (reordering) return null;
             return (
               <MenuGroup
                 key={groupIndex}
@@ -622,8 +662,19 @@ export const MenuPage = ({
               }
               onDelete={() => onChange({ kind: "group", oldGroup: group })}
               deleteAriaLabel={`Delete group: ${group}`}
+              move={
+                reordering
+                  ? {
+                      up: groupIndex > 0 ? () => moveGroup(group, groupIndex, -1) : undefined,
+                      down: groupIndex < groupNames.length - 1 ? () => moveGroup(group, groupIndex, 1) : undefined,
+                    }
+                  : undefined
+              }
+              moveName={`group "${group}"`}
             >
-              {rows.map(({ key, item, itemIndex }) => (
+              {rows
+                .filter(({ item }) => !reordering || item !== null)
+                .map(({ key, item, itemIndex }) => (
                 <Fragment key={key}>
                   {item === null && <div className="menu-divider" />}
                   <MenuItem
@@ -650,6 +701,14 @@ export const MenuPage = ({
                         : undefined
                     }
                     makeGroupBlockedReason={item ? makeGroupBlockedReason(item.item) : undefined}
+                    move={
+                      reordering && item
+                        ? {
+                            up: itemIndex > 0 ? () => moveItem(group, itemIndex, key, -1) : undefined,
+                            down: itemIndex < items.length - 1 ? () => moveItem(group, itemIndex, key, 1) : undefined,
+                          }
+                        : undefined
+                    }
                     onChange={(value) => {
                       if (item) {
                         onChange({ kind: "item", group, itemIndex, value });
