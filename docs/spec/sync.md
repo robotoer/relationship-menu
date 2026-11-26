@@ -601,3 +601,23 @@ I'll ask before merging anything.
    - prices are tax-inclusive ($12 means $12);
    - the conflict copy is called "Title (from another device)" as in the brief (it reads oddly on the device that made the copy; "Title (conflicting copy)" is the alternative);
    - Stripe's own customer emails (receipts, failed-payment notices) are switched on in Phase 1 only with your OK.
+
+---
+
+## 19. Setup log
+
+What exists, and where. IDs here are not secrets: they go into `wrangler.toml`, or they identify dashboard objects. Secrets (API keys, webhook signing secrets, the Cloudflare API token) are never written here.
+
+| When | What | Where |
+| --- | --- | --- |
+| 25 Nov 2026 | Domains `wantsandwonts.com` and `wantsandwonts.app` | Cloudflare Registrar (bought by you) |
+| 25 Nov 2026 | Stripe account **Wants & Won'ts** (US), separate from your other accounts. Its sandbox is where all test-mode work happens. | Stripe |
+| 25 Nov 2026 | Managed Payments chosen in setup. Default product category: SaaS, personal use (`txcd_10103000`). | Stripe sandbox → Settings → Tax |
+| 25 Nov 2026 | Prices **include tax** ("Include tax in prices: Yes") | Stripe sandbox → Settings → Tax |
+| 25 Nov 2026 | Products, each eligible for Managed Payments. **$6/yr** (`supporter_6_yearly`), **$12/yr**, the default (`supporter_12_yearly`), and **$24/yr** (`supporter_24_yearly`) are three separate products, because the Customer Portal can only switch between prices on different products. **$30 once** (`supporter_30_lifetime`) is a one-time price on the $12 product. | Stripe sandbox → Product catalog |
+| 25 Nov 2026 | Customer Portal: change card, invoices, cancel at period end (with a reason survey), and switch between the three yearly products. Raising the amount applies now (prorated, invoiced at once); lowering it applies at renewal. | Stripe sandbox → Settings → Billing → Customer portal |
+| 25 Nov 2026 | D1 `menu-sync-test`, id `f14f5608-e4a9-4272-b136-8a5c928de807` | Cloudflare → D1 |
+| 25 Nov 2026 | D1 `menu-sync-prod`, id `be712c7e-c171-4e5b-b0cd-5a40096c0bed` | Cloudflare → D1 |
+| *to do* | Cloudflare API token (Workers + D1 edit) → GitHub secret `CLOUDFLARE_API_TOKEN`, plus `CLOUDFLARE_ACCOUNT_ID` | You, when PR 1 is ready to deploy |
+| *to do* | Stripe restricted key and webhook signing secret → `wrangler secret put` (test environment) | You, once the test Worker has a URL (end of Phase 2) |
+| *to do* | Card-statement text (decision 5) | You, before going live |
