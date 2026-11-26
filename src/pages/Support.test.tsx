@@ -43,7 +43,8 @@ const renderPage = ({ sync = fakeSync(), path = "/support", state }: { sync?: Fa
 const renderAt = (state?: unknown) => renderPage({ state });
 
 const amountButton = (label: RegExp) => screen.getByRole("button", { name: label });
-const optionButtons = () => SUPPORT_OPTIONS.map((o) => screen.getByRole("button", { name: new RegExp(o.label.replace(/[$/]/g, "\\$&")) }));
+// Matched as plain text (the labels have "$" and "/"), not as a pattern.
+const optionButtons = () => SUPPORT_OPTIONS.map((o) => screen.getByRole("button", { name: (name) => name.includes(o.label) }));
 
 /** Lets pending promises (the fake actions) settle, and fake timers run `ms` on. */
 const flush = (ms = 0) => act(() => vi.advanceTimersByTimeAsync(ms));
