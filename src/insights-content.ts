@@ -590,8 +590,11 @@ export const BADGE_TEXT: Record<
 // ---- Phase 2: character sheet and loot (IN-10..IN-13) ----
 
 /**
- * Template items that are never quoted on a loot item (IN-12): sex and sexual
- * health, kids, other partners and veto, marriage, past relationships, politics.
+ * Tender topics (IN-12): sex and sexual health, kids, other partners and veto,
+ * marriage, past relationships and hurts, health and mental health, coming out,
+ * politics. They're quoted on a loot item as things wanted, but never as "Immune
+ * to" or "Unidentified", where they could read as a dig. (Phase 3's share card
+ * starts these quotes unticked.)
  */
 export const SENSITIVE_ITEMS: string[] = [
   "Sex",
@@ -633,12 +636,23 @@ export const SENSITIVE_ITEMS: string[] = [
   "Bringing others to events",
   "Marriage or legal partnership",
   "Sharing past relationship history",
+  "Sharing past hurts",
   "Talking about values and politics",
+  "Being glad about each other's other relationships",
+  "Garden-party style: friendly at gatherings",
+  "Safety check-ins during dates",
+  "Being out about us to family",
+  "Being out about us at work",
+  "Knowing each other's medications and conditions",
+  "Making medical decisions for each other",
+  "Care through a long illness",
+  "Talking about mental health",
+  "Knowing each other's triggers",
 ];
 
-/** People's own items that look sensitive are never quoted either (IN-12). */
+/** People's own items on tender topics are treated the same way (IN-12). */
 export const SENSITIVE_KEYWORDS =
-  /\b(sex|sexual|sexy|naked|nude|kink|fetish|bdsm|oral\b|anal\b|orgasm|porn|condom|stis?\b|stds?\b|hiv\b|prep\b|pregnan|abortion|fertil|kids?\b|child|bab(y|ies)\b|veto|affairs?\b|cheat|divorc|ex(es)?\b|trauma|abuse|therap|religio|politic|threesome|swing|polyam|open relationship|metamour|other partners?\b)/i;
+  /\b(sex|sexual|sexy|naked|nude|kink|fetish|bdsm|oral\b|anal\b|orgasm|porn|condom|stis?\b|stds?\b|hiv\b|prep\b|pregnan|abortion|fertil|kids?\b|child|bab(y|ies)\b|veto|affairs?\b|cheat|divorc|ex(es)?\b|trauma|abuse|therap|religio|politic|threesome|swing|polyam|open relationship|metamour|other partners?\b|medic(al|ation)|mental health|illness|triggers?\b|disabilit|coming out|out about us|outed\b)/i;
 
 export type CharacterClass = { name: string; flavor: string };
 
