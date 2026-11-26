@@ -47,6 +47,7 @@ Authorization: MenuSync v1 account=<id>, key=<pubkey>, ts=<unix seconds>, sig=<s
 | `POST /v1/portal` | | `{url}` | 402 |
 | `POST /v1/pair` | `{id, blob}` (blob ≤ 1 KiB) | `201 {expiresAt}` | 402, 409, 413 |
 | `GET /v1/pair/:id` | *(unsigned)* | `{blob}`, once | 404, 410 `used` / `expired` |
+| `POST /v1/coach` | `{people, topics:[{id, group, item, kind, answers}]}` ≤ 16 KiB ([coach.md](../docs/spec/coach.md)) | `{opening, topics:[{id, about, questions}], closing}` | 400, 402 `not_supporter` / `read_only`, 422 `coach_declined`, 429 `coach_quota`, 502 `coach_failed`, 503 `coach_unavailable` / `coach_busy` |
 | `POST /v1/stripe/webhook` | *(Stripe-signed)* | `{received}` | 400 `bad_signature` |
 
 - Errors are JSON: `{"error": "<code>"}`.

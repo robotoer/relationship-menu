@@ -11,6 +11,7 @@ import { MenuComparison } from "./model/compare";
 import { itemCategories } from "./compare-filters";
 import { answerGap, flattenComparison, GroupedItem } from "./compare-insights";
 import { itemId } from "./data-comparer";
+import { loadSavedGuide, SavedCoachGuide } from "./coach";
 
 /**
  * Kinds of topic, in agenda order: start with something you share, then differences,
@@ -141,6 +142,8 @@ export type DiscussionRecord = {
   startedAt: number;
   updatedAt: number;
   topics: Record<string, TopicRecord>;
+  /** Questions prepared by the AI coach, if anyone asked for them (CO-10). */
+  coach?: SavedCoachGuide;
 };
 
 export const emptyRecord = (now: number): DiscussionRecord => ({
@@ -182,11 +185,13 @@ export const loadDiscussion = (key: string): DiscussionRecord | null => {
         ...(typeof v.followUp === "string" ? { followUp: v.followUp } : {}),
       };
     }
+    const coach = loadSavedGuide(parsed.coach);
     return {
       version: 1,
       startedAt: Number(parsed.startedAt) || Date.now(),
       updatedAt: Number(parsed.updatedAt) || Date.now(),
       topics,
+      ...(coach ? { coach } : {}),
     };
   } catch {
     return null;

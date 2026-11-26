@@ -84,6 +84,7 @@ export const deleteAccount = async (env: Env, caller: Caller): Promise<Response>
   await env.DB.batch([
     env.DB.prepare("DELETE FROM menus WHERE account_id = ?").bind(caller.accountId),
     env.DB.prepare("DELETE FROM accounts WHERE account_id = ?").bind(caller.accountId),
+    env.DB.prepare("DELETE FROM coach_usage WHERE key = ?").bind(`a:${caller.accountId}`),
   ]);
   return noContent();
 };

@@ -13,6 +13,15 @@ export interface Env {
   RL_ACCOUNT?: RateLimit;
   RL_SENSITIVE?: RateLimit;
   RL_IP?: RateLimit;
+  /** AI coach (docs/spec/coach.md): "true" to turn it on. Off by default. */
+  COACH_ENABLED?: string;
+  /** Anthropic API key (secret). The coach is unavailable without it. */
+  ANTHROPIC_API_KEY?: string;
+  /** Claude model for the coach; defaults to claude-opus-5-5. */
+  COACH_MODEL?: string;
+  /** Daily coach limits (CO-8); defaults in coach.ts. */
+  COACH_DAILY_PER_ACCOUNT?: string;
+  COACH_DAILY_TOTAL?: string;
 }
 
 /** Quotas per account (SY-23). */
