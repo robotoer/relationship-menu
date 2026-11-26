@@ -111,6 +111,32 @@ Members' devices can ask to be told when another member writes ([`notifications.
 - **Clean-up (NT-53, NT-56):** leaving, Stop sharing, account deletion and the daily purge of a host's boxes delete the affected subscriptions. The daily cron also deletes any whose box or member device is gone, any with changes undelivered for 60 days (the push service keeps failing), and clears past days' counters.
 - **Logs (SY-44):** one line per failed push (`push_gone`, `push_retry`, `push_unreachable`, `push_failed`) with only route, status and code, and one count line per 5-minute cron that had something to do. Never an endpoint, key, id or payload.
 
+### Store-app push (FCM)
+
+The iOS and Android apps register a Firebase Cloud Messaging token instead of a web push subscription ([`notifications.md`](../docs/spec/notifications.md) §6 and §7c, NT-40…NT-42). Both platforms go through FCM HTTP v1 (iOS through FCM's APNs connection). [`src/fcm.ts`](src/fcm.ts) signs the OAuth assertion (RS256, WebCrypto alone) and builds and sends the message; [`src/notify.ts`](src/notify.ts) sends each subscription through its own channel with the same scheduling, claiming and retries as web push. In the tests, `makeServiceAccount` and `fakeGoogle` ([`test/helpers.ts`](test/helpers.ts)) make a service account with a fresh RSA key and play Google's token endpoint (checking every JWT's signature and claims) and `messages:send`.
+
+| Method and path | Auth | Body | Success | Errors |
+| --- | --- | --- | --- | --- |
+| `POST /v1/boxes/:id/subscriptions` | member | `{"kind": "fcm", "token": "<FCM registration token>", "platform": "android"\|"ios"}`; the token is 1–4,096 characters of `[A-Za-z0-9_:-]` | `201 {subId}`; the same token for the same member device returns its existing `subId` (with the platform just sent) | 400 `bad_request`, 409 `too_many_subscriptions` (5 per member device per box, web push and FCM together), 503 `push_unavailable` (no or a malformed `FCM_SERVICE_ACCOUNT`) |
+| `DELETE /v1/boxes/:id/subscriptions/:subId` | member, own subscription only | | 204, for both kinds | 400, 404 `not_found` |
+
+- **Storage:** migration `0005_push_kinds.sql` adds `kind` (`webpush` or `fcm`, default `webpush`) and `platform` to `push_subs`. FCM rows keep the token in `endpoint`, with empty `p256dh` and `auth`.
+- **Per kind:** web push needs the VAPID secrets and FCM needs `FCM_SERVICE_ACCOUNT`; each kind answers 503 on its own. If a kind's credentials go missing later, its subscriptions are left alone: a write's change waits on them, and the 5-minute cron sends it once the credentials are back. (With neither configured, push is off and writes record nothing, as before.)
+- **Auth:** an RS256 JWT with `iss` = the service account's `client_email`, `scope` = `https://www.googleapis.com/auth/firebase.messaging`, `aud` = `https://oauth2.googleapis.com/token`, valid 1 hour, exchanged at that address for an access token. The token is cached in the isolate until a minute before it expires, so a round of sends costs one token request at most.
+- **What's sent:** `POST https://fcm.googleapis.com/v1/projects/<project_id>/messages:send` with `Authorization: Bearer <access token>`:
+  ```json
+  { "message": {
+      "token": "<token>",
+      "notification": { "title": "Wants & Won'ts", "body": "Something new in a conversation." },
+      "data": { "box": "<boxId>", "kind": "comment|notes", "count": "<n>" },
+      "android": { "collapse_key": "<boxId>", "priority": "normal", "ttl": "86400s", "notification": { "tag": "box-<boxId>" } },
+      "apns": { "headers": { "apns-collapse-id": "<boxId>", "apns-priority": "5", "apns-expiration": "<now + 1 day, Unix seconds>" },
+                "payload": { "aps": { "thread-id": "<boxId>" } } } } }
+  ```
+  With `count > 1` the body is "N new changes in a conversation.". The text is fixed, so the lock screen shows no names or topics. FCM's payload isn't end-to-end encrypted: it holds the box id and counts, nothing else. Only those two Google addresses are ever called for FCM, and redirects aren't followed.
+- **FCM's answer:** 200 is done. 404, or 400 with `UNREGISTERED`, or `INVALID_ARGUMENT` about the token (a `message.token` field violation, or an error message about the registration token) deletes the subscription. 429, 5xx or no answer waits for the cron, as for web push. 401 or 403 also waits, logged as `push_auth` (a 401 also drops the cached access token), so a broken service account doesn't lose anyone's subscription. Any other answer (another 4xx, including an `INVALID_ARGUMENT` about something else, or a redirect) is logged and the push dropped; the subscription stays. If no access token can be had, every FCM send of that round waits, logged once (route `push fcm token`).
+- **Clean-up and logs:** as for web push. FCM lines use the route `push fcm`; never a token, project id, account email, key, access token or id.
+
 **Crons** (`[env.*.triggers]` in `wrangler.toml`; `scheduled` in `src/index.ts` picks the job by `controller.cron`): `17 3 * * *` is the daily purge ([`src/cron.ts`](src/cron.ts)) and `*/5 * * * *` flushes waiting notifications. Locally, try them with `wrangler dev --test-scheduled` and `curl "http://localhost:8787/__scheduled?cron=*/5+*+*+*+*"`.
 
 ### Keys, records and pairing blobs
@@ -183,6 +209,19 @@ npx wrangler secret put VAPID_PUBLIC_KEY --env test
 npx wrangler secret put VAPID_PRIVATE_KEY --env test
 npx wrangler secret put VAPID_SUBJECT --env test
 ```
+
+**Store-app push** needs one secret, **`FCM_SERVICE_ACCOUNT`**: a Google service account's JSON key (it holds `project_id`, `client_email` and `private_key`). Without it, or if it's malformed, FCM subscriptions answer 503 `push_unavailable` and web push and everything else work.
+
+1. In the [Firebase console](https://console.firebase.google.com/), add a project (or add Firebase to an existing Google Cloud project), and register the Android app and the iOS app in it. For iOS, upload the APNs authentication key (`.p8`) under Project settings → Cloud Messaging, so FCM can deliver through APNs. The apps' `google-services.json` and `GoogleService-Info.plist` come from here too; they belong to the app repository, not this one.
+2. Make the key. Either Project settings → Service accounts → **Generate new private key** (the Firebase Admin SDK service account), or, with less access, in the Google Cloud console under IAM & Admin → Service accounts: create a service account for this Worker, give it only the **Firebase Cloud Messaging API Admin** role (`roles/firebasecloudmessaging.admin`), then Keys → Add key → JSON. Check that the **Firebase Cloud Messaging API** (V1) is enabled under APIs & Services.
+3. Store the whole file as the secret, straight from the file (it never needs to be pasted anywhere), then delete the local copy:
+
+```bash
+npx wrangler secret put FCM_SERVICE_ACCOUNT --env test < key.json
+rm key.json
+```
+
+Use a separate key (ideally a separate Firebase project) per environment. To rotate, add a new key, put the secret again, then delete the old key in the console; the Worker picks up the new one on its next request.
 
 **`STRIPE_SECRET_KEY`** is a Stripe *restricted* key. Create it under Developers → API keys → Create restricted key, with these permissions:
 - Prices: Read

@@ -6,6 +6,17 @@
  * Nothing here sends anything anywhere.
  */
 
+/**
+ * Push notifications from the host's own system (the store apps: FCM, spec
+ * docs/spec/notifications.md §7c), used instead of web push when present.
+ */
+export type NativePush = {
+  /** Asks for permission (from the tap) and returns this device's token, or null if refused. */
+  register(): Promise<{ token: string; platform: "android" | "ios" } | null>;
+  /** Stops notifications on this device (when no conversation uses them any more). */
+  unregister(): Promise<void>;
+};
+
 /** How a saved file was handed over. */
 export type SaveOutcome = "downloaded" | "shared" | "cancelled";
 
@@ -26,6 +37,8 @@ export type Platform = {
   aiTeaser: boolean;
   /** Whether to show the "Add to Home Screen" tip (Safari on iPhone and iPad). */
   homeScreenHint: boolean;
+  /** The host's own push notifications, or null to use web push. */
+  nativePush: NativePush | null;
 };
 
 /** Starts a download of `file` (a link to a local blob; nothing leaves the browser). */
@@ -64,6 +77,7 @@ const webPlatform = (): Platform => ({
   support: true,
   aiTeaser: true,
   homeScreenHint: true,
+  nativePush: null,
 });
 
 let current: Platform | null = null;

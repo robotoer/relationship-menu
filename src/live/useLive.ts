@@ -9,6 +9,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Conversation } from "../conversation";
 import { BoxApi, LiveError, LiveFailure } from "./box-api";
 import { LiveEntry, LiveStore } from "./live-store";
+import { platform } from "../platform";
 import { endLive, inviteLink, needsPush, pullLive, pushLive, renewInvite, shareLive } from "./live-session";
 import { PushPrepared, disablePush, enablePush, forgetBrowserSubscriptionIfUnused, preparePush, pushSupport } from "./push";
 import { track } from "../analytics";
@@ -190,8 +191,12 @@ export const useLive = (
         const current = entryRef.current;
         if (!deps || !current) return;
         // Ask first, straight from the tap; then subscribe and register with the box.
-        const permission =
-          window.Notification.permission === "granted" ? Promise.resolve("granted" as NotificationPermission) : window.Notification.requestPermission();
+        // (In the store apps, the operating system asks inside enablePush.)
+        const permission: Promise<NotificationPermission> = platform().nativePush
+          ? Promise.resolve("granted")
+          : window.Notification.permission === "granted"
+            ? Promise.resolve("granted")
+            : window.Notification.requestPermission();
         setNotifyWork("working");
         void (async () => {
           try {
@@ -202,7 +207,13 @@ export const useLive = (
             setNotifyWork("idle");
             track("notifications_enabled", { channel: "webpush" });
           } catch (e) {
-            setNotifyWork(e instanceof LiveError && e.reason === "push_unavailable" ? "unavailable" : "error");
+            setNotifyWork(
+              e instanceof LiveError && e.reason === "push_unavailable"
+                ? "unavailable"
+                : e instanceof LiveError && e.reason === "permission_denied"
+                  ? "denied"
+                  : "error"
+            );
           }
         })();
       },
@@ -211,7 +222,8 @@ export const useLive = (
         if (!deps || !current) return;
         setNotifyWork("working");
         try {
-          setEntry(await disablePush(deps, current, prepared.current?.registration));
+          const ready = prepared.current;
+          setEntry(await disablePush(deps, current, ready && "registration" in ready ? ready.registration : null));
           setNotifyWork("idle");
           track("notifications_disabled");
         } catch {
@@ -250,7 +262,10 @@ export const useLive = (
       try {
         await endLive(deps, current);
         // The server dropped this box's subscriptions; drop the browser's if nothing else uses it.
-        await forgetBrowserSubscriptionIfUnused(deps.store, prepared.current?.registration).catch(() => undefined);
+        const ready = prepared.current;
+        await forgetBrowserSubscriptionIfUnused(deps.store, ready && "registration" in ready ? ready.registration : null).catch(
+          () => undefined
+        );
         setEntry(null);
         setStatus({ state: "off" });
         track(current.isHost ? "live_stopped" : "live_left");

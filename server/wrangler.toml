@@ -18,6 +18,10 @@
 #   VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY and VAPID_SUBJECT for web push
 #   (docs/spec/notifications.md §7b); without them push answers 503 and
 #   everything else works. See server/README.md for making the key pair.
+#   FCM_SERVICE_ACCOUNT for the store apps' push (Firebase Cloud Messaging,
+#   notifications.md §7c): a Google service account's JSON key, stored with
+#   `npx wrangler secret put FCM_SERVICE_ACCOUNT --env test < key.json`. Without
+#   it FCM subscriptions answer 503 and web push still works. See server/README.md.
 #   npx wrangler secret put STRIPE_SECRET_KEY --env test
 
 name = "wantsandwonts-local"

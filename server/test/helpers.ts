@@ -10,6 +10,7 @@ import { PROTOCOL, canonicalBoxRequest, canonicalRequest } from "../src/auth";
 import { concat, fromBase64Url, sha256, toBase64Url, toHex, utf8 } from "../src/bytes";
 import { handleRequest } from "../src/index";
 import type { Env } from "../src/env";
+import { FCM_SCOPE, FCM_TOKEN_URL, fcmSendUrl } from "../src/fcm";
 import { deriveKeys, ecdh } from "../src/webpush";
 
 export { env };
@@ -383,12 +384,14 @@ export type Delivered = { browser: PushBrowser; headers: Headers; plaintext: str
  * an endpoint replies (a status, or "network" for a failed connection); 201 by
  * default. A call to anything else fails the test.
  */
-export const fakePushService = (browsers: PushBrowser[]) => {
+export const fakePushService = (browsers: PushBrowser[], others?: (request: Request) => Promise<Response>) => {
   const delivered: Delivered[] = [];
   const answers = new Map<string, number | "network">();
   const spy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
     const request = new Request(input as RequestInfo, init);
     const browser = browsers.find((b) => b.endpoint === request.url);
+    // Anything else goes to `others` (e.g. fakeGoogle's handler), if given.
+    if (!browser && others) return others(request);
     if (!browser) throw new Error("Unexpected fetch");
     const answer = answers.get(browser.endpoint) ?? 201;
     if (answer === "network") throw new TypeError("Network connection lost.");
@@ -404,3 +407,174 @@ export const fakePushService = (browsers: PushBrowser[]) => {
     to: (browser: PushBrowser) => delivered.filter((d) => d.browser === browser).map((d) => JSON.parse(d.plaintext) as unknown),
   };
 };
+
+// ---- FCM (notifications.md §7c) --------------------------------------------------------
+
+export type TestServiceAccount = {
+  /** The JSON key, as stored in the FCM_SERVICE_ACCOUNT secret. */
+  json: string;
+  projectId: string;
+  clientEmail: string;
+  privateKeyPem: string;
+  verifyKey: CryptoKey;
+};
+
+const pem = (der: Uint8Array) => {
+  let binary = "";
+  for (const byte of der) binary += String.fromCharCode(byte);
+  const lines = btoa(binary).match(/.{1,64}/g)!.join("\n");
+  return `-----BEGIN PRIVATE KEY-----\n${lines}\n-----END PRIVATE KEY-----\n`;
+};
+
+/**
+ * A Google service account made in the test: a fresh RSA 2048 key pair and a
+ * JSON key shaped like the one the Google Cloud console downloads.
+ */
+export const makeServiceAccount = async (projectId = "wants-test-1a2b3", over: Record<string, unknown> = {}) => {
+  const pair = (await crypto.subtle.generateKey(
+    { name: "RSASSA-PKCS1-v1_5", modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256" },
+    true,
+    ["sign", "verify"]
+  )) as CryptoKeyPair;
+  const privateKeyPem = pem(new Uint8Array((await crypto.subtle.exportKey("pkcs8", pair.privateKey)) as ArrayBuffer));
+  const clientEmail = `fcm-sender@${projectId}.iam.gserviceaccount.com`;
+  const json = JSON.stringify({
+    type: "service_account",
+    project_id: projectId,
+    private_key_id: toHex(crypto.getRandomValues(new Uint8Array(20))),
+    private_key: privateKeyPem,
+    client_email: clientEmail,
+    client_id: "100000000000000000001",
+    auth_uri: "https://accounts.google.com/o/oauth2/auth",
+    token_uri: FCM_TOKEN_URL,
+    ...over,
+  });
+  return { json, projectId, clientEmail, privateKeyPem, verifyKey: pair.publicKey } satisfies TestServiceAccount;
+};
+
+let sharedAccount: Promise<TestServiceAccount> | null = null;
+/** One service account per test file (RSA key generation is slow). */
+export const serviceAccount = () => (sharedAccount ??= makeServiceAccount());
+
+/** An FCM registration token, shaped like a real one. */
+export const fcmToken = () => `${newId()}:APA91b${newId()}${newId()}-${newId()}_${newId()}`;
+
+/** What the fake FCM answers for a token: a status (with FCM's error body), a body of its own, or a failed connection. */
+export type FcmAnswer = number | "network" | { status: number; body: unknown };
+
+/** FCM's error body for a status and errorCode (google.firebase.fcm.v1.FcmError). */
+export const fcmErrorBody = (status: number, errorStatus: string, errorCode: string, extra: object[] = [], message = "Request failed") => ({
+  error: {
+    code: status,
+    message,
+    status: errorStatus,
+    details: [{ "@type": "type.googleapis.com/google.firebase.fcm.v1.FcmError", errorCode }, ...extra],
+  },
+});
+
+export type FcmDelivered = { token: string; headers: Headers; url: string; body: { message: Record<string, unknown> & { token: string } } };
+
+/**
+ * Plays Google: the OAuth token endpoint and FCM's messages:send for `account`.
+ *
+ * - The token endpoint checks the form (grant type, assertion) and the JWT: RS256
+ *   signed by the account's key, iss = client_email, the FCM scope, aud = the
+ *   token endpoint, at most an hour. A bad one gets 400 invalid_grant. A good
+ *   one gets a fresh access token, valid `expiresIn` seconds.
+ * - messages:send must be at the account's project, with a current access token
+ *   (else 401), JSON. It's recorded and answered as `answer` set for its token
+ *   (200 by default).
+ *
+ * `fetch` is a FetchLike to inject; `install()` puts it in place of global fetch
+ * (with `others` for any other host). Any other address fails the test.
+ */
+export const fakeGoogle = (account: TestServiceAccount) => {
+  const assertions: { header: Record<string, unknown>; claims: Record<string, unknown> }[] = [];
+  const delivered: FcmDelivered[] = [];
+  const answers = new Map<string, FcmAnswer>();
+  const issued = new Set<string>();
+  const state = { expiresIn: 3600, tokenAnswer: null as FcmAnswer | null, revoked: false };
+  const sendUrl = fcmSendUrl(account.projectId);
+  const invalid = (description: string) =>
+    new Response(JSON.stringify({ error: "invalid_grant", error_description: description }), { status: 400 });
+
+  const handle = async (request: Request): Promise<Response> => {
+    if (request.redirect !== "manual") throw new Error("FCM requests must not follow redirects");
+    if (request.url === FCM_TOKEN_URL) {
+      if (state.tokenAnswer === "network") throw new TypeError("Network connection lost.");
+      if (request.method !== "POST") return new Response(null, { status: 405 });
+      if (request.headers.get("content-type") !== "application/x-www-form-urlencoded") return invalid("content type");
+      const form = new URLSearchParams(new TextDecoder().decode(await request.arrayBuffer()));
+      if (form.get("grant_type") !== "urn:ietf:params:oauth:grant-type:jwt-bearer") return invalid("grant type");
+      const [header, claims, signature, extra] = (form.get("assertion") ?? "").split(".");
+      if (!header || !claims || !signature || extra !== undefined) return invalid("not a JWT");
+      const valid = await crypto.subtle.verify(
+        "RSASSA-PKCS1-v1_5",
+        account.verifyKey,
+        fromBase64Url(signature) ?? new Uint8Array(),
+        utf8(`${header}.${claims}`)
+      );
+      if (!valid) return invalid("signature");
+      const decoded = {
+        header: JSON.parse(new TextDecoder().decode(fromBase64Url(header)!)) as Record<string, unknown>,
+        claims: JSON.parse(new TextDecoder().decode(fromBase64Url(claims)!)) as Record<string, unknown>,
+      };
+      const c = decoded.claims as { iss?: unknown; scope?: unknown; aud?: unknown; iat?: unknown; exp?: unknown };
+      if (decoded.header.alg !== "RS256" || decoded.header.typ !== "JWT") return invalid("header");
+      if (c.iss !== account.clientEmail || c.scope !== FCM_SCOPE || c.aud !== FCM_TOKEN_URL) return invalid("claims");
+      if (typeof c.iat !== "number" || typeof c.exp !== "number" || c.exp <= c.iat || c.exp - c.iat > 3600) return invalid("lifetime");
+      assertions.push(decoded);
+      if (typeof state.tokenAnswer === "number") return new Response(JSON.stringify({ error: "x" }), { status: state.tokenAnswer });
+      if (state.tokenAnswer) return new Response(JSON.stringify(state.tokenAnswer.body), { status: state.tokenAnswer.status });
+      const accessToken = `ya29.test-${issued.size + 1}-${newId()}`;
+      issued.add(accessToken);
+      return new Response(JSON.stringify({ access_token: accessToken, expires_in: state.expiresIn, token_type: "Bearer" }), {
+        headers: { "content-type": "application/json" },
+      });
+    }
+    if (request.url === sendUrl) {
+      if (request.method !== "POST") return new Response(null, { status: 405 });
+      const bearer = request.headers.get("authorization")?.match(/^Bearer (.+)$/)?.[1];
+      if (!bearer || !issued.has(bearer) || state.revoked) {
+        return new Response(JSON.stringify(fcmErrorBody(401, "UNAUTHENTICATED", "THIRD_PARTY_AUTH_ERROR")), { status: 401 });
+      }
+      if (!request.headers.get("content-type")?.startsWith("application/json")) return new Response(null, { status: 415 });
+      const body = (await request.json()) as FcmDelivered["body"];
+      const token = body.message.token;
+      const answer = answers.get(token) ?? 200;
+      if (answer === "network") throw new TypeError("Network connection lost.");
+      delivered.push({ token, headers: request.headers, url: request.url, body });
+      if (typeof answer === "object") return new Response(JSON.stringify(answer.body), { status: answer.status });
+      if (answer === 200) return Response.json({ name: `projects/${account.projectId}/messages/0:${newId()}` });
+      return new Response(JSON.stringify(fcmErrorBody(answer, "INTERNAL", "INTERNAL")), { status: answer });
+    }
+    throw new Error("Unexpected fetch");
+  };
+
+  const fetchLike = (input: string, init: RequestInit) => handle(new Request(input, init));
+  return {
+    assertions,
+    delivered,
+    issued,
+    state,
+    handle,
+    fetch: fetchLike,
+    answer: (token: string, answer: FcmAnswer) => answers.set(token, answer),
+    /** What FCM got for `token`: each message's data. */
+    to: (token: string) => delivered.filter((d) => d.token === token).map((d) => d.body.message.data as Record<string, string>),
+    /** Replaces global fetch: Google, then `others` for any other address. */
+    install: (others?: (request: Request) => Promise<Response>) =>
+      vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+        const request = new Request(input as RequestInfo, init);
+        const host = new URL(request.url).hostname;
+        if ((host === "oauth2.googleapis.com" || request.url.startsWith("https://fcm.googleapis.com/v1/")) || !others) return handle(request);
+        return others(request);
+      }),
+  };
+};
+
+/** The test Worker's bindings with both channels on: VAPID and an FCM service account. */
+export const fcmEnv = async (account?: TestServiceAccount): Promise<Env> => ({
+  ...PUSH_ENV,
+  FCM_SERVICE_ACCOUNT: (account ?? (await serviceAccount())).json,
+});
