@@ -161,7 +161,7 @@ describe("SupportPage", () => {
 
   describe("SY-61, SY-69: when Checkout can't start, it says so plainly and that nothing was charged", () => {
     it.each<[string, unknown, RegExp]>([
-      ["offline", new SyncError("offline"), /couldn't reach our server/],
+      ["offline", new SyncError("offline"), /didn't get an answer from our server/],
       ["rate_limited", new SyncError("rate_limited"), /wait a minute/],
       ["unavailable", new SyncError("unavailable"), /isn't available here/],
       ["failed", new SyncError("failed"), /Something went wrong/],
@@ -179,6 +179,22 @@ describe("SupportPage", () => {
       expect(sessionStorage.getItem(CHECKOUT_PLAN_KEY)).toBeNull();
       expect(openStripe).not.toHaveBeenCalled();
       for (const button of optionButtons()) expect(button).toBeEnabled();
+    });
+
+    it("doesn't claim sync was undone when Checkout fails after turning it on", async () => {
+      // checkout() with sync off makes a sync code first, and keeps it if Checkout then fails.
+      const sync = fakeSync({ state: { kind: "off" }, checkout: () => Promise.reject(new SyncError("offline")) });
+      const openStripe = vi.fn();
+      const view = render(page(sync, "/support", undefined, openStripe));
+      fireEvent.click(amountButton(/\$12 \/ year/));
+      const alert = await screen.findByRole("alert");
+      view.rerender(page({ ...sync, state: on() }, "/support", undefined, openStripe));
+
+      expect(alert).toHaveTextContent("Nothing was charged.");
+      expect(alert).not.toHaveTextContent(/nothing changed|undone|removed|deleted/i);
+      expect(screen.getByRole("group", { name: "Pay what you like" })).toHaveAccessibleDescription(
+        /Sync is already on in this browser, so your support goes to its sync code/
+      );
     });
   });
 
@@ -402,7 +418,7 @@ describe("SupportPage", () => {
     });
 
     it.each<[SyncErrorReason, RegExp]>([
-      ["offline", /couldn't reach our server/],
+      ["offline", /didn't get an answer from our server/],
       ["rate_limited", /wait a minute/],
       ["not_supporter", /couldn't find a subscription/],
       ["failed", /Something went wrong/],

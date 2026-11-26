@@ -71,7 +71,9 @@ const reasonOf = (error: unknown): SyncErrorReason => (error instanceof SyncErro
 const checkoutErrorText = (reason: SyncErrorReason): string => {
   switch (reason) {
     case "offline":
-      return "We couldn't reach our server, so checkout didn't open. Nothing was charged. Check your connection and try again.";
+      // The server may have answered and the reply been lost, so say only what's sure:
+      // no payment happens without Stripe's page. A sync code made just now is kept.
+      return "We didn't get an answer from our server, so checkout didn't open. Nothing was charged. Check your connection and try again.";
     case "rate_limited":
       return "That was several tries in a short time. Nothing was charged. Please wait a minute and try again.";
     case "unavailable":
@@ -85,7 +87,8 @@ const checkoutErrorText = (reason: SyncErrorReason): string => {
 const portalErrorText = (reason: SyncErrorReason): string => {
   switch (reason) {
     case "offline":
-      return "We couldn't reach our server. Nothing changed. Check your connection and try again.";
+      // A portal session on its own changes nothing about the subscription.
+      return "We didn't get an answer from our server. Nothing changed. Check your connection and try again.";
     case "rate_limited":
       return "That was several tries in a short time. Nothing changed. Please wait a minute and try again.";
     case "not_supporter":
