@@ -21,11 +21,15 @@ export const AUTOSAVE_DELAY_MS = 400;
  *
  * @param doc - The document to save, or null when nothing should be saved.
  * @param save - Performs the save. Always called with the latest `save` function.
+ * @param stored - What storage holds now, when something other than these saves
+ *   changed it (a synced change the editor now shows, spec SY-33). Saving exactly
+ *   that is then skipped, and anything else, even what was saved before, is saved.
  * @returns The current save state, for display.
  */
 export const useAutosave = (
   doc: RelationshipMenuDocument | null,
-  save: (doc: RelationshipMenuDocument) => Promise<void>
+  save: (doc: RelationshipMenuDocument) => Promise<void>,
+  stored?: RelationshipMenuDocument | null
 ): SaveState => {
   const [state, setState] = useState<SaveState>("idle");
   const saveRef = useRef(save);
@@ -67,6 +71,15 @@ export const useAutosave = (
   };
   const flushRef = useRef(flush);
   flushRef.current = flush;
+
+  useEffect(() => {
+    if (!stored) return;
+    const key = JSON.stringify(stored);
+    // In the queue, after any save already on its way.
+    queue.current = queue.current.then(() => {
+      lastSaved.current = key;
+    });
+  }, [stored]);
 
   useEffect(() => {
     if (!doc) {

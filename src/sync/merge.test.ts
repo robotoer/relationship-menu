@@ -98,10 +98,23 @@ describe("the merge table (spec §6)", () => {
     expect(pushesFor(r).map((p) => [p.id, p.ifMatch]).sort()).toEqual([[r.copies[0].id, null], [ID, 4]].sort());
   });
 
-  it("SY-35: the same edit time: the higher edit id wins (records carry no device id)", () => {
-    const r = mergeRecords(local("mine", { dirty: true }), [live(4, "theirs", "theirs", 1)], ctx());
+  it("SY-35: the same edit time, and a record without a device id: the higher edit id wins", () => {
+    const r = mergeRecords(local("mine", { dirty: true }), [live(4, "theirs", "theirs", 1)], { ...ctx(), deviceId: "zzz" });
     // "mine" < "theirs": theirs wins.
     expect(r.menus[ID].encoded).toBe("theirs");
+  });
+
+  it("SY-35: the same edit time: the higher device id wins, the same way on both devices", () => {
+    const remote = (deviceId: string): RemoteRecord => {
+      const r = live(4, "theirs", "theirs", 1);
+      return r.readable ? { ...r, record: { ...r.record, deviceId } } : r;
+    };
+    // Here is device "b", the record is from "a": b's edit wins, even though its edit id is lower.
+    const onB = mergeRecords(local("mine", { dirty: true }), [remote("a")], { ...ctx(), deviceId: "b" });
+    expect(onB.menus[ID].encoded).toBe("mine");
+    // On device "a", the record from "b" wins.
+    const onA = mergeRecords(local("mine", { dirty: true }), [remote("b")], { ...ctx(), deviceId: "a" });
+    expect(onA.menus[ID].encoded).toBe("theirs");
   });
 
   it('SY-35: a copy\'s title gets "(2)" if "Title (from another device)" is taken', () => {
