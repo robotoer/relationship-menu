@@ -33,7 +33,7 @@ There is no server. A menu is saved in the browser's `localStorage`, and a share
 
 | | |
 | --- | --- |
-| Build and dev server | Vite (`vite.config.mts`), output in `build/` for Vercel |
+| Build and dev server | Vite (`vite.config.mts`), output in `build/`, served by the Worker (the old address's hand-off page builds to `build-handoff/`) |
 | Unit, component and property tests | Vitest + React Testing Library + fast-check |
 | End-to-end | Playwright |
 | Proofs | LemmaScript and Dafny (`yarn verify`), TLA+/TLC (in CI) |
