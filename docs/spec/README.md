@@ -345,6 +345,8 @@ sequenceDiagram
 | CV-13 | Tips for hard conversations by stage (before, opening, listening, when heated, Off limits and boundaries, closing, between conversations), each with its sources, adapted from the Gottman Institute, PREP, Imago Dialogue, NVC, EFT, DBT skills and consent education ([evidence notes](conversation-tips.md)). Each topic shows one tip fitting its kind. No statistics, no therapy claims, nothing that nudges anyone off an Off limits answer. | Test |
 | CV-14 | Every text box is a plain field, so the device's own dictation works in it; each view says how to dictate on this device (keyboard microphone, Fn twice on a Mac, Windows + H, Search + D on a Chromebook). Nothing is recorded or transcribed by the app. | Test |
 
+Live sharing through the server, with push notifications for comments, is proposed in [notifications.md](notifications.md) (NT-1…NT-62).
+
 ---
 
 ## 8. Pages and navigation
