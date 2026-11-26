@@ -450,4 +450,4 @@ Run everything locally: `yarn test --run` (includes the property tests), `yarn v
 
 **In short:** React stays (it was about 3% of the download). The app moved from Create React App to Vite + Vitest and dropped the in-browser IPFS node (about 70% of the download), which also removed every known vulnerable dependency. Details and measurements are in [`architecture.md`](architecture.md).
 
-The iOS and Android apps (a Capacitor shell around this same build) are specified in [`native-apps.md`](native-apps.md) (NA-1…NA-11).
+**Embedding.** `src/platform.ts` lets a host that embeds this app (for example an app-store shell) change a few things before calling `startApp` (`src/start.tsx`): the web address put in shared links, how text is copied and shared and files are saved, and whether the Support page, the AI teaser and the Home Screen tip are shown. The website uses the browser's defaults for all of them (`src/platform.test.tsx`).

@@ -19,6 +19,7 @@ import { COMPARE_FILTERS, CompareFilter, matchesFilter } from "../compare-filter
 import { byDifference, compareInsights, flattenComparison, matchesQuery } from "../compare-insights";
 import { buildAgenda } from "../discussion";
 import { CompareOverview } from "../components/CompareOverview";
+import { platform } from "../platform";
 
 type CompareSort = "menu" | "difference";
 
@@ -241,6 +242,7 @@ export const ComparePage = ({
               </MenuGroup>
             ))}
           </div>
+          {platform().support && (
           <p className="support-nudge">
             Did this help you two talk?{" "}
             <Link to="/support" state={{ supportFrom: "compare" }}>
@@ -248,6 +250,7 @@ export const ComparePage = ({
             </Link>{" "}
             to keep it free and private.
           </p>
+          )}
         </>
       )}
     </div>

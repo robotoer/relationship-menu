@@ -13,6 +13,7 @@ import {
 } from "../coach";
 import { Link } from "react-router-dom";
 import { track } from "../analytics";
+import { platform } from "../platform";
 import { COMPARE_VALUE_LABELS, compareValueClass } from "../components/MenuItemCompare";
 import {
   DiscussionRecord,
@@ -159,9 +160,9 @@ export const DiscussPage = ({
         </div>
         {coach ? (
           <CoachPanel agenda={agenda} people={names.length} coach={coach} saved={record.coach} onSaved={saveCoach} />
-        ) : (
+        ) : platform().aiTeaser ? (
           <AiPrepTeaser />
-        )}
+        ) : null}
         <SafetyNote />
       </div>
     );
@@ -169,13 +170,12 @@ export const DiscussPage = ({
 
   if (view.kind === "summary") {
     const download = () => {
-      const blob = new Blob([summary], { type: "text/markdown" });
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = "relationship-menu-discussion.md";
-      a.click();
-      URL.revokeObjectURL(a.href);
-      track("discussion_summary_exported", { method: "download" });
+      const file = new File([summary], "relationship-menu-discussion.md", { type: "text/markdown" });
+      void platform()
+        .saveFile(file)
+        .then((outcome) => {
+          if (outcome !== "cancelled") track("discussion_summary_exported", { method: "download" });
+        }, (e) => console.error("Couldn't save the summary:", e));
     };
     return (
       <div className="discuss-page">
@@ -224,7 +224,7 @@ export const DiscussPage = ({
             className="button-primary"
             onClick={async () => {
               try {
-                await navigator.clipboard.writeText(summary);
+                await platform().copyText(summary);
                 setCopied(true);
                 setTimeout(() => setCopied(false), 1500);
                 track("discussion_summary_exported", { method: "copy" });

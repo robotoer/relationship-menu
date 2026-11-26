@@ -5,6 +5,10 @@
   border-bottom: var(--px) solid #000;
   box-shadow: 0 var(--px) 0 0 var(--c-navy);
   margin-bottom: 1.5rem;
+  /* Run under the status bar and notch, edge to edge, with the content inset. */
+  margin-left: calc(-1 * env(safe-area-inset-left, 0px));
+  margin-right: calc(-1 * env(safe-area-inset-right, 0px));
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) 0 env(safe-area-inset-left, 0px);
 }
 
 .navbar-header {

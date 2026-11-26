@@ -35,6 +35,7 @@ import {
   trackOnce,
 } from "./analytics";
 import { SupportPage } from "./pages/Support";
+import { platform } from "./platform";
 import { DiscussPage } from "./pages/Discuss";
 import { buildAgenda, discussionKey } from "./discussion";
 import { countByFilter } from "./compare-filters";
@@ -711,7 +712,7 @@ export const App = () => {
           { to: "/library", text: "Library" },
           { to: "/menu", text: "New menu" },
           { to: "/compare", text: "Compare" },
-          { to: "/support", text: "Support", state: { supportFrom: "nav" } },
+          ...(platform().support ? [{ to: "/support", text: "Support", state: { supportFrom: "nav" } }] : []),
         ]}
       />
       <Routes>
@@ -720,7 +721,7 @@ export const App = () => {
         <Route path="/menu" element={menuPage} />
         <Route path="/compare" element={comparePage} />
         <Route path="/discuss" element={<WrappedDiscussPage />} />
-        <Route path="/support" element={<SupportPage />} />
+        {platform().support && <Route path="/support" element={<SupportPage />} />}
         <Route path="/about" element={<Navigate to="/" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

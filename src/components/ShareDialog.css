@@ -5,7 +5,8 @@
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  padding: 5vh 16px 16px;
+  padding: calc(5vh + env(safe-area-inset-top, 0px)) calc(16px + env(safe-area-inset-right, 0px))
+    calc(16px + env(safe-area-inset-bottom, 0px)) calc(16px + env(safe-area-inset-left, 0px));
   overflow-y: auto;
   background: rgba(26, 28, 44, 0.85);
 }
