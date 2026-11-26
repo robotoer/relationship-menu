@@ -8,16 +8,21 @@
  * Nothing from the request or the reply is logged or stored (CO-5); the only
  * things written are use counters for the limits (CO-8): per account and in
  * total, by UTC day and by UTC month.
+ *
+ * The model is reached through OpenRouter (CO-13), only on endpoints that keep
+ * no prompts (zero data retention).
  */
 
-import Anthropic from "@anthropic-ai/sdk";
 import { canWrite, getAccount } from "./accounts";
 import type { Caller } from "./auth";
 import type { Env } from "./env";
 import { HttpError, json, parseJson } from "./http";
 import { coachUsageKeys } from "./coach-usage";
 
-export const COACH_DEFAULT_MODEL = "claude-opus-5-5";
+/** OpenRouter's Chat Completions endpoint. */
+export const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
+/** An OpenRouter model id; `COACH_MODEL` overrides it. */
+export const COACH_DEFAULT_MODEL = "anthropic/claude-opus-5.5";
 export const COACH_LIMITS = {
   minPeople: 2,
   maxPeople: 6,
@@ -259,35 +264,68 @@ const takeQuota = async (env: Env, accountId: string, nowMs: number) => {
   }
 };
 
-/** How the Worker talks to Claude; replaced in tests. */
+/** How the Worker talks to the model; replaced in tests. */
 export type CoachModel = (env: Env, request: CoachRequest) => Promise<unknown>;
 
-export const callClaude: CoachModel = async (env, request) => {
-  const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, maxRetries: 1, timeout: 60_000 });
-  let response;
+/** The Chat Completions request sent to OpenRouter (CO-6, CO-7, CO-13). */
+export const openRouterRequest = (env: Env, request: CoachRequest) => ({
+  model: env.COACH_MODEL || COACH_DEFAULT_MODEL,
+  max_tokens: COACH_LIMITS.maxOutputTokens,
+  // Low effort: short, plain questions don't need long thinking, and thinking is
+  // paid output. The thinking itself isn't needed, so it isn't sent back.
+  reasoning: { effort: "low", exclude: true },
+  response_format: {
+    type: "json_schema",
+    json_schema: { name: "conversation_guide", strict: true, schema: COACH_SCHEMA },
+  },
+  provider: {
+    // Only endpoints that support every parameter above, so the schema is enforced.
+    require_parameters: true,
+    // Only endpoints that keep no prompts or replies, and never train on them.
+    zdr: true,
+    data_collection: "deny",
+    // The cheapest such endpoint first (a model's "fast" endpoints cost more).
+    sort: "price",
+  },
+  messages: [
+    { role: "system", content: COACH_SYSTEM },
+    { role: "user", content: coachUserMessage(request) },
+  ],
+});
+
+/** The parts of an OpenRouter reply the coach reads. */
+type OpenRouterReply = {
+  error?: { metadata?: { error_type?: string } };
+  choices?: { finish_reason?: string | null; message?: { content?: string | null; refusal?: string | null } }[];
+};
+
+export const callOpenRouter: CoachModel = async (env, request) => {
+  let response: Response;
   try {
-    response = await client.beta.messages.create({
-      model: env.COACH_MODEL || COACH_DEFAULT_MODEL,
-      max_tokens: COACH_LIMITS.maxOutputTokens,
-      // If a safety classifier declines, Anthropic retries on a suitable model.
-      betas: ["server-side-fallback-2026-07-01"],
-      fallbacks: "default",
-      // Low effort: short, plain questions don't need long thinking, and thinking is paid output.
-      output_config: { effort: "low", format: { type: "json_schema", schema: COACH_SCHEMA } },
-      system: COACH_SYSTEM,
-      messages: [{ role: "user", content: coachUserMessage(request) }],
+    response = await fetch(OPENROUTER_URL, {
+      method: "POST",
+      headers: { authorization: `Bearer ${env.OPENROUTER_API_KEY}`, "content-type": "application/json" },
+      body: JSON.stringify(openRouterRequest(env, request)),
+      signal: AbortSignal.timeout(60_000),
     });
-  } catch (error) {
-    if (error instanceof Anthropic.RateLimitError) throw new HttpError(503, "coach_busy", {}, { "retry-after": "60" });
-    if (error instanceof Anthropic.APIError) throw new HttpError(502, "coach_failed");
-    throw error;
+  } catch {
+    throw new HttpError(502, "coach_failed");
   }
-  if (response.stop_reason === "refusal") throw new HttpError(422, "coach_declined");
-  if (response.stop_reason === "max_tokens") throw new HttpError(502, "coach_failed");
-  const text = response.content.find((b) => b.type === "text");
-  if (!text || text.type !== "text") throw new HttpError(502, "coach_failed");
+  const reply = (await response.json().catch(() => ({}))) as OpenRouterReply;
+  if (response.status === 429) throw new HttpError(503, "coach_busy", {}, { "retry-after": "60" });
+  // A provider can report a refusal as an error rather than as output.
+  if (response.status === 403 && reply.error?.metadata?.error_type === "refusal") {
+    throw new HttpError(422, "coach_declined");
+  }
+  if (!response.ok || reply.error) throw new HttpError(502, "coach_failed");
+  const choice = reply.choices?.[0];
+  if (choice?.message?.refusal || choice?.finish_reason === "content_filter") throw new HttpError(422, "coach_declined");
+  // "length": cut off at max_tokens; "error": the provider failed partway.
+  if (!choice || choice.finish_reason === "length" || choice.finish_reason === "error") {
+    throw new HttpError(502, "coach_failed");
+  }
   try {
-    return JSON.parse(text.text);
+    return JSON.parse(choice.message?.content ?? "");
   } catch {
     throw new HttpError(502, "coach_failed");
   }
@@ -298,10 +336,10 @@ export const handleCoach = async (
   env: Env,
   caller: Caller,
   body: Uint8Array,
-  model: CoachModel = callClaude,
+  model: CoachModel = callOpenRouter,
   nowMs = Date.now()
 ): Promise<Response> => {
-  if (env.COACH_ENABLED !== "true" || !env.ANTHROPIC_API_KEY) throw new HttpError(503, "coach_unavailable");
+  if (env.COACH_ENABLED !== "true" || !env.OPENROUTER_API_KEY) throw new HttpError(503, "coach_unavailable");
   const account = await getAccount(env.DB, caller.accountId);
   if (!account) throw new HttpError(402, "not_supporter");
   if (!canWrite(account.status)) throw new HttpError(402, "read_only");

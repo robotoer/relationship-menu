@@ -202,6 +202,8 @@ Leave everything else at None.
   - `customer.subscription.deleted`
   - `invoice.payment_failed`
 
+**`OPENROUTER_API_KEY`** is only for the AI coach, which also needs `COACH_ENABLED = "true"` in the environment's vars. It's an [OpenRouter](https://openrouter.ai) API key; give it a monthly credit limit. See [`docs/spec/coach.md`](../docs/spec/coach.md) ("Before switching it on").
+
 **Deploys:** `.github/workflows/server.yml` builds the app and tests the Worker on every push and pull request (HO-10).
 - Each pull request from this repository gets a preview URL, `pr-<number>-wantsandwonts-test.<subdomain>.workers.dev`: a new version of the test Worker, sharing its database, that doesn't replace what's deployed.
 - On `main` it applies D1 migrations and deploys the `test` environment.

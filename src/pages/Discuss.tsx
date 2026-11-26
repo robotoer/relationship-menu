@@ -734,7 +734,7 @@ const CoachPanel = ({
     <section className="discuss-ai discuss-consent" aria-label="AI coach">
       <h2>Prepare with AI</h2>
       <p>
-        An AI (Anthropic's Claude) will suggest an opening and questions written for these topics. To do
+        An AI (Anthropic's Claude, through OpenRouter) will suggest an opening and questions written for these topics. To do
         that, <strong>this is all that's sent</strong>:
       </p>
       <ul className="discuss-consent-list">
@@ -749,8 +749,9 @@ const CoachPanel = ({
       )}
       <p>
         <strong>Never sent:</strong> names, notes, menu titles, or anything you write in this discussion.
-        It goes through our server, which doesn't log or keep it. The suggestions are saved only in this
-        browser, with your notes.
+        It goes through our server, which doesn't log or keep it, then through OpenRouter to the AI
+        provider. Neither uses it for training. The suggestions are saved only in this browser, with
+        your notes.
       </p>
       <p>It's a conversation guide, not therapy, and it won't take sides or judge your answers.</p>
       <label className="discuss-consent-check">

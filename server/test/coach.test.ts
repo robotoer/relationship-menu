@@ -1,11 +1,12 @@
-/** AI coach (docs/spec/coach.md). Claude is replaced by a stub; nothing calls the real API. */
+/** AI coach (docs/spec/coach.md). The model is replaced by a stub; nothing calls the real API. */
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   COACH_DEFAULT_MODEL,
   COACH_SCHEMA,
   COACH_SYSTEM,
-  callClaude,
+  callOpenRouter,
+  OPENROUTER_URL,
   coachUserMessage,
   handleCoach,
   COACH_LIMITS,
@@ -19,7 +20,7 @@ import { HttpError } from "../src/http";
 import { utf8 } from "../src/bytes";
 import { Device, env, seedAccount, unsigned } from "./helpers";
 
-const ON: Env = { ...env, COACH_ENABLED: "true", ANTHROPIC_API_KEY: "sk-ant-test-fake" };
+const ON: Env = { ...env, COACH_ENABLED: "true", OPENROUTER_API_KEY: "sk-or-test-fake" };
 
 const REQUEST: CoachRequest = {
   people: 2,
@@ -297,61 +298,91 @@ describe("daily limits (CO-8)", () => {
   });
 });
 
-describe("talking to Claude (CO-5, CO-6, CO-7)", () => {
-  const stubAnthropic = (reply: object) => {
+describe("talking to the model through OpenRouter (CO-5, CO-6, CO-7, CO-13)", () => {
+  const stubOpenRouter = (reply: object, status = 200) => {
     const requests: { url: string; headers: Headers; body: Record<string, unknown> }[] = [];
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
       const request = new Request(input as RequestInfo, init);
       requests.push({ url: request.url, headers: request.headers, body: (await request.json()) as Record<string, unknown> });
-      return new Response(JSON.stringify(reply), { headers: { "content-type": "application/json" } });
+      return new Response(JSON.stringify(reply), { status, headers: { "content-type": "application/json" } });
     });
     return requests;
   };
-  const message = (text: string, stop_reason = "end_turn") => ({
-    id: "msg_test",
-    type: "message",
-    role: "assistant",
+  const completion = (content: string | null, finish_reason = "stop", refusal: string | null = null) => ({
+    id: "gen-test",
+    object: "chat.completion",
     model: COACH_DEFAULT_MODEL,
-    content: [{ type: "text", text }],
-    stop_reason,
-    stop_sequence: null,
-    usage: { input_tokens: 10, output_tokens: 10 },
+    provider: "Google",
+    choices: [{ index: 0, finish_reason, native_finish_reason: finish_reason, message: { role: "assistant", content, refusal } }],
+    usage: { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20 },
+  });
+  const failure = (code: number, error_type?: string) => ({
+    error: { code, message: "test", ...(error_type ? { metadata: { error_type } } : {}) },
   });
 
   it("sends only topic text, groups and answers, with the frozen instructions and schema", async () => {
-    const requests = stubAnthropic(message(JSON.stringify(GUIDE)));
-    const result = await callClaude(ON, REQUEST);
+    const requests = stubOpenRouter(completion(JSON.stringify(GUIDE)));
+    const result = await callOpenRouter(ON, REQUEST);
     expect(result).toEqual(GUIDE);
     const sent = requests[0]!;
-    expect(sent.url).toBe("https://api.anthropic.com/v1/messages");
-    expect(sent.headers.get("anthropic-beta")).toContain("server-side-fallback-2026-07-01");
+    expect(sent.url).toBe(OPENROUTER_URL);
+    expect(sent.headers.get("authorization")).toBe("Bearer sk-or-test-fake");
     expect(sent.body).toMatchObject({
-      model: COACH_DEFAULT_MODEL,
-      fallbacks: "default",
-      system: COACH_SYSTEM,
+      model: "anthropic/claude-opus-5.5",
       max_tokens: 8000,
-      output_config: { effort: "low", format: { type: "json_schema", schema: COACH_SCHEMA } },
+      reasoning: { effort: "low", exclude: true },
+      response_format: { type: "json_schema", json_schema: { strict: true, schema: COACH_SCHEMA } },
     });
-    const userText = JSON.stringify(sent.body.messages);
-    expect(userText).toContain("Person 1: Must have; Person 2: Off limits");
-    expect(userText).toContain("<topics>");
+    const messages = sent.body.messages as { role: string; content: string }[];
+    expect(messages.map((m) => m.role)).toEqual(["system", "user"]);
+    expect(messages[0]!.content).toBe(COACH_SYSTEM);
+    expect(messages[1]!.content).toContain("Person 1: Must have; Person 2: Off limits");
+    expect(messages[1]!.content).toContain("<topics>");
+  });
+
+  it("CO-13: asks only for endpoints that keep nothing and enforce the schema", async () => {
+    const requests = stubOpenRouter(completion(JSON.stringify(GUIDE)));
+    await callOpenRouter(ON, REQUEST);
+    expect(requests[0]!.body.provider).toMatchObject({ zdr: true, data_collection: "deny", require_parameters: true });
   });
 
   it("uses COACH_MODEL when set", async () => {
-    const requests = stubAnthropic(message(JSON.stringify(GUIDE)));
-    await callClaude({ ...ON, COACH_MODEL: "claude-haiku-5-5" }, REQUEST);
-    expect(requests[0]!.body.model).toBe("claude-haiku-5-5");
+    const requests = stubOpenRouter(completion(JSON.stringify(GUIDE)));
+    await callOpenRouter({ ...ON, COACH_MODEL: "anthropic/claude-haiku-5.5" }, REQUEST);
+    expect(requests[0]!.body.model).toBe("anthropic/claude-haiku-5.5");
   });
 
   it("turns refusals, cut-off and unparseable replies into clear errors", async () => {
-    stubAnthropic(message("", "refusal"));
-    expect(await status(callClaude(ON, REQUEST))).toBe("422 coach_declined");
+    const cases: [object, number, string][] = [
+      [completion(null, "content_filter", "I can't help with that."), 200, "422 coach_declined"],
+      [failure(403, "refusal"), 403, "422 coach_declined"],
+      [completion("{", "length"), 200, "502 coach_failed"],
+      [completion("not json"), 200, "502 coach_failed"],
+      [completion(null), 200, "502 coach_failed"],
+      [{ choices: [] }, 200, "502 coach_failed"],
+    ];
+    for (const [reply, code, expected] of cases) {
+      stubOpenRouter(reply, code);
+      expect(await status(callOpenRouter(ON, REQUEST))).toBe(expected);
+      vi.restoreAllMocks();
+    }
+  });
+
+  it("is busy when rate limited, and fails on other errors (no credits, a guardrail, no provider)", async () => {
+    stubOpenRouter(failure(429), 429);
+    await expect(callOpenRouter(ON, REQUEST)).rejects.toMatchObject({
+      status: 503,
+      code: "coach_busy",
+      headers: { "retry-after": "60" },
+    });
+    for (const code of [401, 402, 403, 502, 503]) {
+      vi.restoreAllMocks();
+      stubOpenRouter(failure(code), code);
+      expect(await status(callOpenRouter(ON, REQUEST))).toBe("502 coach_failed");
+    }
     vi.restoreAllMocks();
-    stubAnthropic(message("{", "max_tokens"));
-    expect(await status(callClaude(ON, REQUEST))).toBe("502 coach_failed");
-    vi.restoreAllMocks();
-    stubAnthropic(message("not json"));
-    expect(await status(callClaude(ON, REQUEST))).toBe("502 coach_failed");
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(new TypeError("network down"));
+    expect(await status(callOpenRouter(ON, REQUEST))).toBe("502 coach_failed");
   });
 
   it("the user message fences topic text as data, one line per topic", () => {
