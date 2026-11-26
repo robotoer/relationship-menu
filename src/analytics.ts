@@ -121,6 +121,24 @@ export type AnalyticsEvent =
       };
     }
   | { name: "compare_filter_used"; params: { filter: CompareFilter } }
+  | { name: "compare_searched"; params?: undefined }
+  | { name: "compare_sorted"; params: { sort: "menu" | "difference" } }
+  // Guided discussion
+  | { name: "discussion_started"; params: { topic_count: number; menu_count: number; resumed: boolean } }
+  | {
+      name: "discussion_summary_viewed";
+      params: {
+        topic_count: number;
+        covered_count: number;
+        agreed: number;
+        compromise: number;
+        revisit: number;
+        agree_to_disagree: number;
+        boundary: number;
+      };
+    }
+  | { name: "discussion_summary_exported"; params: { method: "copy" | "download" | "print" } }
+  | { name: "ai_prep_interest"; params?: undefined }
   // Library
   | { name: "library_searched"; params?: undefined }
   | { name: "library_sorted"; params: { sort: LibrarySort } }

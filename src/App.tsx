@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 import {
+  Link,
   Navigate,
   Routes,
   Route,
@@ -33,6 +34,8 @@ import {
   trackOnce,
 } from "./analytics";
 import { SupportPage } from "./pages/Support";
+import { DiscussPage } from "./pages/Discuss";
+import { buildAgenda, discussionKey } from "./discussion";
 import { countByFilter } from "./compare-filters";
 import {
   DecodedCompareSlug,
@@ -599,6 +602,50 @@ const WrappedComparePage = () => {
       canCompare={canCompare}
       onChangeCompared={updateEntries}
       onCompare={() => setCompareClicked(true)}
+      discussLink={canCompare ? `/discuss?${menuParams(encodedList)}` : undefined}
+    />
+  );
+};
+
+/** `encoded=…&encoded=…` for every entry that decodes (for compare/discuss links). */
+const menuParams = (entries: string[]) => {
+  const params = new URLSearchParams();
+  for (const entry of entries) {
+    if (decodeCompareSlug(entry)) params.append("encoded", normalizeCompareEntry(entry));
+  }
+  return params.toString();
+};
+
+/** The guided discussion of the menus in the link (spec §7b). */
+const WrappedDiscussPage = () => {
+  const [params] = useSearchParams();
+  const entries = useMemo(() => params.getAll("encoded"), [params]);
+  const valid = useMemo(
+    () => entries.map((e) => decodeCompareSlug(e)).filter((d): d is DecodedCompareSlug => d !== null),
+    [entries]
+  );
+  const agenda = useMemo(
+    () => (valid.length >= 2 ? buildAgenda(compareMenus(valid.map((d) => d.menu))) : []),
+    [valid]
+  );
+  const compareLink = `/compare?${menuParams(entries)}`;
+  if (valid.length < 2) {
+    return (
+      <div className="discuss-page">
+        <h1>Talk it through</h1>
+        <p>A discussion needs two or more menus. Add them on the Compare page first.</p>
+        <Link className="button" to={compareLink}>
+          Go to Compare
+        </Link>
+      </div>
+    );
+  }
+  return (
+    <DiscussPage
+      agenda={agenda}
+      names={valid.map((d) => d.person?.name || d.title || "Untitled menu")}
+      recordKey={discussionKey(valid)}
+      compareLink={compareLink}
     />
   );
 };
@@ -655,6 +702,7 @@ export const App = () => {
         <Route path="/library" element={libraryPage} />
         <Route path="/menu" element={menuPage} />
         <Route path="/compare" element={comparePage} />
+        <Route path="/discuss" element={<WrappedDiscussPage />} />
         <Route path="/support" element={<SupportPage />} />
         <Route path="/about" element={<Navigate to="/" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
