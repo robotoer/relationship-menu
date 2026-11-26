@@ -101,12 +101,12 @@ flowchart TB
 
 | ID | Rule | Checked by |
 | --- | --- | --- |
-| SY-1 | Turning on sync on a first device creates a sync code: 256 bits from `crypto.getRandomValues`, shown as 24 words from the BIP-39 English list. The last word carries a checksum. The word list loads only on the sync screens, so it adds nothing to the main download. | Test (crypto KAT) |
-| SY-2 | Keys come from the code through HKDF-SHA-256, with a fixed salt and one `info` label per key: an Ed25519 signing key and an AES-256-GCM key. `accountId` is the first 128 bits of SHA-256 over the public key, in base64url. The code, the private key and the encryption key never leave the device. | Test (KAT with fixed vectors; a changed derivation would lock people out, so the vectors are frozen) |
+| SY-1 | Turning on sync on a first device creates a sync code: 256 bits from `crypto.getRandomValues`, shown as 24 words from the BIP-39 English list. The last word carries a checksum. The word list loads only on the sync screens, so it adds nothing to the main download. | Test (`src/sync/sync-code.test.ts`: the official word list by its SHA-256, the official 256-bit BIP-39 vectors, the list loaded only by `import()`) |
+| SY-2 | Keys come from the code through HKDF-SHA-256, with a fixed salt and one `info` label per key: an Ed25519 signing key and an AES-256-GCM key. `accountId` is the first 128 bits of SHA-256 over the public key, in base64url. The code, the private key and the encryption key never leave the device. | Test (`src/sync/keys.test.ts`: RFC 5869 and RFC 8032 vectors through our wrappers, and frozen vectors in `src/sync/test-vectors.ts`; a changed derivation would lock people out, so the vectors never change) |
 | SY-3 | "Show my sync code" in sync settings shows the words again. They're hidden until asked for, and hidden again on leaving the page. | Test |
 | SY-4 | Before the code is first shown, and again in settings, the app says plainly: *"These 24 words are the only key to your synced menus. We can't see them and can't recover them. If you lose every device and these words, your synced menus are gone. Keep them in a password manager or on paper."* | Test |
-| SY-5 | Typing the code ignores case and extra spaces and autocompletes from the first four letters. A code with a bad checksum gets "One of the words is wrong," without saying which. | Property (round trip, typo detection) |
-| SY-6 | **Signed requests.** Every API call, except the webhook, health and pairing reads, carries `Authorization: MenuSync v1 account=…, key=…, ts=…, sig=…`. The signature is Ed25519 over `"menu-sync/v1", method, path with query, ts, base64url(SHA-256(body))`, one per line. The server accepts `ts` within ±5 minutes of its clock, requires SHA-256(key) to match the account id, and stores no credential. | Test (server: bad signature, wrong key for account, clock skew, body swapped) |
+| SY-5 | Typing the code ignores case and extra spaces and autocompletes from the first four letters. A code with a bad checksum gets "One of the words is wrong," without saying which. | Property (`src/sync/sync-code.test.ts`: round trip, typo detection) |
+| SY-6 | **Signed requests.** Every API call, except the webhook, health and pairing reads, carries `Authorization: MenuSync v1 account=…, key=…, ts=…, sig=…`. The signature is Ed25519 over `"menu-sync/v1", method, path with query, ts, base64url(SHA-256(body))`, one per line. The server accepts `ts` within ±5 minutes of its clock, requires SHA-256(key) to match the account id, and stores no credential. | Test (server: bad signature, wrong key for account, clock skew, body swapped; `server/test/client-vectors.test.ts`: the app's own headers from `src/sync/sign.ts` pass `authenticate()`) |
 | SY-7 | **Replay.** Every write is conditional on the current version (SY-42), so replaying a write fails with 412. Replaying a read only returns ciphertext. There is no nonce table. | Test (server: replayed PUT and DELETE) |
 | SY-8 | **Replace sync code.** This device makes a new code, uploads every menu under the new account, and calls `/v1/account/rotate`, signed by the old key, with a proof signed by the new key. The server then moves the supporter status (and the Stripe subscription's `account_id` metadata) to the new account and deletes the old account's data. Other devices then show "Your sync code was replaced on another device. Enter the new code to keep syncing." Their local menus are untouched. | Test (server + e2e) |
 | SY-9 | **Turn off sync on this device** removes the code and sync state from this device only. Its menus stay on the device and on the server. | Test |
@@ -131,11 +131,11 @@ sequenceDiagram
 
 | ID | Rule | Checked by |
 | --- | --- | --- |
-| SY-10 | "Add a device" shows a QR code and the 24 words. The QR code is a link to `/pair#<key>`. The first device uploads the sync code encrypted with that random key, which exists only in the QR code. The server deletes the blob on its first read, or after 10 minutes. | Test (server + e2e) |
+| SY-10 | "Add a device" shows a QR code and the 24 words. The QR code is a link to `/pair#<key>`. The first device uploads the sync code encrypted with that random key, which exists only in the QR code. The server deletes the blob on its first read, or after 10 minutes. | Test (server + e2e; the pairing key, id and blob: `src/sync/pairing.test.ts`) |
 | SY-11 | Opening a pairing link removes the key from the address bar before anything else runs (history replace). The key is in the `#fragment`, so it is never sent to any server, and analytics only see the path (PR-2). | Test (e2e) |
 | SY-12 | A used or expired pairing link says so and offers to type the words instead. A link that was "already used" adds: *"If that wasn't you, replace your sync code."* | Test |
 | SY-13 | **Restore / add by words.** Entering the code on a device pulls every menu. Menus already on that device are kept and uploaded, so turning on sync never drops a local menu. | Test (e2e: fresh device restore) |
-| SY-14 | A browser without WebCrypto Ed25519 or AES-GCM can't turn on sync, and the Support page says so **before** checkout. Everything else works. | Test |
+| SY-14 | A browser without WebCrypto Ed25519 or AES-GCM can't turn on sync, and the Support page says so **before** checkout. Everything else works. | Test (`src/sync/supported.test.ts`: the detection; the Support page message comes with the UI) |
 
 ---
 
@@ -143,11 +143,11 @@ sequenceDiagram
 
 | ID | Rule | Checked by |
 | --- | --- | --- |
-| SY-15 | Each record is encrypted with AES-256-GCM. Every write gets a fresh random 96-bit nonce, stored in front of the ciphertext. The additional data is `"menu-sync/v1" ‖ accountId ‖ menuId ‖ version ‖ deleted`. So the server can't move a record to another menu, present an old record as a newer version, or flip the deleted flag without decryption failing. | Test (tamper: every byte flip, wrong menuId, wrong version, wrong flag → rejected) |
-| SY-16 | The plaintext is the whole menu document (title, encoded menu, person, created and updated times), plus the menu id, an edit id and a format version. It's padded to a multiple of 1 KiB, so the size doesn't give away how many items a menu has. | Test (ciphertext contains no plaintext, in raw or base64 form; sizes are multiples of 1 KiB plus overhead) |
+| SY-15 | Each record is encrypted with AES-256-GCM. Every write gets a fresh random 96-bit nonce, stored in front of the ciphertext. The additional data is `"menu-sync/v1" ‖ accountId ‖ menuId ‖ version ‖ deleted`. So the server can't move a record to another menu, present an old record as a newer version, or flip the deleted flag without decryption failing. | Test (`src/sync/records.test.ts`: tamper: every byte flip, wrong menuId, wrong version, wrong flag → rejected) |
+| SY-16 | The plaintext is the whole menu document (title, encoded menu, person, created and updated times), plus the menu id, an edit id and a format version. It's padded to a multiple of 1 KiB, so the size doesn't give away how many items a menu has. | Test (`src/sync/records.test.ts`: ciphertext contains no plaintext, in raw, hex or base64 form; sizes are multiples of 1 KiB plus overhead) |
 | SY-17 | A record that fails to decrypt is skipped and counted, and sync settings show "Some synced data couldn't be read." It never replaces or deletes a local menu. | Property |
 | SY-18 | A device never accepts a lower version of a menu than one it has already seen (rollback protection). | Property |
-| SY-19 | A deletion only counts if it is an encrypted tombstone (SY-15 with `deleted = 1`). A bare "deleted" flag from the server never removes a local menu. | Property |
+| SY-19 | A deletion only counts if it is an encrypted tombstone (SY-15 with `deleted = 1`). A bare "deleted" flag from the server never removes a local menu. | Property (merge, planned) + Test (`src/sync/records.test.ts`: tombstones are encrypted and bound to the deleted flag) |
 
 ---
 
