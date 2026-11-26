@@ -39,7 +39,7 @@ Authorization: MenuSync v1 account=<id>, key=<pubkey>, ts=<unix seconds>, sig=<s
 | `GET /v1/health` | | `200 ok` | |
 | `GET /v1/account` | | `{status, plan, renewsAt, readOnly, lapsedAt, purgeAt, purgeSoon, limits, usage}`; `status` is `none` for an unknown account | 401 |
 | `DELETE /v1/account` | | 204 | 502 if Stripe can't cancel (nothing is deleted) |
-| `POST /v1/account/rotate` | `{key, proof}`, where `proof` is the new key's signature over `menu-sync/v1\nrotate\n<old id>\n<new id>\n<ts>` | `{accountId}` | 401, 402, 409 |
+| `POST /v1/account/rotate` | `{key, proof}`, where `proof` is the new key's signature over `menu-sync/v1\nrotate\n<old id>\n<new id>\n<ts>` | `{accountId}` | 401, 402, 409, 503 `rotation_too_slow` (it commits within 60 s of arriving, or not at all) |
 | `GET /v1/menus?since=<seq>[&full=1]` | | `{menus:[{id, version, seq, deleted, updatedAt, ciphertext}], next, more, resync, purged}` | 402 |
 | `PUT /v1/menus/:id` | ciphertext ≤ 64 KiB, with `If-None-Match: *` (new) or `If-Match: "<version>"` | `{version, seq}` | 402 `not_supporter` / `read_only`, 412 `{current}`, 413, 428, 507 |
 | `DELETE /v1/menus/:id` | encrypted tombstone ≤ 4 KiB, with `If-Match` | `{version, seq}` | as for PUT |

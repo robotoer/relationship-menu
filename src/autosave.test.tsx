@@ -64,6 +64,33 @@ describe("useAutosave", () => {
     expect(save).toHaveBeenLastCalledWith(A);
   });
 
+  it("SY-33: changing back to the old version straight away, before the save delay is up, is saved too", async () => {
+    const save = vi.fn().mockResolvedValue(undefined);
+    const A = doc("Ours", "a");
+    const B = doc("Ours", "b");
+    const { rerender } = renderHook(({ d, stored }) => useAutosave(d, save, stored), {
+      initialProps: { d: A as RelationshipMenuDocument | null, stored: null as RelationshipMenuDocument | null },
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(AUTOSAVE_DELAY_MS);
+      await flushPromises();
+    });
+    expect(save).toHaveBeenCalledTimes(1);
+    // Sync shows B, and within the save delay the person goes back to A.
+    rerender({ d: B, stored: B });
+    await act(async () => {
+      vi.advanceTimersByTime(AUTOSAVE_DELAY_MS / 2);
+      await flushPromises();
+    });
+    rerender({ d: A, stored: B });
+    await act(async () => {
+      vi.advanceTimersByTime(AUTOSAVE_DELAY_MS);
+      await flushPromises();
+    });
+    expect(save).toHaveBeenCalledTimes(2);
+    expect(save).toHaveBeenLastCalledWith(A);
+  });
+
   it("saves title-only changes (the menu title is part of the document)", async () => {
     const save = vi.fn().mockResolvedValue(undefined);
     const { rerender } = renderHook(({ d }) => useAutosave(d, save), {

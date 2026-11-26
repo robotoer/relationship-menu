@@ -41,6 +41,7 @@ import {
   readAccount,
   readCursor,
   readDeviceId,
+  PartialWriteError,
   readLocal,
   readNextSecret,
   readReport,
@@ -76,10 +77,13 @@ const ROTATION_RETRY_MS = 30_000;
 const ROTATION_GRACE_MS = 2 * 60_000;
 /**
  * How long after the request to move the account a "not moved" can be believed.
- * The request's signature is only accepted within 5 minutes of its time (SY-6),
- * so after that it can no longer be applied late.
+ * The server accepts its signature within 5 minutes of its time (SY-6), which with
+ * this device's clock up to 5 minutes off means it can arrive up to 10 minutes
+ * after it was sent; and the server commits a move within 60 s of its arrival or
+ * not at all (server/src/accounts.ts ROTATION_COMMIT_MS). After 12 minutes it can
+ * no longer happen.
  */
-const ROTATION_SETTLE_MS = 6 * 60_000;
+const ROTATION_SETTLE_MS = 12 * 60_000;
 /** At most one account check a minute from tab switches. */
 const ACCOUNT_CHECK_MS = 60_000;
 /** The longest single timer (browsers overflow past 2^31 ms). */
@@ -230,18 +234,45 @@ export const createSyncRuntime = (options: RuntimeOptions = {}): SyncRuntime => 
     unreadableAdded?: number;
     unreadableReset?: true;
   };
-  /** Updates that couldn't be stored yet (storage full): written with the next one. */
+  /** Updates that couldn't be stored yet (storage full), as one: written with the next. */
   let owed: ReportChange[] = [];
+
+  /** Several updates as one, as if applied in order: the last word on each notice wins. */
+  const compact = (changes: ReportChange[]): ReportChange => {
+    const last = new Map<SyncNotice, "add" | "remove">();
+    let unreadableAdded = 0;
+    let unreadableReset = false;
+    let lastSyncedAt: number | undefined;
+    for (const change of changes) {
+      for (const n of change.add ?? []) last.set(n, "add");
+      for (const n of change.remove ?? []) last.set(n, "remove");
+      if (change.unreadableReset) {
+        unreadableReset = true;
+        unreadableAdded = 0;
+      }
+      unreadableAdded += change.unreadableAdded ?? 0;
+      if (change.lastSyncedAt !== undefined) lastSyncedAt = change.lastSyncedAt;
+    }
+    const of = (op: "add" | "remove") => [...last].filter(([, o]) => o === op).map(([n]) => n);
+    return {
+      add: of("add"),
+      remove: of("remove"),
+      unreadableAdded,
+      ...(unreadableReset ? { unreadableReset: true as const } : {}),
+      ...(lastSyncedAt !== undefined ? { lastSyncedAt } : {}),
+    };
+  };
 
   /** The loop's own notices, for every tab (`sync:runtime`). Never throws. */
   const report = (change: ReportChange = {}) => {
-    const all = [...owed, change];
+    const all = compact([...owed, change]);
     try {
-      writeNotices(all);
+      writeNotices([all]);
       owed = [];
     } catch {
-      // Browser storage is full: keep the updates for the next try. Sync carries on.
-      owed = all.slice(-100);
+      // Browser storage is full: keep it (as one update, however many pile up) for the
+      // next try. Sync carries on.
+      owed = [all];
     }
     publish();
   };
@@ -295,8 +326,15 @@ export const createSyncRuntime = (options: RuntimeOptions = {}): SyncRuntime => 
         return;
       }
       // Menus, their states and the cursor: all or nothing (writeLocal). If it throws,
-      // the round is tried again from where it was, and its changes are announced then.
-      const changed = writeLocal(kv, readLocal(kv), next, now(), [[SYNC_KEY.cursor, String(cursor)]]);
+      // the round is tried again from where it was, and its changes are announced then;
+      // menus it couldn't put back are announced now (the retry won't see them change).
+      let changed: string[];
+      try {
+        changed = writeLocal(kv, readLocal(kv), next, now(), [[SYNC_KEY.cursor, String(cursor)]]);
+      } catch (error) {
+        if (error instanceof PartialWriteError) local.emitMenus(error.menuIds);
+        throw error;
+      }
       holder.loop = rest;
       local.emitMenus(changed);
     },

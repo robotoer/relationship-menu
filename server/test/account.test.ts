@@ -83,6 +83,24 @@ describe("SY-8: replacing the sync code", () => {
     });
   };
 
+  it("refuses to move it at all once the request has taken too long (a device may have given up on it)", async () => {
+    const oldDevice = await Device.create();
+    await seedAccount(oldDevice.accountId, "active");
+    await createMenu(oldDevice);
+    const newDevice = await Device.create();
+    const ts = Math.floor(Date.now() / 1000);
+    const proof = await newDevice.signBytes(utf8(rotationMessage(oldDevice.accountId, newDevice.accountId, ts)));
+    const response = await oldDevice.fetch("POST", "/v1/account/rotate", {
+      body: { key: toBase64Url(newDevice.publicKey), proof: toBase64Url(proof) },
+      ts,
+      env: { ...env, ROTATION_COMMIT_MS: "-1" },
+    });
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ error: "rotation_too_slow" });
+    expect(await accountRow(oldDevice.accountId)).toMatchObject({ status: "active" });
+    expect(await accountRow(newDevice.accountId)).toBeNull();
+  });
+
   it("moves the supporter status to the new code and deletes the old account's data", async () => {
     const oldDevice = await Device.create();
     await seedAccount(oldDevice.accountId, "active", { stripe_subscription_id: "sub_rot", stripe_customer_id: "cus_rot" });

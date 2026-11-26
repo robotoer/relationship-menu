@@ -9,6 +9,8 @@ import type { KeyValueStore, SavedMenu } from "../menu-store";
 import { readStoredMenus } from "../menu-store";
 import type { SyncAccount, SyncNotice, SyncState } from "./context";
 import {
+  PartialWriteError,
+  SYNC_KEY,
   readAccount,
   readLocal,
   readReport,
@@ -96,15 +98,20 @@ export const createLocalSync = ({ kv, now, ctx }: { kv: KeyValueStore; now: () =
         write?.();
         return null;
       }
+      // It changed: if it was set aside as too large, try syncing it again (SY-26). Written
+      // with the save below, all or nothing.
+      const skip = readSkipped(kv);
+      const unskip = skip.delete(doc.id);
+      const alsoWrite: [string, string][] = unskip ? [[SYNC_KEY.skip, JSON.stringify([...skip].sort())]] : [];
       let stored: Local;
       let result: ReturnType<typeof applyLocalSave>;
       try {
-        const skip = readSkipped(kv);
-        if (skip.delete(doc.id)) writeSkipped(kv, skip); // it changed: try syncing it again (SY-26)
         stored = currentLocal();
         result = applyLocalSave(withPrevious(stored, doc.id, previous), doc, startedFrom, ctx);
-      } catch {
-        // Sync never fails a plain save (SY-30); the next round picks the menu up.
+      } catch (error) {
+        // A fault in the merge itself must never stop people saving: save it plainly.
+        // (Storage errors don't get here: they fail the save, below.)
+        console.error("Sync couldn't record a save:", error instanceof Error ? error.name : "error");
         write?.();
         return revisionNow(doc.id);
       }
@@ -121,8 +128,10 @@ export const createLocalSync = ({ kv, now, ctx }: { kv: KeyValueStore; now: () =
       //    needs pushing): one all-or-nothing write (writeLocal), so a stored save is
       //    never left looking already synced. If storage can't hold both, the save fails.
       try {
-        writeLocal(kv, currentLocal(), { menus: result.menus, sync: result.sync }, now());
+        writeLocal(kv, currentLocal(), { menus: result.menus, sync: result.sync }, now(), alsoWrite);
       } catch (error) {
+        // Parts that couldn't be undone are stored: the page must show them.
+        if (error instanceof PartialWriteError) emitMenus(error.menuIds);
         if (copies.length > 0) {
           try {
             const fresh = currentLocal();
