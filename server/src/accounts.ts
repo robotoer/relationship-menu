@@ -1,6 +1,7 @@
 /** Supporter accounts: status, limits and the account endpoints (SY-8, SY-63, SY-66…SY-68). */
 
 import { PROTOCOL, accountIdForKey, verifyEd25519, type Caller } from "./auth";
+import { coachUsageKeys } from "./coach-usage";
 import { fromBase64Url, utf8 } from "./bytes";
 import { LIMITS, PURGE_AFTER_MS, PURGE_WARNING_MS, type Env } from "./env";
 import { HttpError, json, noContent, parseJson } from "./http";
@@ -84,7 +85,10 @@ export const deleteAccount = async (env: Env, caller: Caller): Promise<Response>
   await env.DB.batch([
     env.DB.prepare("DELETE FROM menus WHERE account_id = ?").bind(caller.accountId),
     env.DB.prepare("DELETE FROM accounts WHERE account_id = ?").bind(caller.accountId),
-    env.DB.prepare("DELETE FROM coach_usage WHERE key = ?").bind(`a:${caller.accountId}`),
+    env.DB.prepare("DELETE FROM coach_usage WHERE key IN (?1, ?2)").bind(
+      coachUsageKeys(caller.accountId).day,
+      coachUsageKeys(caller.accountId).month
+    ),
   ]);
   return noContent();
 };
@@ -134,6 +138,15 @@ export const rotateAccount = async (env: Env, caller: Caller, body: Uint8Array):
     ).bind(caller.accountId, newAccountId, now),
     env.DB.prepare("DELETE FROM menus WHERE account_id = ?").bind(caller.accountId),
     env.DB.prepare("DELETE FROM accounts WHERE account_id = ?").bind(caller.accountId),
+    // The AI coach's use so far moves with it: a new code is not a new allowance (CO-8).
+    env.DB.prepare("UPDATE coach_usage SET key = ?2 WHERE key = ?1").bind(
+      coachUsageKeys(caller.accountId).day,
+      coachUsageKeys(newAccountId).day
+    ),
+    env.DB.prepare("UPDATE coach_usage SET key = ?2 WHERE key = ?1").bind(
+      coachUsageKeys(caller.accountId).month,
+      coachUsageKeys(newAccountId).month
+    ),
   ]);
   if (account.stripe_subscription_id) {
     // Best effort: webhooks also find the account by subscription id.

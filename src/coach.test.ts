@@ -1,4 +1,4 @@
-import { buildCoachRequest, CoachError, coachPreview, createCoachClient, loadSavedGuide, saveGuide } from "./coach";
+import { coachFailureText, buildCoachRequest, CoachError, coachPreview, createCoachClient, loadSavedGuide, saveGuide } from "./coach";
 import { compareMenus } from "./data-comparer";
 import { buildAgenda } from "./discussion";
 
@@ -27,8 +27,8 @@ describe("buildCoachRequest (CO-3)", () => {
   it("caps the number of topics and trims long text to the server's limits", () => {
     const many = Array.from({ length: 45 }, (_, i) => ({ ...agenda[0], key: `k${i}`, item: "x".repeat(300), group: "g".repeat(100) }));
     const { request, omitted } = buildCoachRequest(many, 2);
-    expect(request.topics).toHaveLength(40);
-    expect(omitted).toBe(5);
+    expect(request.topics).toHaveLength(15);
+    expect(omitted).toBe(30);
     expect(request.topics[0].item).toHaveLength(160);
     expect(request.topics[0].group).toHaveLength(80);
   });
@@ -88,6 +88,21 @@ describe("createCoachClient", () => {
     [502, "coach_failed", "failed"],
   ])("maps %s %s to %s", async (status, error, reason) => {
     const client = createCoachClient({ origin: "", authorize: async () => "", fetch: respond(status, { error }) as unknown as typeof fetch });
-    await expect(client(request)).rejects.toEqual(new CoachError(reason as never));
+    await expect(client(request)).rejects.toMatchObject({ reason });
+  });
+
+  it.each([
+    [{ scope: "account", period: "day" }, "day", /today's/],
+    [{ scope: "account", period: "month" }, "month", /this month's/],
+    [{ scope: "total", period: "day" }, "total", /reached its limit/],
+  ])("CO-8: says which limit was reached (%o)", async (detail, limit, text) => {
+    const client = createCoachClient({
+      origin: "",
+      authorize: async () => "",
+      fetch: respond(429, { error: "coach_quota", ...detail }) as unknown as typeof fetch,
+    });
+    const error = await client(request).catch((e: CoachError) => e);
+    expect(error).toMatchObject({ reason: "quota", limit });
+    expect(coachFailureText(error as CoachError)).toMatch(text);
   });
 });

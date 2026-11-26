@@ -10,7 +10,7 @@ import type { ComparedMenuItemValue } from "./model/compare";
 import type { Topic } from "./discussion";
 
 /** Must match server/src/coach.ts. */
-export const COACH_LIMITS = { maxTopics: 40, maxItemChars: 160, maxGroupChars: 80, maxPeople: 6 } as const;
+export const COACH_LIMITS = { maxTopics: 15, maxItemChars: 160, maxGroupChars: 80, maxPeople: 6 } as const;
 
 type Answer = "must-have" | "like-to-have" | "maybe" | "off-limits" | "no answer" | "not on menu";
 export type CoachRequest = {
@@ -35,7 +35,7 @@ const toAnswer = (value: ComparedMenuItemValue): Answer =>
 
 /**
  * The request for an agenda, plus which agenda topic each request id stands for.
- * At most 40 topics (the first ones), text trimmed to the server's limits.
+ * At most 15 topics (the first ones), text trimmed to the server's limits.
  */
 export const buildCoachRequest = (agenda: Topic[], people: number) => {
   const included = agenda.slice(0, COACH_LIMITS.maxTopics);
@@ -99,8 +99,14 @@ export const loadSavedGuide = (raw: unknown): SavedCoachGuide | undefined => {
 /** Why a coach request didn't work, in words people can act on. */
 export type CoachFailure = "unavailable" | "not_supporter" | "quota" | "busy" | "declined" | "failed";
 
+/** Which limit a `quota` failure hit (CO-8): this account's for today or this month, or everyone's. */
+export type CoachLimit = "day" | "month" | "total";
+
 export class CoachError extends Error {
-  constructor(readonly reason: CoachFailure) {
+  constructor(
+    readonly reason: CoachFailure,
+    readonly limit?: CoachLimit
+  ) {
     super(reason);
   }
 }
@@ -113,6 +119,16 @@ export const COACH_FAILURE_TEXT: Record<CoachFailure, string> = {
   declined: "The AI couldn't help with these topics. The built-in prompts still work.",
   failed: "Something went wrong preparing questions. Please try again.",
 };
+
+const QUOTA_TEXT: Record<CoachLimit, string> = {
+  day: "You've used today's AI preparations. Try again tomorrow; the built-in prompts still work.",
+  month: "You've used this month's AI preparations. They come back at the start of next month; the built-in prompts still work.",
+  total: "The AI coach has reached its limit for now. Please try again later; the built-in prompts still work.",
+};
+
+/** What to say about a failed request, including which limit a `quota` failure hit. */
+export const coachFailureText = (error: CoachError): string =>
+  error.reason === "quota" ? QUOTA_TEXT[error.limit ?? "day"] : COACH_FAILURE_TEXT[error.reason];
 
 /** Sends a request and returns the guide. Injected so the page doesn't know about keys. */
 export type CoachClient = (request: CoachRequest) => Promise<CoachGuide>;
@@ -151,7 +167,14 @@ export const createCoachClient =
     } catch {
       throw new CoachError("failed");
     }
-    const data = (await response.json().catch(() => null)) as (CoachGuide & { error?: string }) | null;
-    if (!response.ok || !data || !Array.isArray(data.topics)) throw new CoachError(failureFor(response.status, data?.error));
+    const data = (await response.json().catch(() => null)) as
+      | (CoachGuide & { error?: string; scope?: string; period?: string })
+      | null;
+    if (!response.ok || !data || !Array.isArray(data.topics)) {
+      const reason = failureFor(response.status, data?.error);
+      const limit: CoachLimit | undefined =
+        reason !== "quota" ? undefined : data?.scope === "total" ? "total" : data?.period === "month" ? "month" : "day";
+      throw new CoachError(reason, limit);
+    }
     return data;
   };
