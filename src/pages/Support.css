@@ -71,20 +71,39 @@
 .support-option-suggested {
   background: var(--c-yellow);
 }
-.support-option[aria-pressed="true"] {
-  outline: var(--px) solid var(--c-red);
-  outline-offset: 3px;
+.support-checkout-note {
+  max-width: 44em;
+  margin: 0 0 1rem;
+  font-size: 1.15rem;
+  color: var(--c-mist);
 }
 
 .support-notice {
-  margin-top: 1.5rem;
+  margin: 1.5rem 0;
   padding: 1rem 1.25rem;
   color: var(--c-ink);
   background: var(--c-white);
   border: var(--px) dashed var(--c-ink);
 }
-.support-notice p + p {
+.support-notice p + p,
+.support-notice p + button {
   margin-top: 0.5rem;
+}
+.support-notice a {
+  color: var(--c-blue);
+}
+.support-error {
+  border-color: var(--c-red);
+}
+
+/* What a supporter sees instead of the amounts. */
+.support-status {
+  max-width: 44em;
+  font-size: 1.3rem;
+}
+.support-status p + p,
+.support-status p + button {
+  margin-top: 0.75rem;
 }
 
 .support-other {

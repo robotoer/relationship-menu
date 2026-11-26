@@ -135,7 +135,7 @@ sequenceDiagram
 | SY-11 | Opening a pairing link removes the key from the address bar before anything else runs (history replace). The key is in the `#fragment`, so it is never sent to any server, and analytics only see the path (PR-2). | Test (e2e) |
 | SY-12 | A used or expired pairing link says so and offers to type the words instead. A link that was "already used" adds: *"If that wasn't you, replace your sync code."* | Test; used, expired, unknown and unreadable links: `src/sync/runtime.test.ts` |
 | SY-13 | **Restore / add by words.** Entering the code on a device pulls every menu. Menus already on that device are kept and uploaded, so turning on sync never drops a local menu. | Test (`src/sync/runtime.test.ts`: restore keeps and uploads the device's own menus; e2e with the screens) |
-| SY-14 | A browser without WebCrypto Ed25519 or AES-GCM can't turn on sync, and the Support page says so **before** checkout. Everything else works. | Test (`src/sync/supported.test.ts`: the detection; the Support page message comes with the UI) |
+| SY-14 | A browser without WebCrypto Ed25519 or AES-GCM can't turn on sync, and the Support page says so **before** checkout. Everything else works. | Test (`src/sync/supported.test.ts`: the detection; `src/pages/Support.test.tsx`: the Support page says so and starts no checkout) |
 
 ---
 
@@ -303,18 +303,18 @@ stateDiagram-v2
 
 | ID | Rule | Checked by |
 | --- | --- | --- |
-| SY-60 | **Plans:** $6, $12 or $24 a year, as three Stripe subscription prices, and $30 once (lifetime), as a one-time price. Prices are found by lookup key (`supporter_6_yearly`, …, `supporter_30_lifetime`), so test and live price ids are never hard-coded. | Test (server) |
-| SY-61 | **Checkout.** The Support page asks the Worker for a Checkout Session for the chosen plan, and the browser goes to Stripe's page. `client_reference_id` and the session and subscription metadata carry only `account_id` and the plan id. Returning lands on `/support?checkout=done` or `=cancelled`. | Test (server) + e2e (Stripe test card) |
+| SY-60 | **Plans:** $6, $12 or $24 a year, as three Stripe subscription prices, and $30 once (lifetime), as a one-time price. Prices are found by lookup key (`supporter_6_yearly`, …, `supporter_30_lifetime`), so test and live price ids are never hard-coded. | Test (server; the Support page's plan ids: `src/pages/Support.test.tsx`) |
+| SY-61 | **Checkout.** The Support page asks the Worker for a Checkout Session for the chosen plan, and the browser goes to Stripe's page. `client_reference_id` and the session and subscription metadata carry only `account_id` and the plan id. Returning lands on `/support?checkout=done` or `=cancelled`. | Test (server; the page: `src/pages/Support.test.tsx`, and `e2e/support.spec.ts` with the real runtime against a stubbed server and Stripe) + e2e (Stripe test card, Phase 4) |
 | SY-62 | **Status comes only from verified webhooks:** `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted` and `invoice.payment_failed`. The `Stripe-Signature` header is checked (HMAC-SHA-256, 5-minute tolerance, constant-time compare). Each event id is handled once (`INSERT OR IGNORE`). Handlers re-read the subscription from Stripe and set the status from it, so events arriving out of order or twice can't leave the wrong state. | Test (server: Stripe fixture events, bad signature, duplicate, out of order) |
 | SY-63 | The server stores only `account_id ↔ stripe_customer_id`, the subscription id, plan, status and dates. Stripe keeps the email, name and card. | Review + Test (schema) |
-| SY-64 | **Manage subscription** opens the Stripe Customer Portal (cancel, change card, invoices). | Test (e2e, test mode) |
+| SY-64 | **Manage subscription** opens the Stripe Customer Portal (cancel, change card, invoices). | Test (`src/pages/Support.test.tsx`: the button and its errors) + e2e (test mode, Phase 4) |
 | SY-65 | **Payment failed** → `past_due`. Sync keeps working while Stripe retries. | Test (server) |
 | SY-66 | **Lapsed means read-only.** Devices can still pull (restore), but pushes get 402. The app explains this, shows the purge date, and says that menus on this device aren't affected. | Test (server; `src/sync/runtime.test.ts`: pulls work, pushes wait, and resume when status returns) |
 | SY-67 | **Purge.** 12 months after lapsing, the daily cron deletes the account's synced menus and its account row. The app warns from 30 days before, in the app only (we have no email address). Lifetime supporters never lapse. | Test (server, fake clock) |
 | SY-68 | **Delete everything.** "Delete my synced data" deletes every synced menu and the account immediately, cancels any subscription so there are no more charges, and turns off sync on this device. Local menus stay. | Test (server; `src/sync/runtime.test.ts`) |
-| SY-69 | **Honest copy.** The Support page says what is live. It only says "Thank you, you're a supporter" once the server reports the status. Before that it says "Waiting for Stripe to confirm…". It never implies a feature was locked before. | Test |
-| SY-70 | **Never gate.** Every existing feature stays free and works without an account. Sync, backup and the heart are the only supporter features. | Test (e2e: the whole existing suite runs with no account) |
-| SY-71 | The supporter heart shows in the navbar on devices whose account is `active`, `past_due` or `lifetime`. | Test |
+| SY-69 | **Honest copy.** The Support page says what is live. It only says "Thank you, you're a supporter" once the server reports the status. Before that it says "Waiting for Stripe to confirm…". It never implies a feature was locked before. | Test (`src/pages/Support.test.tsx`, `e2e/support.spec.ts`) |
+| SY-70 | **Never gate.** Every existing feature stays free and works without an account. Sync, backup and the heart are the only supporter features. | Test (e2e: the whole existing suite runs with no account; `src/pages/Support.test.tsx`: the copy, and a browser that can't sync is told everything else works) |
+| SY-71 | The supporter heart shows in the navbar on devices whose account is `active`, `past_due` or `lifetime`. | Test (`src/components/Navbar.test.tsx`; `e2e/support.spec.ts`) |
 
 ---
 
@@ -332,7 +332,7 @@ New events follow [`src/analytics.ts`](../../src/analytics.ts): typed, with fixe
 
 | ID | Rule | Checked by |
 | --- | --- | --- |
-| SY-75 | Sync and payment events never carry account ids, codes, words, menu ids, Stripe ids or URLs. `e2e/analytics.spec.ts` extends its marker check to cover a checkout (test mode), pairing and sync. | Test (e2e) + types; the runtime's own events: `src/sync/runtime.test.ts` |
+| SY-75 | Sync and payment events never carry account ids, codes, words, menu ids, Stripe ids or URLs. `e2e/analytics.spec.ts` extends its marker check to cover a checkout (test mode), pairing and sync. | Test (e2e) + types; the runtime's own events: `src/sync/runtime.test.ts`; the checkout events: `src/pages/Support.test.tsx`, `e2e/support.spec.ts` |
 
 ---
 

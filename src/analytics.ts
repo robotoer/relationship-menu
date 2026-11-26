@@ -159,7 +159,6 @@ export type AnalyticsEvent =
   | { name: "home_screen_hint_dismissed"; params?: undefined }
   // Supporting the project
   | { name: "support_viewed"; params: { from: SupportFrom } }
-  | { name: "support_option_chosen"; params: { amount_usd: 6 | 12 | 24 | 30; plan: SupportPlan } }
   // Supporter sync (docs/spec/sync.md §9). Never account ids, codes, words, menu ids, Stripe ids or URLs (SY-75).
   | { name: "checkout_started"; params: { amount_usd: SupportAmount; plan: SupportPlan } }
   | { name: "checkout_completed"; params: { amount_usd: SupportAmount; plan: SupportPlan } }
