@@ -53,6 +53,42 @@ Authorization: MenuSync v1 account=<id>, key=<pubkey>, ts=<unix seconds>, sig=<s
 - Rate limits answer 429 with `Retry-After`.
 - `resync: true` means the device's cursor is older than a forgotten tombstone. The device should pull from `since=0` and treat synced menus that are now missing as deleted.
 
+### Keys, records and pairing blobs
+
+The server never reads these, but every device has to agree on them byte for byte. They're implemented in [`src/sync/`](../src/sync/), and [`src/sync/test-vectors.ts`](../src/sync/test-vectors.ts) pins them. Those vectors never change: changing a label or a layout would lock everyone out of their synced menus. [`test/client-vectors.test.ts`](test/client-vectors.test.ts) checks the app's signed headers with this server's `authenticate()`.
+
+**Keys** ([`keys.ts`](../src/sync/keys.ts)). The sync code is 32 random bytes, shown as 24 BIP-39 English words. From it, HKDF-SHA-256 with salt `menu-sync/v1` derives:
+- with info `sign`: a 32-byte Ed25519 seed. It's imported as PKCS#8, `302e020100300506032b657004220420` ‖ seed. The public key is the `x` of its JWK, and the account id is computed from it as above.
+- with info `encrypt`: the AES-256-GCM key for records.
+
+**Records** ([`records.ts`](../src/sync/records.ts)): the body of `PUT` and `DELETE /v1/menus/:id`.
+
+```
+record = nonce (12 random bytes) ‖ AES-256-GCM(padded plaintext) ‖ tag (16 bytes)
+```
+
+The additional data is 65 bytes. It is authenticated but not sent:
+
+| Offset | Size | Field |
+| --- | --- | --- |
+| 0 | 12 | `menu-sync/v1` (ASCII) |
+| 12 | 22 | account id (ASCII) |
+| 34 | 22 | menu id (ASCII) |
+| 56 | 8 | version, unsigned big-endian: the version this write gets (1 for `If-None-Match: *`, otherwise the `If-Match` version + 1) |
+| 64 | 1 | `0x01` for a tombstone, `0x00` for a live menu |
+
+So a record that's moved to another account or menu, served as another version, or has its `deleted` flag flipped fails to decrypt.
+
+The padded plaintext is a 4-byte unsigned big-endian length *n*, then *n* bytes of UTF-8 JSON, then zeros. It's padded to the next multiple of 1024 bytes, and is at least 1024. The JSON is `{"v":1, "id", "title", "encoded", "person"?, "createdAt"?, "updatedAt"?, "editId", "deleted"?}`, in that order. A tombstone has `"deleted": true`, an empty title and an empty `encoded`.
+
+So every record is a whole number of KiB plus 28 bytes: 1,052 bytes for a tombstone or a small menu. The largest padded plaintext is 63 KiB for a menu and 3 KiB for a tombstone, so records stay within the 64 KiB and 4 KiB limits.
+
+**Pairing blobs** ([`pairing.ts`](../src/sync/pairing.ts)). The first device picks a random 32-byte key K and sends:
+- `id` = base64url(first 16 bytes of SHA-256(K));
+- `blob` = nonce (12 random bytes) ‖ AES-256-GCM_K(the 32-byte sync secret, additional data `menu-sync/v1\npair`), 60 bytes in all.
+
+The QR code holds `/pair#<base64url(K)>`. Since K is in the fragment, the server never receives it.
+
 ## Environments and secrets
 
 | Environment | Worker | D1 | Stripe |
