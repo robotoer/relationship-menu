@@ -202,7 +202,8 @@ export const LandingPage = ({ savedCount = 0 }: { savedCount?: number }) => {
             Clearing your browser's site data deletes your saved menus. On iPhone and
             iPad, Safari may also delete them if you haven't opened this site for a week;
             adding it to your Home Screen avoids that. <strong>Export all menus</strong>,
-            in your Library, saves a backup file with a link to each one.
+            in your Library, saves a backup file with a link to each one, and{" "}
+            <strong>Import menus</strong> brings them back (into a Home Screen app, say).
           </li>
         </ul>
       </section>

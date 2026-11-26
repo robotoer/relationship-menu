@@ -64,6 +64,7 @@ Google Analytics is loaded only on `wantsandwonts.com` (until November 2026, `re
 | `library_sorted` | The Library sort is changed | `sort`: `edited`, `created`, `title` |
 | `menu_deleted` | A menu is deleted from the Library | |
 | `menus_exported` | Export all menus is used in the Library (never the file, its titles or how many) | |
+| `menus_imported` | Import menus in the Library read at least one menu from pasted links or a backup file, whether or not any were new (spec SV-14; never the links, the file, its titles, how many, or whether it was pasted or a file) | |
 | `persistent_storage_granted` / `persistent_storage_denied` | The browser's answer to keeping this site's storage, asked once per browser after the first save (spec SV-11). Read with GA's own Browser and OS dimensions | |
 | `home_screen_hint_shown` | The Home Screen tip appears (iPhone/iPad Safari only; once per page load) | |
 | `home_screen_hint_dismissed` | The Home Screen tip is dismissed (it then stays hidden in that browser) | |

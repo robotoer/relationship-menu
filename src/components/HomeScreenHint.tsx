@@ -15,7 +15,8 @@ import {
  * avoids it (spec SV-12). Dismissing it hides it for good in this browser.
  *
  * @param hasMenus - Whether menus are already saved here: they stay in Safari (the
- *   Home Screen app has storage of its own), so the tip points to the backup.
+ *   Home Screen app has storage of its own), so the tip says how to move them
+ *   (Export all menus here, Import menus there: SV-13, SV-14).
  * @param browser - For tests; defaults to the current browser.
  */
 export const HomeScreenHint = ({
@@ -47,7 +48,7 @@ export const HomeScreenHint = ({
         Share button, then <em>Add to Home Screen</em>. It has its own Library, separate
         from Safari's, so make your menus there.
         {hasMenus &&
-          " Menus you've already made stay in Safari: keep a copy with Export all menus in your Library."}
+          " Menus you've already made stay in Safari: to move them, use Export all menus in your Library here, then Import menus in the Home Screen app."}
       </p>
       <button
         type="button"

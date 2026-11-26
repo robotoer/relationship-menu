@@ -196,6 +196,7 @@ sequenceDiagram
 | SV-11 | **Keeping storage:** after the first successful save in a browser, the app asks the browser to keep this site's storage (`navigator.storage.persist()`), once per browser. The request never blocks, delays or fails a save, and whatever the browser answers changes nothing else. | Test |
 | SV-12 | **Home Screen tip:** Safari on iPhone and iPad may delete a site's storage after a week of use without opening that site; Home Screen apps are exempt but keep storage of their own. So in Safari on iPhone and iPad (not other browsers, not a Home Screen app), a quiet tip says "Safari may delete menus from sites you haven't opened in a week" and how to add the site to the Home Screen. It shows on the landing page, in an empty Library, and once per browser in the editor after a save. Dismissing it hides it for good in this browser. | Test (unit + e2e) |
 | SV-13 | **Export all menus:** the Library makes one text file with every saved menu's title and menu link (answers, notes and person info included), whatever the search shows. It's built in the browser and never uploaded: downloaded, or on iPhone and iPad offered to the share sheet ("Save to Files"). Opening a link from it brings that menu back (LK-6 applies). | Test (unit + e2e) |
+| SV-14 | **Import menus:** the Library, empty or not, takes pasted text or a chosen file (such as the one Export all menus makes) and adds every menu it finds a link to: menu links from any address, each menu of a compare link, and bare menu slugs. Other text is ignored. It never overwrites: a menu identical to one already here (same items, answers, notes and person, under the same title or a numbered copy of it) is skipped, and one whose title belongs to a different menu is added as "Title (2)" (HO-5's rules, LK-6's naming). Each added menu is new, dated now, and read like an opened link, so a link that can't be read is counted and left out. The file is read in the browser and nothing is sent anywhere. A plain summary says what happened ("Added 3 menus, 1 was already here."). This is how menus get from Safari into a Home Screen app on iPhone and iPad, which has storage of its own and no address bar. | [Property](../../src/__props__/import-text.props.test.ts) (reading links from text, naming, never overwrites) + Test (unit + e2e) |
 
 ---
 
@@ -451,6 +452,7 @@ flowchart LR
 | Library | LB-2 | Property | links-keyboard-library props |
 | Library | LB-1, LB-3 | Test | `Library.test.tsx`, e2e |
 | Keeping menus | SV-11, SV-12, SV-13 | Test | `persistence.test.tsx`, `HomeScreenHint.test.tsx`, `export-menus.test.ts`, `Library.test.tsx`, `e2e/keeping-menus.spec.ts` |
+| Keeping menus | SV-14 | Property (backup round trip, pasted prose, cut-off links, junk) + Test | [`import-text.props`](../../src/__props__/import-text.props.test.ts), `import-menus.test.ts`, `Library.test.tsx`, `e2e/keeping-menus.spec.ts` |
 | Links | LK-1…LK-5, LK-9 | Property (incl. arbitrary junk input) | links-keyboard-library props |
 | Links | LK-6…LK-8 | Test (e2e) | `e2e/` |
 | Comparing | CP-10, CP-11 | **Proof** of the code itself + Property | [`answer-cells.ts`](../../src/answer-cells.ts), [`compare.props`](../../src/__props__/compare.props.test.ts) |
@@ -487,7 +489,7 @@ flowchart LR
 
 ### Gaps: what isn't formally covered, and what would be next
 
-- **App-level storage logic:** migrating older entries (SV-6, SY-90) and importing from the old address (HO-5) live in pure modules (`menu-store.ts`, `import-menus.ts`) with property tests, and so does naming copies (`menu-titles.ts`, LK-6). Deciding when a link opens as a copy (LK-6) and title conflicts (SV-7) are still inside `App.tsx`, so they only have example tests. Next step: move them into a pure module too.
+- **App-level storage logic:** migrating older entries (SV-6, SY-90) and importing from the old address (HO-5) and from pasted links or a backup file (SV-14) live in pure modules (`menu-store.ts`, `import-menus.ts`) with property tests, and so does naming copies (`menu-titles.ts`, LK-6). Deciding when a link opens as a copy (LK-6) and title conflicts (SV-7) are still inside `App.tsx`, so they only have example tests. Next step: move them into a pure module too.
 - **Browser storage itself** isn't modelled: the TLA+ model treats a save as one atomic write plus an optional delete, which matches `localStorage`.
 - **Real time** isn't modelled. TLC checks the order of events, not the 400 ms timer. The property tests use fake timers.
 - **The Dafny editing model is a hand-written mirror** of `menu-editing.ts`. The property tests check the same claims on the real code, which catches drift, but they don't prove it. `answer-cells.ts` is verified directly with LemmaScript. Moving more of `menu-editing.ts` to LemmaScript is possible once LemmaScript handles object-keyed maps.
