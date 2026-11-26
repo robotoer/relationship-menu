@@ -288,6 +288,15 @@ describe("applyMenuChange properties (mirrors MenuEditing.dfy)", () => {
     );
   });
 
+  it("ED-10: moving an item past an identical one is a real move, not a no-op (CI seed -421214837)", () => {
+    const same = { item: "Trust", value: "like-to-have" as const, note: "" };
+    const m: RelationshipMenu = { G: [{ ...same }, { ...same }, { item: "x" }] };
+    const r = applyMenuChange(m, { kind: "move-item", group: "G", itemIndex: 0, offset: 1 }, gen);
+    expect(r).not.toBe(m);
+    expect(r.G[0]).toBe(m.G[1]);
+    expect(r.G[1]).toBe(m.G[0]);
+  });
+
   it("ED-10: the input is never mutated, and no-op edits return the identical object", () => {
     const deepFreeze = (m: RelationshipMenu) => {
       for (const k of keys(m)) {
@@ -303,7 +312,13 @@ describe("applyMenuChange properties (mirrors MenuEditing.dfy)", () => {
         const r = applyMenuChange(deepFreeze(m), c, gen);
         expect(snapshot(m)).toBe(before);
         // Edits that change nothing must return the same object (no empty undo step).
-        if (c.kind !== "replace" && snapshot(r) === before) {
+        // "Nothing" means it reads the same AND no original item moved: swapping two
+        // identical items reads the same but is a real move.
+        const originals = new Set(keys(m).flatMap((k) => m[k]));
+        const moved = keys(r).some((k) =>
+          (r[k] ?? []).some((item, i) => originals.has(item) && (!own(m, k) || m[k][i] !== item))
+        );
+        if (c.kind !== "replace" && snapshot(r) === before && !moved) {
           expect(r).toBe(m);
         }
       }),

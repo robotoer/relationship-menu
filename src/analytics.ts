@@ -139,6 +139,12 @@ export type AnalyticsEvent =
     }
   | { name: "discussion_summary_exported"; params: { method: "copy" | "download" | "print" } }
   | { name: "ai_prep_interest"; params?: undefined }
+  // AI coach: never the topics or questions, only counts and outcomes
+  | { name: "coach_requested"; params: { topic_count: number; people: number } }
+  | {
+      name: "coach_result";
+      params: { outcome: "ok" | "unavailable" | "not_supporter" | "quota" | "busy" | "declined" | "failed" };
+    }
   // Library
   | { name: "library_searched"; params?: undefined }
   | { name: "library_sorted"; params: { sort: LibrarySort } }

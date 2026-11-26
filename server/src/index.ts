@@ -13,6 +13,7 @@ import { enforce } from "./limits";
 import { log } from "./log";
 import { deleteMenu, listMenus, putMenu } from "./menus";
 import { createPairing, takePairing } from "./pairing";
+import { COACH_LIMITS, handleCoach } from "./coach";
 
 type Context = { env: Env; request: Request; url: URL; params: string[] };
 
@@ -66,6 +67,10 @@ const ROUTES: Route[] = [
   {
     pattern: "POST /v1/portal", method: "POST", path: /^\/v1\/portal$/, maxBody: LIMITS.jsonBytes, auth: "sensitive",
     handle: ({ env }, _b, caller) => openPortal(env, signed(caller)),
+  },
+  {
+    pattern: "POST /v1/coach", method: "POST", path: /^\/v1\/coach$/, maxBody: COACH_LIMITS.requestBytes, auth: "sensitive",
+    handle: ({ env }, body, caller) => handleCoach(env, signed(caller), body),
   },
   {
     pattern: "POST /v1/stripe/webhook", method: "POST", path: /^\/v1\/stripe\/webhook$/, maxBody: 512 * 1024, auth: "none",

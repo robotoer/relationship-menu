@@ -7,7 +7,9 @@
 #   production  Stripe live mode, D1 `menu-sync-prod`. Not deployed yet; the
 #               hosting PR adds the wantsandwonts.com route (HO-1).
 #
-# Secrets (never in this file): STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET.
+# Secrets (never in this file): STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, and
+#   ANTHROPIC_API_KEY for the AI coach (docs/spec/coach.md). The coach stays off
+#   until an environment also sets COACH_ENABLED = "true" in its vars.
 #   npx wrangler secret put STRIPE_SECRET_KEY --env test
 
 name = "wantsandwonts-local"

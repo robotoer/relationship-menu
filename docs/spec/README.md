@@ -307,7 +307,7 @@ flowchart LR
 | DS-5 | Notes are saved in this browser as they're typed, under a key made from the people's names and menu titles (so they survive changed answers). They never leave the browser and never reach analytics. | Test (unit + e2e) |
 | DS-6 | Coming back offers "Continue", which goes to the first topic not yet covered. | Test (unit + e2e) |
 | DS-7 | The summary groups covered topics by outcome, with answers, notes and next steps. It can be copied or downloaded as Markdown, or printed. | Test (unit + e2e) |
-| DS-8 | "Prepare with AI" isn't built: it says so and records interest only. Nothing about the menus is sent. | Test |
+| DS-8 | "Prepare with AI": for supporters, the AI coach ([coach.md](coach.md), CO-1…CO-12) after everyone agrees to exactly what's sent; for everyone else an honest "coming soon" that records interest only and sends nothing. | Test |
 
 ---
 

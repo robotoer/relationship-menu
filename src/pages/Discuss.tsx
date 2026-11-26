@@ -1,6 +1,16 @@
 import "./Discuss.css";
 import "../components/CompareOverview.css";
 import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  COACH_FAILURE_TEXT,
+  CoachClient,
+  CoachError,
+  CoachFailure,
+  SavedCoachGuide,
+  buildCoachRequest,
+  coachPreview,
+  saveGuide,
+} from "../coach";
 import { Link } from "react-router-dom";
 import { track } from "../analytics";
 import { COMPARE_VALUE_LABELS, compareValueClass } from "../components/MenuItemCompare";
@@ -31,12 +41,15 @@ export const DiscussPage = ({
   names,
   recordKey,
   compareLink,
+  coach,
 }: {
   agenda: Topic[];
   names: string[];
   /** localStorage key for this discussion's notes. */
   recordKey: string;
   compareLink: string;
+  /** The AI coach, when this browser can use it (a supporter); otherwise a teaser. */
+  coach?: CoachClient;
 }) => {
   const [record, setRecord] = useState<DiscussionRecord>(
     () => loadDiscussion(recordKey) ?? emptyRecord(Date.now())
@@ -69,6 +82,13 @@ export const DiscussPage = ({
     // Once per visit to the summary.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view.kind]);
+
+  const saveCoach = (guide: SavedCoachGuide) =>
+    setRecord((prev) => {
+      const next = { ...prev, updatedAt: Date.now(), coach: guide };
+      saveDiscussion(recordKey, next);
+      return next;
+    });
 
   const update = (key: string, change: Partial<TopicRecord>) => {
     setRecord((prev) => {
@@ -137,7 +157,12 @@ export const DiscussPage = ({
             Back to the comparison
           </Link>
         </div>
-        <AiPrepTeaser />
+        {coach ? (
+          <CoachPanel agenda={agenda} people={names.length} coach={coach} saved={record.coach} onSaved={saveCoach} />
+        ) : (
+          <AiPrepTeaser />
+        )}
+        <SafetyNote />
       </div>
     );
   }
@@ -161,6 +186,7 @@ export const DiscussPage = ({
           {covered} of {agenda.length} topics discussed. These notes are saved only in this browser;
           copy or download them to keep them somewhere else.
         </p>
+        {record.coach?.closing && <p className="discuss-coach-closing">{record.coach.closing}</p>}
         {OUTCOMES.map((o) => {
           const topics = agenda.filter((t) => record.topics[t.key]?.outcome === o.id);
           if (topics.length === 0) return null;
@@ -228,6 +254,7 @@ export const DiscussPage = ({
             Back to the comparison
           </Link>
         </div>
+        <SafetyNote />
       </div>
     );
   }
@@ -277,7 +304,18 @@ export const DiscussPage = ({
           ))}
         </ul>
 
-        <h2>Talk about</h2>
+        {record.coach?.topics[topic.key] && (
+          <section className="discuss-coach" aria-label="Suggested by the AI coach">
+            <h2>✦ Suggested for you</h2>
+            {record.coach.topics[topic.key].about && <p>{record.coach.topics[topic.key].about}</p>}
+            <ul className="discuss-prompts">
+              {record.coach.topics[topic.key].questions.map((q) => (
+                <li key={q}>{q}</li>
+              ))}
+            </ul>
+          </section>
+        )}
+        <h2>{record.coach?.topics[topic.key] ? "More to talk about" : "Talk about"}</h2>
         <ul className="discuss-prompts">
           {topic.prompts.map((p) => (
             <li key={p}>{p}</li>
@@ -333,7 +371,119 @@ export const DiscussPage = ({
           Summary
         </button>
       </div>
+      <SafetyNote />
     </div>
+  );
+};
+
+/** Shown on every view: what this is (and isn't), and where to get help (CO-11). */
+const SafetyNote = () => (
+  <aside className="discuss-safety" aria-label="Not therapy">
+    This is a conversation guide, not therapy or counselling. If you feel unsafe or are in crisis, in the
+    US call or text <strong>988</strong>, or the National Domestic Violence Hotline at{" "}
+    <strong>1-800-799-7233</strong> (text START to 88788). Outside the US, contact your local emergency
+    number or helplines.
+  </aside>
+);
+
+/**
+ * "Prepare with AI" (spec CO-9, CO-10): shows exactly what would be sent, needs
+ * everyone's agreement each time, then saves the suggestions with the notes.
+ */
+const CoachPanel = ({
+  agenda,
+  people,
+  coach,
+  saved,
+  onSaved,
+}: {
+  agenda: Topic[];
+  people: number;
+  coach: CoachClient;
+  saved?: SavedCoachGuide;
+  onSaved: (guide: SavedCoachGuide) => void;
+}) => {
+  const [step, setStep] = useState<"idle" | "consent" | "working">("idle");
+  const [agreed, setAgreed] = useState(false);
+  const [error, setError] = useState<CoachFailure | null>(null);
+  const { request, ids, omitted } = useMemo(() => buildCoachRequest(agenda, people), [agenda, people]);
+
+  const send = async () => {
+    setStep("working");
+    setError(null);
+    track("coach_requested", { topic_count: request.topics.length, people });
+    try {
+      const guide = await coach(request);
+      onSaved(saveGuide(guide, ids));
+      track("coach_result", { outcome: "ok" });
+      setStep("idle");
+      setAgreed(false);
+    } catch (e) {
+      const reason = e instanceof CoachError ? e.reason : "failed";
+      track("coach_result", { outcome: reason });
+      setError(reason);
+      setStep("consent");
+    }
+  };
+
+  if (step === "idle") {
+    return (
+      <section className="discuss-ai" aria-label="AI coach">
+        {saved ? (
+          <>
+            <h2>✦ Prepared with AI</h2>
+            {saved.opening && <p className="discuss-coach-opening">{saved.opening}</p>}
+            <p>Each topic has suggested questions for you two, alongside the built-in prompts.</p>
+            <button type="button" className="discuss-ai-button" onClick={() => setStep("consent")}>
+              Prepare again
+            </button>
+          </>
+        ) : (
+          <button type="button" className="discuss-ai-button" onClick={() => setStep("consent")}>
+            ✦ Prepare this conversation with AI
+          </button>
+        )}
+      </section>
+    );
+  }
+
+  return (
+    <section className="discuss-ai discuss-consent" aria-label="AI coach">
+      <h2>Prepare with AI</h2>
+      <p>
+        An AI (Anthropic's Claude) will suggest an opening and questions written for these topics. To do
+        that, <strong>this is all that's sent</strong>:
+      </p>
+      <ul className="discuss-consent-list">
+        {coachPreview(request).map((line) => (
+          <li key={line}>{line}</li>
+        ))}
+      </ul>
+      {omitted > 0 && <p>The last {omitted} topics aren't included (40 at most).</p>}
+      <p>
+        <strong>Never sent:</strong> names, notes, menu titles, or anything you write in this discussion.
+        It goes through our server, which doesn't log or keep it. The suggestions are saved only in this
+        browser, with your notes.
+      </p>
+      <p>It's a conversation guide, not therapy, and it won't take sides or judge your answers.</p>
+      <label className="discuss-consent-check">
+        <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
+        <span>Everyone taking part agrees to send this.</span>
+      </label>
+      {error && (
+        <p className="discuss-coach-error" role="alert">
+          {COACH_FAILURE_TEXT[error]}
+        </p>
+      )}
+      <div className="discuss-actions">
+        <button type="button" className="button-primary" disabled={!agreed || step === "working"} onClick={send}>
+          {step === "working" ? "Preparing…" : "Prepare questions"}
+        </button>
+        <button type="button" disabled={step === "working"} onClick={() => setStep("idle")}>
+          Cancel
+        </button>
+      </div>
+    </section>
   );
 };
 

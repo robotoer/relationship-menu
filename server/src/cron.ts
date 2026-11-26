@@ -24,6 +24,8 @@ export const runDailyPurge = async (env: Env, nowMs = Date.now()) => {
     env.DB.prepare("DELETE FROM pairings WHERE expires_at < ?").bind(nowMs - DAY_MS),
     // SY-62: webhook event ids after 30 days.
     env.DB.prepare("DELETE FROM stripe_events WHERE received_at < ?").bind(nowMs - 30 * DAY_MS),
+    // CO-8: coach counters are only needed for the current day.
+    env.DB.prepare("DELETE FROM coach_usage WHERE day < ?").bind(new Date(nowMs - DAY_MS).toISOString().slice(0, 10)),
   ]);
   const counts = {
     purgedMenus: results[0]?.meta.changes ?? 0,
@@ -31,6 +33,7 @@ export const runDailyPurge = async (env: Env, nowMs = Date.now()) => {
     tombstones: results[3]?.meta.changes ?? 0,
     pairings: results[4]?.meta.changes ?? 0,
     events: results[5]?.meta.changes ?? 0,
+    coachCounters: results[6]?.meta.changes ?? 0,
   };
   log({ route: "cron daily", status: 200, code: "purged", ...counts });
   return counts;
