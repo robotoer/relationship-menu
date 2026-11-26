@@ -445,3 +445,117 @@ export const BADGE_TEXT: Record<
     earned: "Used all four answers.",
   },
 };
+
+// ---- Phase 2: character sheet and loot (IN-10..IN-13) ----
+
+/**
+ * Template items that are never quoted on a loot item (IN-12): sex and sexual
+ * health, kids, other partners and veto, marriage, past relationships, politics.
+ */
+export const SENSITIVE_ITEMS: string[] = [
+  "Sex",
+  "Sharing sexual health information",
+  "Regular testing",
+  "Agreed barrier practices",
+  "Telling each other about new risks",
+  "Knowing before things become physical",
+  "Having or raising kids",
+  "Co-parenting",
+  "Involvement with existing children",
+  "Exclusivity",
+  "Talking about exclusivity soon",
+  "Dating other people",
+  "Still dating other people",
+  "Telling each other about new interests",
+  "Sharing details about dates",
+  "Overnights with other partners",
+  "Don't-ask-don't-tell arrangement",
+  "No veto power",
+  "Off-limits people or circles",
+  "Nesting or primary partnership",
+  "Equal footing for all partners",
+  "Checking in before new relationships",
+  "Advance notice of new relationships",
+  "Knowing about other partners",
+  "Meeting each other's partners",
+  "Meeting metamours",
+  "Being friendly with metamours",
+  "Metamours in our home",
+  "Kitchen-table style closeness",
+  "Introducing others to family",
+  "Bringing others to events",
+  "Marriage or legal partnership",
+  "Sharing past relationship history",
+  "Talking about values and politics",
+];
+
+/** People's own items that look sensitive are never quoted either (IN-12). */
+export const SENSITIVE_KEYWORDS =
+  /\b(sex|sexual|sexy|naked|nude|kink|fetish|bdsm|oral\b|anal\b|orgasm|porn|condom|stis?\b|stds?\b|hiv\b|prep\b|pregnan|abortion|fertil|kids?\b|child|bab(y|ies)\b|veto|affairs?\b|cheat|divorc|ex(es)?\b|trauma|abuse|therap|religio|politic|threesome|swing|polyam|open relationship|metamour|other partners?\b)/i;
+
+export type CharacterClass = { name: string; flavor: string };
+
+/** A class per theme (IN-10). */
+export const THEME_CLASSES: Record<Theme, CharacterClass> = {
+  closeness: { name: "Enchanter", flavor: "Casts Hold Hands at will. No saving throw." },
+  talk: { name: "Bard", flavor: "Wields words, mostly good-morning texts." },
+  space: { name: "Ranger", flavor: "Roams the wilds alone, then comes home with stories." },
+  roots: { name: "Paladin", flavor: "Swore an oath. Intends to keep it." },
+  spotlight: { name: "Herald", flavor: "Announces you wherever you go, at volume." },
+  hearth: { name: "Artificer", flavor: "Built a chore wheel. It's enchanted." },
+  care: { name: "Cleric", flavor: "Heals 2d6 with soup and a blanket." },
+  adventure: { name: "Swashbuckler", flavor: "Never met a side quest they didn't take." },
+};
+
+/** The Chameleon's class (IN-10). */
+export const SHAPESHIFTER: CharacterClass = {
+  name: "Shapeshifter",
+  flavor: "Takes whatever form the menu needs.",
+};
+
+/** What the loot is (IN-11): by the animal's theme, or `none` for the Chameleon. */
+export const LOOT_BASES: Record<Theme | "none", string[]> = {
+  closeness: ["Weighted Blanket", "Cuddle Gauntlets", "Locket"],
+  talk: ["Speaking Stone", "Carrier Pigeon", "Scroll"],
+  space: ["Cloak", "Tower Key", "Do-Not-Disturb Sign"],
+  roots: ["Ring", "Anchor", "Pebble"],
+  spotlight: ["Banner", "Megaphone", "Party Hat"],
+  hearth: ["Chore Wheel", "Ladle", "Ledger"],
+  care: ["Healing Potion", "Hot Water Bottle", "Soup Flask"],
+  adventure: ["Compass", "Boots", "Picnic Basket"],
+  none: ["Mimic Chest", "Mystery Box"],
+};
+
+/** "… of X" when no Must have can be quoted (IN-11). */
+export const LOOT_SUFFIXES: Record<Theme | "none", string> = {
+  closeness: "Snuggles",
+  talk: "Long Talks",
+  space: "Alone Time",
+  roots: "Forever",
+  spotlight: "Grand Entrances",
+  hearth: "the Hearth",
+  care: "Soup and Sympathy",
+  adventure: "Side Quests",
+  none: "the Unknown",
+};
+
+/** The loot's first word, by style (IN-11). */
+export const LOOT_PREFIXES: Record<Style, string[]> = {
+  curious: ["Unidentified", "Shimmering", "Curious"],
+  wholehearted: ["Unwavering", "Blazing", "Wholehearted"],
+  discerning: ["Warded", "Well-Fenced", "Discerning"],
+  decisive: ["Sharpened", "Unhesitating", "Decisive"],
+  easygoing: ["Comfy", "Well-Worn", "Easygoing"],
+};
+
+export const RARITIES = ["common", "uncommon", "rare", "epic", "legendary"] as const;
+export type Rarity = (typeof RARITIES)[number];
+
+/** Rarity comes from how much is answered, never which answers (IN-13). */
+export const RARITY_TEXT: Record<Rarity, { label: string; flavor: string }> = {
+  common: { label: "Common", flavor: "Still being forged. Answer more items to upgrade it." },
+  uncommon: { label: "Uncommon", flavor: "Taking shape. Answer more items to upgrade it." },
+  rare: { label: "Rare", flavor: "Well forged. A few more answers and it gleams." },
+  epic: { label: "Epic", flavor: "Nearly complete. It hums faintly." },
+  legendary: { label: "Legendary", flavor: "Forged from a fully answered menu." },
+};

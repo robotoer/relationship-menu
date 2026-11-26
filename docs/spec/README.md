@@ -358,7 +358,7 @@ Live sharing through the server, with push notifications for comments, is propos
 
 ## 7d. Just for fun
 
-**In short:** under the editor, a "Just for fun" panel turns the answers into an animal, stats and badges. It's worked out in this browser from words written ahead of time, so it costs nothing and sends nothing. Rules IN-1…IN-9 are in [insights.md](insights.md).
+**In short:** under the editor, a "Just for fun" panel turns the answers into an animal, an RPG character sheet, a loot item and badges. It's worked out in this browser from words written ahead of time, so it costs nothing and sends nothing. Rules IN-1…IN-13 are in [insights.md](insights.md).
 
 ---
 
@@ -458,7 +458,7 @@ flowchart LR
 | Comparing | CP-22, CP-24, CP-25, CP-30…CP-34 | Property + Test | [`insights-discussion.props`](../../src/__props__/insights-discussion.props.test.ts), `compare-insights.test.ts`, `Compare.test.tsx`, `e2e/discuss.spec.ts` |
 | Discussing | DS-1…DS-8 | Property (DS-2, DS-3) + Test | `discussion.test.ts`, `Discuss.test.tsx`, `e2e/discuss.spec.ts` |
 | Conversations | CV-1…CV-14 | Property (CV-8, CV-9) + Test | `__props__/conversation.props.test.ts`, `conversation.test.ts`, `Talk.test.tsx`, `Discuss.test.tsx`, `ConversationList.test.tsx`, `e2e/conversation.spec.ts` |
-| Just for fun | IN-1…IN-9 | Property (IN-2, IN-3, IN-4, IN-6, IN-7) + Test; Review (IN-1, IN-8) | [`menu-insights.props`](../../src/__props__/menu-insights.props.test.ts), `menu-insights.test.ts`, `MenuInsights.test.tsx` |
+| Just for fun | IN-1…IN-13 | Property (IN-2, IN-3, IN-4, IN-6, IN-7, IN-10…IN-13) + Test; Review (IN-1, IN-8) | [`menu-insights.props`](../../src/__props__/menu-insights.props.test.ts), [`menu-loot.props`](../../src/__props__/menu-loot.props.test.ts), `menu-insights.test.ts`, `menu-loot.test.ts`, `MenuInsights.test.tsx` |
 | Comparing | CP-13 | Test (e2e) | `e2e/` |
 | Pages, privacy, accessibility | NV, PR, AX | Test / Review | see each table |
 | Hosting and the move from the old address | HO-1…HO-10 | Property (import never overwrites; malformed input) + Test (two origins, Worker routing) | [sync.md §12](sync.md#12-hosting-domain-and-name) |

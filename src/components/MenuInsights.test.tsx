@@ -45,7 +45,7 @@ describe("MenuInsights", () => {
 
   it("IN-9: every stat has its value in text, and emoji are hidden from screen readers", () => {
     const { container } = render(<MenuInsights menu={otterMenu} />);
-    const stats = screen.getAllByRole("list")[0];
+    const stats = screen.getByRole("list", { name: "Stats" });
     expect(within(stats).getByText("Closeness").closest("li")).toHaveTextContent("Closeness3.0 out of 3");
     expect(within(stats).getByText("Talk").closest("li")).toHaveTextContent("not enough answers yet");
     const emoji = container.querySelectorAll(".insights-emoji, .insights-badge-emoji");
@@ -55,7 +55,7 @@ describe("MenuInsights", () => {
 
   it("IN-7: earned badges come first; unearned effort badges show a hint", () => {
     render(<MenuInsights menu={otterMenu} />);
-    const badges = within(screen.getAllByRole("list")[1]).getAllByRole("listitem");
+    const badges = within(screen.getByRole("list", { name: "Badges" })).getAllByRole("listitem");
     expect(badges.map((b) => b.querySelector("strong")?.textContent)).toEqual([
       "Hatched",
       "Boundary Keeper",
@@ -66,5 +66,36 @@ describe("MenuInsights", () => {
     ]);
     expect(badges[2]).toHaveTextContent("(not yet earned)");
     expect(badges[2]).toHaveTextContent("Answer every item (a menu of 10 or more).");
+  });
+
+  it("IN-10: a character sheet with class, multiclass and level once hatched", () => {
+    render(<MenuInsights menu={otterMenu} />);
+    expect(screen.getByText("Level 2 Enchanter")).toBeInTheDocument();
+    expect(screen.getByText(/multiclass Artificer/)).toBeInTheDocument();
+    expect(screen.getByText("Casts Hold Hands at will. No saving throw.")).toBeInTheDocument();
+  });
+
+  it("IN-11: a loot item quoting the menu's own items, with Roll again", () => {
+    render(<MenuInsights menu={otterMenu} />);
+    expect(screen.getByText("Unwavering Weighted Blanket of Kissing")).toBeInTheDocument();
+    expect(screen.getByText("Epic")).toBeInTheDocument();
+    expect(screen.getByText("+3.0 Closeness · +2.0 Hearth")).toBeInTheDocument();
+    const lines = within(screen.getByRole("list", { name: "Loot lines" })).getAllByRole("listitem");
+    expect(lines.map((l) => l.textContent)).toEqual([
+      "+3 Cuddling",
+      "+3 Hugging",
+      "+1 Shared cooking",
+      "Immune to: Separate bedrooms",
+    ]);
+    fireEvent.click(screen.getByRole("button", { name: "Roll again" }));
+    expect(screen.getByText("Blazing Weighted Blanket of Cuddling")).toBeInTheDocument();
+    expect(screen.getByText("Epic")).toBeInTheDocument();
+  });
+
+  it("IN-10, IN-11: no class or loot while still hatching", () => {
+    render(<MenuInsights menu={{ A: [{ item: "Kissing", value: "maybe" }] }} />);
+    expect(screen.queryByText(/^Level /)).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Loot" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Roll again" })).not.toBeInTheDocument();
   });
 });
