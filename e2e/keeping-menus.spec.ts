@@ -75,7 +75,7 @@ test.describe("SV-13: Export all menus", () => {
       page.waitForEvent("download"),
       page.getByRole("button", { name: "Export all menus" }).click(),
     ]);
-    expect(download.suggestedFilename()).toMatch(/^relationship-menus-\d{4}-\d{2}-\d{2}\.txt$/);
+    expect(download.suggestedFilename()).toMatch(/^wants-and-wonts-menus-\d{4}-\d{2}-\d{2}\.txt$/);
     await expect(page.getByText("Downloaded a file with 2 menus.")).toBeVisible();
     expect(await events(page)).toContain("menus_exported");
     expect(offSite).toEqual([]);

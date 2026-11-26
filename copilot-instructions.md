@@ -1,12 +1,12 @@
 # Notes for contributors and coding assistants
 
-Relationship Menu is a small, local-first React app. Read [`docs/spec/README.md`](docs/spec/README.md) first: every behaviour has a rule ID (ED-2, CP-10, SV-5, …), and tests and proofs name the rule they check.
+Wants & Won'ts (formerly Relationship Menu) is a small, local-first React app. Read [`docs/spec/README.md`](docs/spec/README.md) first: every behaviour has a rule ID (ED-2, CP-10, SV-5, …), and tests and proofs name the rule they check.
 
 ## Stack
 - React 19 + TypeScript, built with **Vite**, tested with **Vitest** + React Testing Library, and **Playwright** for e2e.
 - Yarn 4 (checked in under `.yarn/releases`), Node 22.
-- No backend: menus live in `localStorage` and inside share links (`pako`-compressed JSON, see `src/compare-slug.ts` and `public/llms.txt`).
-- Hosted on Vercel (`vercel.json`); analytics via GA4, see [`docs/analytics.md`](docs/analytics.md).
+- Menus live in `localStorage` and inside share links (`pako`-compressed JSON, see `src/compare-slug.ts` and `public/llms.txt`). The only backend is the optional, end-to-end encrypted supporter sync (`server/`).
+- Hosted on one Cloudflare Worker at wantsandwonts.com (`server/wrangler.toml`), which serves the built app and `/v1/*`. The old address, relationship-menu.vercel.app, serves only the hand-off page (`vercel.json`, `handoff/`, `src/handoff/`); see HO-1…HO-10 in `docs/spec/sync.md`. Analytics via GA4, see [`docs/analytics.md`](docs/analytics.md).
 
 ## Commands
 | Command | What it does |
@@ -14,7 +14,7 @@ Relationship Menu is a small, local-first React app. Read [`docs/spec/README.md`
 | `yarn start` | Dev server (Vite) |
 | `yarn build` | Type-check, then production build into `build/` |
 | `yarn test` | Unit, component and property tests (Vitest; `--run` for a single run) |
-| `yarn test:e2e` | Playwright end-to-end tests (starts its own dev server on port 3099) |
+| `yarn test:e2e` | Playwright end-to-end tests (starts its own dev servers: the app on port 3099, the hand-off page on 127.0.0.1:3098) |
 | `yarn verify` | Formal checks (needs Dafny on your PATH; see `docs/spec/formal/`) |
 
 ## Where things live

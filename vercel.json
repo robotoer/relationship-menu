@@ -1,7 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "vite",
-  "buildCommand": "yarn build",
-  "outputDirectory": "build",
+  "buildCommand": "yarn build:handoff",
+  "outputDirectory": "build-handoff",
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }

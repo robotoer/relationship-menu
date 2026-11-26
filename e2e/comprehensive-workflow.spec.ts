@@ -91,7 +91,7 @@ async function createFullMenu(
 }
 
 /**
- * Comprehensive E2E Tests for the Relationship Menu Application
+ * Comprehensive E2E Tests for the Wants & Won'ts app
  *
  * Tests cover:
  * - Menu creation and editing (groups, items, preferences)

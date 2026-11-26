@@ -120,7 +120,7 @@ describe("platform (hooks for hosts that embed the app)", () => {
     const outcome = await exportMenus([{ title: "Ours", encoded: "E" } as never], { browser: IPHONE_SAFARI });
     expect(outcome).toBe("shared");
     const file = saveFile.mock.calls[0][0] as File;
-    expect(file.name).toMatch(/^relationship-menus-.*\.txt$/);
+    expect(file.name).toMatch(/^wants-and-wonts-menus-.*\.txt$/);
     expect(await file.text()).toContain("https://example.test/menu?encoded=");
   });
 });

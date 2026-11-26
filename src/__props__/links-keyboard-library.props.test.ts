@@ -17,7 +17,7 @@ const cleaned = (menu: RelationshipMenu): RelationshipMenu => {
   for (const [group, items] of Object.entries(menu)) {
     Object.defineProperty(out, group, {
       value: items.map((i) => {
-        const note = (i.note ?? "").trim().slice(0, 280);
+        const note = (i.note ?? "").trim().slice(0, 280).trimEnd();
         return note ? { item: i.item, value: i.value, note } : { item: i.item, value: i.value };
       }),
       enumerable: true, writable: true, configurable: true,
@@ -41,6 +41,24 @@ describe("link properties", () => {
         expect(Object.keys(decoded!.menu)).toEqual(Object.keys(menu));
         expect(decoded!.menu).toEqual(cleaned(menu));
         expect(decoded!.person).toEqual(sanitizePerson(person));
+      })
+    );
+  });
+
+  it("LK-1/LK-3: cleaning is stable: re-encoding what a link decodes to and decoding again changes nothing", () => {
+    // Long text with spaces around where it's cut (280 for notes, 60 for names).
+    const nearCut = (cut: number) =>
+      fc
+        .tuple(fc.integer({ min: cut - 4, max: cut + 2 }), fc.stringMatching(/^[ \n]{1,4}$/), fc.string({ minLength: 1, maxLength: 3 }))
+        .map(([n, spaces, rest]) => `${"x".repeat(n)}${spaces}${rest}`);
+    const menuNearCut = fc.array(fc.record({ item: textArb, note: fc.oneof(nearCut(280), fc.string()) }), { minLength: 1, maxLength: 3 })
+      .map((items): RelationshipMenu => Object.assign(Object.create(null), { G: items }));
+    const personNearCut = fc.record({ name: fc.oneof(nearCut(60), fc.string()), note: nearCut(280) }, { requiredKeys: [] });
+    fc.assert(
+      fc.property(textArb, fc.oneof(menuArb, menuNearCut), fc.option(fc.oneof(personArb, personNearCut), { nil: undefined }), (title, menu, person) => {
+        const once = decodeCompareSlug(encodeMenuSlug(title, menu, person))!;
+        const twice = decodeCompareSlug(encodeMenuSlug(once.title, once.menu, once.person));
+        expect(twice).toEqual(once);
       })
     );
   });

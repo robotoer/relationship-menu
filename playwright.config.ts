@@ -88,13 +88,25 @@ export default defineConfig({
     // },
   ],
   
-  // Run your local dev server before starting the tests
-  webServer: {
-    command: 'yarn start --port 3099 --strictPort',
-    url: 'http://localhost:3099',
-    timeout: 120 * 1000,
-    reuseExistingServer: !process.env.CI,
-    stdout: 'pipe',
-    stderr: 'pipe',
-  },
+  // Run your local dev servers before starting the tests: the app, and the old
+  // address's hand-off page on another origin (e2e/handoff.spec.ts, spec HO-3…HO-7).
+  // In dev builds each defaults to the other's address (src/handoff/origins.ts).
+  webServer: [
+    {
+      command: 'yarn start --port 3099 --strictPort',
+      url: 'http://localhost:3099',
+      timeout: 120 * 1000,
+      reuseExistingServer: !process.env.CI,
+      stdout: 'pipe',
+      stderr: 'pipe',
+    },
+    {
+      command: 'yarn start:handoff --port 3098 --strictPort',
+      url: 'http://127.0.0.1:3098',
+      timeout: 120 * 1000,
+      reuseExistingServer: !process.env.CI,
+      stdout: 'pipe',
+      stderr: 'pipe',
+    },
+  ],
 });

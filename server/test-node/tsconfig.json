@@ -1,0 +1,9 @@
+{
+  // Node-side tests (Wrangler's test harness), checked apart from the Worker code,
+  // which must not see Node's types.
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "types": ["node"]
+  },
+  "include": [".", "../vitest.node.config.ts"]
+}

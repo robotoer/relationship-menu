@@ -32,7 +32,7 @@ const rows = (page: Page) => page.locator(".menu-page [data-row-key]");
 test.describe("Landing page", () => {
   test("explains the app and starts a menu from a template", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText(/Relationship\s*Menu/);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(/Wants\s*&\s*Won't/);
     await expect(page.getByRole("heading", { name: "What are all these links?" })).toBeVisible();
     await page.getByRole("link", { name: /Start a menu/ }).first().click();
     await page.waitForURL("**/menu**");

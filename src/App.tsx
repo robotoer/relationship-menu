@@ -45,8 +45,10 @@ import { createCoachClient } from "./coach";
 import { sameMenuContent } from "./storage";
 import { isSupporter, useSync } from "./sync/context";
 import { useSyncRuntime } from "./providers/Sync";
+import { ImportPage } from "./pages/Import";
+import { uniqueTitle } from "./menu-titles";
+import { OLD_ORIGIN } from "./handoff/origins";
 import { countByFilter } from "./compare-filters";
-import { uniqueTitle } from "./unique-title";
 import {
   DecodedCompareSlug,
   decodeCompareSlug,
@@ -115,7 +117,9 @@ const WrappedLibraryPage = () => {
       })),
     [documentsMap]
   );
-  return <LibraryPage menus={documents} onDelete={deleteDocument} />;
+  // HO-7: point people who used the old address to the hand-off, except there.
+  const oldAddress = window.location.origin === OLD_ORIGIN ? undefined : OLD_ORIGIN;
+  return <LibraryPage menus={documents} onDelete={deleteDocument} oldAddress={oldAddress} />;
 };
 
 /** The document the editor saves for this title, menu and person. */
@@ -745,7 +749,7 @@ export const App = () => {
   return (
     <div className="app">
       <Navbar
-        title="Relationship Menu"
+        title="Wants & Won'ts"
         links={[
           { to: "/library", text: "Library" },
           { to: "/menu", text: "New menu" },
@@ -763,6 +767,7 @@ export const App = () => {
         {platform().support && <Route path="/support" element={<SupportPage />} />}
         <Route path="/sync" element={<SyncSettingsRoute />} />
         <Route path="/pair" element={<PairPage />} />
+        <Route path="/import" element={<ImportPage />} />
         <Route path="/about" element={<Navigate to="/" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

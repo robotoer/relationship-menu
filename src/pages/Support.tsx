@@ -340,7 +340,7 @@ export const SupportPage = ({
 
   return (
     <div className="support-page">
-      <h1>Support Relationship Menu</h1>
+      <h1>Support Wants &amp; Won'ts</h1>
 
       {returned && (
         <div className="support-notice support-return" role="status" tabIndex={-1} ref={returnNotice}>

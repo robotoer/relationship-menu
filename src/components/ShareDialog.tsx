@@ -224,7 +224,7 @@ export const ShareDialog = ({
         </details>
         {shared && support && (
           <p className="support-nudge">
-            Enjoying Relationship Menu?{" "}
+            Enjoying Wants &amp; Won'ts?{" "}
             <Link to="/support" state={{ supportFrom: "share" }}>
               Support the project
             </Link>

@@ -250,7 +250,7 @@ export const ComparePage = ({
           <p className="support-nudge">
             Did this help you two talk?{" "}
             <Link to="/support" state={{ supportFrom: "compare" }}>
-              Support Relationship Menu
+              Support Wants &amp; Won'ts
             </Link>{" "}
             to keep it free and private.
           </p>

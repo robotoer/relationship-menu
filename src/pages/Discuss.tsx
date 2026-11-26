@@ -141,7 +141,7 @@ export const DiscussPage = ({
 
   const share = async (method: "share" | "copy") => {
     const link = conversationLink(platform().publicOrigin, conversation);
-    const message = `I've added to our Relationship Menu conversation "${conversation.title}". Open this to see it and add yours: ${link}`;
+    const message = `I've added to our Wants & Won'ts conversation "${conversation.title}". Open this to see it and add yours: ${link}`;
     try {
       if (method === "share" && platform().shareText) {
         if (!(await platform().shareText!({ title: conversation.title, text: message }))) return;
