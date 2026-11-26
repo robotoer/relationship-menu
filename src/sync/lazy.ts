@@ -7,11 +7,12 @@
  * browser, otherwise once the page is idle, or as soon as a screen needs it.
  */
 
-import type { SyncState } from "./context";
+import { SyncError, SyncState } from "./context";
 import { createLocalSync, readSyncState } from "./hooks";
 import { syncIsOn } from "./local-store";
 import type { MergeContext } from "./merge";
 import type { RuntimeOptions, SyncRuntime } from "./runtime";
+import type { KeyValueStore } from "../menu-store";
 import { newMenuId } from "../menu-id";
 
 /** How long after start to fetch the runtime when sync is off. */
@@ -23,10 +24,54 @@ const whenIdle = (task: () => void) => {
   setTimeout(() => (idle ? idle(task, { timeout: 10_000 }) : task()), IDLE_LOAD_MS);
 };
 
+/**
+ * Sync when this browser won't let the page use its storage at all (some privacy
+ * settings): unavailable, and every save just happens as before.
+ */
+const unavailableRuntime = (): SyncRuntime => {
+  const state: SyncState = { kind: "unsupported" };
+  const fail = () => Promise.reject(new SyncError("unavailable", "Sync needs this browser's storage."));
+  return {
+    saved: (_doc, _startedFrom, _previous, write) => {
+      write?.();
+      return null;
+    },
+    deleted: () => undefined,
+    revisionOf: () => null,
+    onMenusChanged: () => () => undefined,
+    start: async () => undefined,
+    stop: () => undefined,
+    getState: () => state,
+    subscribe: () => () => undefined,
+    authorizer: () => null,
+    turnOn: fail,
+    restore: fail,
+    joinPairing: fail,
+    syncCode: fail,
+    offerPairing: fail,
+    turnOff: fail,
+    replaceCode: fail,
+    deleteSyncedData: fail,
+    checkout: fail,
+    manageSubscription: fail,
+    refreshAccount: async () => null,
+    syncNow: () => undefined,
+  };
+};
+
 export const createLazySyncRuntime = (
   options: Omit<RuntimeOptions, "local"> & { load?: () => Promise<typeof import("./runtime")> } = {}
 ): SyncRuntime => {
-  const kv = options.kv ?? globalThis.localStorage;
+  let kv: KeyValueStore;
+  // Until the runtime is ready: what storage says (so a supporter's heart is there at once).
+  let early: SyncState;
+  try {
+    kv = options.kv ?? globalThis.localStorage;
+    early = readSyncState(kv);
+  } catch {
+    // The browser blocks storage: the app still runs, without sync.
+    return unavailableRuntime();
+  }
   const now = options.now ?? Date.now;
   const newId = options.newId ?? newMenuId;
   const ctx: MergeContext = { newMenuId: newId, newEditId: newId };
@@ -40,19 +85,38 @@ export const createLazySyncRuntime = (
     for (const listener of listeners) listener();
   };
 
-  // Until the runtime is ready: what storage says (so a supporter's heart is there at once).
-  const early: SyncState = readSyncState(kv);
   let started = false;
+  /** Bumps on stop: an idle load scheduled before it doesn't happen. */
+  let attempt = 0;
 
-  const ready = (): Promise<SyncRuntime> =>
-    (loading ??= load().then(async (module) => {
-      const r = module.createSyncRuntime({ ...options, kv, now, newId, local });
-      r.subscribe(notify);
-      runtime = r;
-      await r.start();
+  /**
+   * Loads and starts the runtime, once at a time. If that fails (offline while
+   * fetching the chunk, say), the next call tries again.
+   */
+  const ready = (): Promise<SyncRuntime> => {
+    if (loading) return loading;
+    const pending = (async () => {
+      const module = await load();
+      if (!runtime) {
+        runtime = module.createSyncRuntime({ ...options, kv, now, newId, local });
+        runtime.subscribe(notify);
+      }
+      const r = runtime;
+      try {
+        await r.start();
+      } catch (error) {
+        r.stop(); // so the next try starts it afresh
+        throw error;
+      }
       notify();
       return r;
-    }));
+    })();
+    loading = pending;
+    pending.catch(() => {
+      if (loading === pending) loading = null;
+    });
+    return pending;
+  };
 
   /** The runtime's state once it has one; before that, the early one. */
   const getState = (): SyncState => {
@@ -73,10 +137,20 @@ export const createLazySyncRuntime = (
     start: async () => {
       if (started) return;
       started = true;
+      const at = attempt;
       if (syncIsOn(kv)) await ready();
-      else whenIdle(() => void ready().catch(() => undefined));
+      else
+        whenIdle(() => {
+          if (at === attempt && started) void ready().catch(() => undefined);
+        });
     },
-    stop: () => runtime?.stop(),
+    stop: () => {
+      attempt++;
+      started = false;
+      runtime?.stop();
+      // A later start (or action) starts the runtime again.
+      loading = null;
+    },
     getState,
     subscribe: (listener) => {
       listeners.add(listener);

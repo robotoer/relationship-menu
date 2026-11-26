@@ -23,10 +23,16 @@ import { Local, MergeContext, applyLocalDelete, applyLocalSave, mergeRecords } f
 
 export type MovedMenu = { from: string; to: string };
 
-/** What storage tells sync about a save or deletion (src/storage.ts). Synchronous and never throws. */
+/** What storage tells sync about a save or deletion (src/storage.ts). Synchronous. */
 export type SyncHooks = {
-  /** A menu was just written. `previous` is what was stored before. Returns its new revision (SY-24), or null with sync off. */
-  saved(doc: SavedMenu, startedFrom: number | null, previous: SavedMenu | undefined): number | null;
+  /**
+   * A save. `previous` is what's stored now; `write` stores `doc` (without it, the
+   * caller has already). If the save makes a conflict copy (SY-35), the copy is
+   * stored first: if it can't be (storage is full), this throws and nothing is
+   * written, so the version it would have kept isn't lost. Otherwise it never
+   * throws. Returns the menu's new revision (SY-24), or null with sync off.
+   */
+  saved(doc: SavedMenu, startedFrom: number | null, previous: SavedMenu | undefined, write?: () => void): number | null;
   /** A menu was just removed; `previous` is what was stored. */
   deleted(id: string, previous: SavedMenu | undefined): void;
   /** The menu's current revision, or null with sync off. */
@@ -63,8 +69,16 @@ export const createLocalSync = ({ kv, now, ctx }: { kv: KeyValueStore; now: () =
   const localListeners = new Set<() => void>();
 
   const currentLocal = (): Local => {
-    const merged = mergeRecords(readLocal(kv, readSkipped(kv)), [], ctx);
+    const merged = mergeRecords(readLocal(kv), [], ctx);
     return { menus: merged.menus, sync: merged.sync };
+  };
+
+  const revisionNow = (id: string) => {
+    try {
+      return readState(kv, id)?.revision ?? null;
+    } catch {
+      return null;
+    }
   };
 
   const emitMenus = (ids: string[], moved: MovedMenu[] = []) => {
@@ -77,31 +91,67 @@ export const createLocalSync = ({ kv, now, ctx }: { kv: KeyValueStore; now: () =
   };
 
   const hooks: SyncHooks = {
-    saved: (doc, startedFrom, previous) => {
-      if (!syncIsOn(kv)) return null;
+    saved: (doc, startedFrom, previous, write) => {
+      if (!syncIsOn(kv)) {
+        write?.();
+        return null;
+      }
+      let stored: Local;
+      let result: ReturnType<typeof applyLocalSave>;
       try {
         const skip = readSkipped(kv);
         if (skip.delete(doc.id)) writeSkipped(kv, skip); // it changed: try syncing it again (SY-26)
-        const stored = currentLocal();
-        const result = applyLocalSave(withPrevious(stored, doc.id, previous), doc, startedFrom, ctx);
-        const changed = writeLocal(kv, stored, { menus: result.menus, sync: result.sync }, now());
-        // A conflict copy (SY-35) is a menu the page doesn't know about yet.
-        emitMenus(changed.filter((id) => id !== doc.id));
-        changedHere();
-        return result.revision;
+        stored = currentLocal();
+        result = applyLocalSave(withPrevious(stored, doc.id, previous), doc, startedFrom, ctx);
       } catch {
-        // Sync never fails a save (SY-30); the next round picks the menu up.
-        try {
-          return readState(kv, doc.id)?.revision ?? null;
-        } catch {
-          return null;
-        }
+        // Sync never fails a plain save (SY-30); the next round picks the menu up.
+        write?.();
+        return revisionNow(doc.id);
       }
+      // 1. A conflict copy keeps the version this save didn't see (SY-35). Store it
+      //    before that version is replaced; if it can't be stored, throw: the save
+      //    fails, nothing is overwritten, and the editor keeps its edit to retry.
+      const copies = result.copies.map((c) => c.id).filter((id) => result.menus[id] !== undefined);
+      if (copies.length > 0) {
+        const withCopies: Local = { menus: Object.assign(Object.create(null), stored.menus), sync: stored.sync };
+        for (const id of copies) withCopies.menus[id] = result.menus[id];
+        writeLocal(kv, stored, withCopies, now());
+      }
+      // 2. The save itself.
+      try {
+        write?.();
+      } catch (error) {
+        if (copies.length > 0) {
+          try {
+            const fresh = currentLocal();
+            const without: Local = { menus: Object.assign(Object.create(null), fresh.menus), sync: fresh.sync };
+            for (const id of copies) delete without.menus[id];
+            writeLocal(kv, fresh, without, now());
+          } catch {
+            // The copy stays: a duplicate of a version that is still stored, not a loss.
+          }
+        }
+        throw error;
+      }
+      // 3. Sync states: best effort. writeLocal is all or nothing, so if this fails the
+      //    menu keeps its old state, and the next save records it again.
+      try {
+        writeLocal(kv, currentLocal(), { menus: result.menus, sync: result.sync }, now());
+      } catch {
+        return revisionNow(doc.id);
+      }
+      // A conflict copy is a menu the page doesn't know about yet.
+      emitMenus(copies);
+      changedHere();
+      return result.revision;
     },
 
     deleted: (id, previous) => {
       if (!syncIsOn(kv)) return;
       try {
+        // A menu set aside as too large still has a server version to delete (SY-19, SY-26).
+        const skip = readSkipped(kv);
+        if (skip.delete(id)) writeSkipped(kv, skip);
         const stored = currentLocal();
         writeLocal(kv, stored, applyLocalDelete(withPrevious(stored, id, previous), id, ctx), now());
         changedHere();
@@ -147,7 +197,8 @@ export const pendingMenus = (kv: KeyValueStore): number => {
   );
   let n = 0;
   for (const id of ids) if (!states[id] || states[id].dirty) n++;
-  for (const [id, state] of Object.entries(states)) if (state.dirty && !ids.has(id)) n++;
+  // Deletions still to push. (A menu set aside as too large isn't one: it's still stored.)
+  for (const [id, state] of Object.entries(states)) if (state.dirty && !ids.has(id) && !skip.has(id)) n++;
   return n;
 };
 

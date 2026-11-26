@@ -103,6 +103,11 @@ export type Engine = {
   unreadable: number;
   /** Why pushes are paused (`refused`), or null. */
   paused: string | null;
+  /**
+   * Menus not to push for now (too large to sync, SY-26). They stay in `local`,
+   * so pulls still merge against them and nothing is overwritten unseen.
+   */
+  held?: readonly string[];
 };
 
 /** What a reply or a local save did, for the UI (SY-33, SY-35). */
@@ -172,7 +177,11 @@ export const wantPull = (engine: Engine): Engine => ({ ...engine, pullWanted: tr
 export const resumePushes = (engine: Engine): Engine => ({ ...engine, paused: null });
 
 /** Pushes still to make. */
-export const pendingPushes = (engine: Engine): Push[] => (engine.paused === null ? pushesFor(engine.local) : []);
+export const pendingPushes = (engine: Engine): Push[] => {
+  if (engine.paused !== null) return [];
+  const held = engine.held ?? [];
+  return held.length === 0 ? pushesFor(engine.local) : pushesFor(engine.local).filter((p) => !held.includes(p.id));
+};
 
 export type Next = { engine: Engine; request: Request } | { engine: Engine; wait: number | null };
 

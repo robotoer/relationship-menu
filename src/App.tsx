@@ -16,6 +16,7 @@ import { ComparePage } from "./pages/Compare";
 import {
   Person,
   RelationshipMenu,
+  RelationshipMenuDocument,
 } from "./model/menu";
 import { MenuPage } from "./pages/Menu";
 import { decodeData, encodeData } from "./data-encoder";
@@ -37,6 +38,7 @@ import {
 import { SupportPage } from "./pages/Support";
 import { DiscussPage } from "./pages/Discuss";
 import { createCoachClient } from "./coach";
+import { sameMenuContent } from "./storage";
 import { isSupporter, useSync } from "./sync/context";
 import { useSyncRuntime } from "./providers/Sync";
 import { buildAgenda, discussionKey } from "./discussion";
@@ -225,6 +227,9 @@ const WrappedMenuPage = () => {
   // With sync on, the stored menu's revision this editor last loaded or saved (SY-24):
   // a save from an older one keeps the synced version too (SY-35).
   const revision = useRef<number | null>(null);
+  // What this editor last loaded or saved (the stored menu as of `revision`): the
+  // editor has unsaved edits whenever it shows something else (SY-33).
+  const committed = useRef<RelationshipMenuDocument | null>(null);
   // Get path paremeters from react-router-dom:
   const [params, setParams] = useSearchParams();
 
@@ -308,6 +313,7 @@ const WrappedMenuPage = () => {
         setNotice(null);
         menuId.current = existing?.id ?? null;
         revision.current = existing?.revision ?? null;
+        committed.current = existing ?? null;
         createdAt.current = existing?.createdAt ?? null;
       }
       const items = Object.values(opened.menu).flat();
@@ -365,6 +371,7 @@ const WrappedMenuPage = () => {
       { ...doc, id, createdAt: createdAt.current, updatedAt: now },
       revision.current
     );
+    committed.current = doc;
   });
 
   // A menu that sync moved to a new id (its first upload's answer was lost) carries on there.
@@ -380,23 +387,39 @@ const WrappedMenuPage = () => {
   // in place. With unsaved edits, the next save keeps both versions (SY-35).
   const openDoc = menuId.current !== null ? documents[menuId.current] : undefined;
   useEffect(() => {
-    if (!loaded || !openDoc || openDoc.revision === undefined || revision.current === null) return;
-    if (openDoc.revision <= revision.current) return;
-    if (saveState !== "idle" && saveState !== "saved") return;
+    if (!loaded || !openDoc || openDoc.revision === undefined) return;
+    // Null: opened before sync was on here; any revision is news.
+    if (revision.current !== null && openDoc.revision <= revision.current) return;
+    const shown: RelationshipMenuDocument = {
+      title,
+      encoded: encodeData(stripMenuIds(menuRef.current)),
+      ...(sanitizePerson(person) ? { person: sanitizePerson(person) } : {}),
+    };
+    if (sameMenuContent(openDoc, shown)) {
+      // Already showing it (say, sync was just turned on): just note the revision.
+      revision.current = openDoc.revision;
+      committed.current = openDoc;
+      return;
+    }
+    // Unsaved edits: waiting or being saved, a failed save, or edits that can't be
+    // saved yet (a title another menu has). Whatever autosave's status says.
+    const unsaved =
+      saveState === "pending" ||
+      saveState === "saving" ||
+      saveState === "error" ||
+      committed.current === null ||
+      !sameMenuContent(committed.current, shown);
+    if (unsaved) return;
     const decoded = decodeCompareSlug(encodeMenuSlug(openDoc.title, openDoc.encoded, openDoc.person));
     if (!decoded) return;
     revision.current = openDoc.revision;
-    const unchanged =
-      openDoc.title === title &&
-      openDoc.encoded === encodeData(stripMenuIds(menuRef.current)) &&
-      JSON.stringify(sanitizePerson(openDoc.person) ?? null) === JSON.stringify(sanitizePerson(person) ?? null);
-    if (unchanged) return;
+    committed.current = openDoc;
     setTitle(decoded.title);
     setMenu(ensureItemIds(decoded.menu));
     setPerson(decoded.person ?? {});
     setNotice("Updated on another device.");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [openDoc, saveState, loaded]);
+  }, [openDoc, saveState, loaded, title, menu, person]);
 
   // Analytics: how far people get answering a menu. Milestones already reached when
   // the editor opened (e.g. reopening a finished menu) aren't counted again.
@@ -677,11 +700,12 @@ const WrappedDiscussPage = () => {
   // The AI coach is for supporters (docs/spec/coach.md): it signs its requests with sync's keys.
   const { state } = useSync();
   const runtime = useSyncRuntime();
-  const supporter = isSupporter(state);
+  // Recomputed whenever sync's state changes, which includes the moment the runtime
+  // has its keys (the status can be known from storage before then).
   const coach = useMemo(() => {
-    const authorize = supporter ? runtime?.authorizer() : null;
+    const authorize = isSupporter(state) ? runtime?.authorizer() : null;
     return authorize ? createCoachClient({ origin: "", authorize }) : undefined;
-  }, [supporter, runtime]);
+  }, [state, runtime]);
   if (valid.length < 2) {
     return (
       <div className="discuss-page">

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Storage, createLocalStorage } from "../storage";
 import { RelationshipMenuDocument } from "../model/menu";
 
@@ -27,13 +27,21 @@ export const StorageProvider: React.FC<{
 }> = ({ children, storage: given }) => {
   const [base] = useState<Storage>(() => given ?? createLocalStorage());
   const [documents, setDocuments] = useState<StorageContextType["documents"]>({});
+  // Counts saves and deletions made here, so a list read before one finished isn't shown.
+  const mutations = useRef(0);
 
   useEffect(() => {
     let current = true;
-    const reload = () =>
-      base.getDocuments().then((docs) => {
-        if (current) setDocuments(docs);
+    const reload = (): Promise<void> => {
+      const startedAt = mutations.current;
+      return base.getDocuments().then((docs) => {
+        if (!current) return;
+        // A save or deletion here finished while this was reading: read again, so the
+        // list shows it (and whatever else changed).
+        if (startedAt !== mutations.current) return reload();
+        setDocuments(docs);
       });
+    };
     void reload();
     const off = base.subscribe(() => void reload());
     return () => {
@@ -47,23 +55,35 @@ export const StorageProvider: React.FC<{
       getDocuments: base.getDocuments,
       subscribe: base.subscribe,
       saveDocuments: async (...docs) => {
+        let ids: string[];
         try {
-          const ids = await base.saveDocuments(...docs);
-          // Re-read what was saved, with its revision (SY-24).
-          const saved = await Promise.all(ids.map((id) => base.getDocuments(id)));
-          setDocuments((prev) => {
-            const next = copy(prev);
-            for (const one of saved) Object.assign(next, one);
-            return next;
-          });
-          return ids;
+          ids = await base.saveDocuments(...docs);
         } catch (e) {
           console.error("Error saving documents:", e);
           return [];
         }
+        mutations.current++;
+        // They're saved. Show them with their revisions (SY-24), read in one go; if that
+        // read fails, show them as they were saved.
+        let stored: { [id: string]: SavedDocument } | null = null;
+        try {
+          stored = await base.getDocuments();
+        } catch {
+          stored = null;
+        }
+        setDocuments((prev) => {
+          const next = copy(prev);
+          ids.forEach((id, i) => {
+            const { revision: _revision, ...doc } = docs[i] ?? { title: "", encoded: "" };
+            next[id] = stored?.[id] ?? { ...doc, id };
+          });
+          return next;
+        });
+        return ids;
       },
       saveMenu: async (doc, startedFrom) => {
         const revision = await base.saveMenu(doc, startedFrom);
+        mutations.current++;
         const { revision: _old, ...stored } = doc;
         setDocuments((prev) => {
           const next = copy(prev);
@@ -74,6 +94,7 @@ export const StorageProvider: React.FC<{
       },
       deleteDocument: async (id: string) => {
         await base.deleteDocument(id);
+        mutations.current++;
         setDocuments((prev) => {
           const next = copy(prev);
           delete next[id];

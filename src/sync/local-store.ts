@@ -8,7 +8,8 @@
  *   sync:menu:<id>    { baseVersion, seenVersion, dirty, editId, revision }
  *   sync:status       the last account status the server reported (so the heart doesn't flicker)
  *   sync:runtime      what the syncing tab last saw: { lastSyncedAt, notices, unreadable, failing }
- *   sync:skip         ids of menus too large to sync (SY-23), set aside until they change
+ *   sync:skip         ids of menus too large to sync (SY-26), set aside until they change
+ *   sync:next-code    a new code being made (SY-8), kept until the server's answer is known
  *
  * Every tab reads and writes these directly, so a save in any tab is recorded at
  * once (SY-30), whichever tab is doing the network part.
@@ -27,6 +28,7 @@ export const SYNC_KEY = {
   status: "sync:status",
   runtime: "sync:runtime",
   skip: "sync:skip",
+  nextCode: "sync:next-code",
 } as const;
 export const SYNC_MENU_PREFIX = "sync:menu:";
 const syncMenuKey = (id: string) => `${SYNC_MENU_PREFIX}${id}`;
@@ -60,6 +62,18 @@ export const readSecret = (kv: KeyValueStore): Bytes | null => {
 };
 
 export const writeSecret = (kv: KeyValueStore, secret: Uint8Array) => kv.setItem(SYNC_KEY.code, toBase64Url(secret));
+
+/**
+ * A new code whose rotation (SY-8) the server may or may not have applied: its
+ * answer was lost. Kept until a check settles it, so the account is never left
+ * under a code this device has forgotten.
+ */
+export const readNextSecret = (kv: KeyValueStore): Bytes | null => {
+  const bytes = fromBase64Url(kv.getItem(SYNC_KEY.nextCode) ?? "");
+  return bytes?.length === 32 ? bytes : null;
+};
+export const writeNextSecret = (kv: KeyValueStore, secret: Uint8Array) => kv.setItem(SYNC_KEY.nextCode, toBase64Url(secret));
+export const clearNextSecret = (kv: KeyValueStore) => kv.removeItem(SYNC_KEY.nextCode);
 
 /** Whether sync is on in this browser (a cheap, synchronous check). */
 export const syncIsOn = (kv: KeyValueStore) => readSecret(kv) !== null;
@@ -146,25 +160,60 @@ export const readStates = (kv: KeyValueStore): SyncStates => {
 
 /**
  * This device's menus and their sync states, as the merge sees them. Menus set
- * aside as too large (`skip`) are left out of both, so the engine neither pushes
- * them nor mistakes them for deletions.
+ * aside as too large (SY-26) are included: they aren't pushed (the engine's
+ * `held`), but pulls must still merge against them, so a change from another
+ * device never overwrites them unseen.
  */
-export const readLocal = (kv: KeyValueStore, skip: ReadonlySet<string> = new Set()): Local => {
+export const readLocal = (kv: KeyValueStore): Local => {
   const menus: { [id: string]: SavedMenu } = table();
-  for (const { doc } of readStoredMenus(kv)) if (!skip.has(doc.id)) menus[doc.id] = doc;
-  const sync = readStates(kv);
-  for (const id of skip) delete sync[id];
-  return { menus, sync };
+  for (const { doc } of readStoredMenus(kv)) menus[doc.id] = doc;
+  return { menus, sync: readStates(kv) };
 };
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
 /**
  * Writes what changed between `before` (as read) and `after`: menus first, then
- * their sync states, so an interruption leaves a menu dirty (pushed again) rather
- * than marked synced without its content. Returns the ids whose stored menu changed.
+ * their sync states. All or nothing: if browser storage refuses any write (it's
+ * full, say), every key already written is put back as it was and the error is
+ * thrown, so a menu and its revision never get out of step (SY-24, SY-33) and
+ * the caller can simply try the whole thing again. Returns the ids whose stored
+ * menu changed.
  */
 export const writeLocal = (kv: KeyValueStore, before: Local, after: Local, now: number): string[] => {
+  const undo: [string, string | null][] = [];
+  // The same store, remembering each key's old value before it's written.
+  const recording: KeyValueStore = {
+    get length() {
+      return kv.length;
+    },
+    key: (i) => kv.key(i),
+    getItem: (key) => kv.getItem(key),
+    setItem: (key, value) => {
+      undo.push([key, kv.getItem(key)]);
+      kv.setItem(key, value);
+    },
+    removeItem: (key) => {
+      undo.push([key, kv.getItem(key)]);
+      kv.removeItem(key);
+    },
+  };
+  try {
+    return writeChanges(recording, before, after, now);
+  } catch (error) {
+    for (const [key, value] of undo.reverse()) {
+      try {
+        if (value === null) kv.removeItem(key);
+        else kv.setItem(key, value);
+      } catch {
+        // Putting back an older, never larger, value: nothing more to do if even that fails.
+      }
+    }
+    throw error;
+  }
+};
+
+const writeChanges = (kv: KeyValueStore, before: Local, after: Local, now: number): string[] => {
   const changed: string[] = [];
   const menuIds = new Set([...Object.keys(before.menus), ...Object.keys(after.menus)]);
   for (const id of menuIds) {

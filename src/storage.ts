@@ -67,16 +67,28 @@ const canonical = (value: unknown): string =>
       : v
   );
 
+/** The same groups in the same order (order is part of a menu), with the same items and answers. */
+const sameGroups = (a: unknown, b: unknown): boolean => {
+  if (!a || !b || typeof a !== "object" || typeof b !== "object") return canonical(a) === canonical(b);
+  const [ga, gb] = [Object.keys(a), Object.keys(b)];
+  return (
+    ga.length === gb.length &&
+    ga.every((group, i) => group === gb[i]) &&
+    ga.every((group) => canonical((a as Record<string, unknown>)[group]) === canonical((b as Record<string, unknown>)[group]))
+  );
+};
+
 /**
- * Whether two saves hold the same menu: title, person, and groups, items and
- * answers (decoded, so a re-encoding of the same menu counts as the same). Save
- * times don't count.
+ * Whether two saves hold the same menu (SY-28): title, person, and groups (in
+ * order), items (in order) and answers, decoded, so a re-encoding of the same
+ * menu with an item's fields in another order counts as the same. Save times
+ * don't count.
  */
 export const sameMenuContent = (a: RelationshipMenuDocument, b: RelationshipMenuDocument): boolean => {
   if (a.title !== b.title || canonical(sanitizePerson(a.person) ?? null) !== canonical(sanitizePerson(b.person) ?? null)) return false;
   if (a.encoded === b.encoded) return true;
   try {
-    return canonical(decodeData(a.encoded)) === canonical(decodeData(b.encoded));
+    return sameGroups(decodeData(a.encoded), decodeData(b.encoded));
   } catch {
     return false;
   }
@@ -104,17 +116,25 @@ export const createLocalStorage = ({ sync }: { sync?: SyncHooks } = {}): Storage
     migrateLegacyMenus(localStorage, newMenuId);
   };
 
-  /** Writes one menu (synchronous: leaving the page right after can't lose it, SV-10). */
+  /**
+   * Writes one menu (synchronous: leaving the page right after can't lose it,
+   * SV-10). With sync on, sync does the write, so that a conflict copy (SY-35) is
+   * stored before the version it keeps is replaced.
+   */
   const write = (doc: SavedMenu, startedFrom: number | null | undefined): number | null => {
     const existing = storedMenu(doc.id);
-    // Keep where it came from (legacyTitle), so a later old-format copy updates it.
-    writeStoredMenu(localStorage, {
-      doc,
-      savedAt: Date.now(),
-      ...(existing?.legacyTitle !== undefined ? { legacyTitle: existing.legacyTitle } : {}),
-    });
-    if (!sync) return null;
-    return sync.saved(doc, startedFrom === undefined ? sync.revisionOf(doc.id) : startedFrom, existing?.doc);
+    const writeDoc = () =>
+      // Keep where it came from (legacyTitle), so a later old-format copy updates it.
+      writeStoredMenu(localStorage, {
+        doc,
+        savedAt: Date.now(),
+        ...(existing?.legacyTitle !== undefined ? { legacyTitle: existing.legacyTitle } : {}),
+      });
+    if (!sync) {
+      writeDoc();
+      return null;
+    }
+    return sync.saved(doc, startedFrom === undefined ? sync.revisionOf(doc.id) : startedFrom, existing?.doc, writeDoc);
   };
 
   return {

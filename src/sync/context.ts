@@ -90,7 +90,9 @@ export type PairingOffer = {
 
 /**
  * Why an action failed. The screen picks the words.
- * - `offline`: no answer from the server (or a 5xx). Nothing changed; try again.
+ * - `offline`: no answer from the server (or a 5xx). Don't assume the server did nothing (a reply can be
+ *   lost after it acted), nor that this device's own setup was undone: `checkout()` with sync off keeps
+ *   the new sync code it made even if Checkout then fails. Trying again is safe.
  * - `rate_limited`: 429. Try again in a minute.
  * - `not_supporter`: the action needs supporter status (pairing, Checkout's portal).
  * - `already_supporter`: Checkout for an account that's already a supporter (409).

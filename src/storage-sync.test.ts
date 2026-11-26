@@ -94,4 +94,32 @@ describe("SY-28, SY-33: showing a synced change in the editor isn't a new edit",
     expect(sameMenuContent(a, { title: "Ours", encoded: encodeData({ Touch: [{ item: "Hugs", value: "must-have", note: "n" }] }) })).toBe(false);
     expect(sameMenuContent({ ...a, person: {} }, a)).toBe(true);
   });
+
+  test("but moving a group is an edit: group order is part of the menu", () => {
+    const touchFirst = { title: "Ours", encoded: encodeData({ Touch: [{ item: "Hugs" }], Talk: [{ item: "Daily" }] }) };
+    const talkFirst = { title: "Ours", encoded: encodeData({ Talk: [{ item: "Daily" }], Touch: [{ item: "Hugs" }] }) };
+    expect(sameMenuContent(touchFirst, talkFirst)).toBe(false);
+    const swappedItems = { title: "Ours", encoded: encodeData({ Touch: [{ item: "B" }, { item: "A" }] }) };
+    expect(sameMenuContent(swappedItems, { title: "Ours", encoded: encodeData({ Touch: [{ item: "A" }, { item: "B" }] }) })).toBe(false);
+  });
+});
+
+describe("SY-35: when the copy that keeps the other version can't be stored", () => {
+  test("the save fails and the version it would have replaced is still there", async () => {
+    const { storage } = await syncOn();
+    const opened = await storage.saveMenu({ id: ID, title: "Ours", encoded: encoded("maybe"), updatedAt: 1 }, null);
+    await storage.saveDocuments({ id: ID, title: "Ours", encoded: encoded("must-have"), updatedAt: 2 });
+    // Storage is full for any new menu (the copy would be one).
+    const real = Storage.prototype.setItem;
+    const spy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key, value) {
+      if (key.startsWith("menu-v2:") && key !== menuKey(ID)) throw new DOMException("full", "QuotaExceededError");
+      return real.call(this, key, value);
+    });
+    await expect(
+      storage.saveMenu({ id: ID, title: "Ours", encoded: encodeData({ Touch: [] }), updatedAt: 3 }, opened)
+    ).rejects.toThrow();
+    spy.mockRestore();
+    const docs = Object.values(await storage.getDocuments());
+    expect(docs.map((d) => [d.title, d.encoded])).toEqual([["Ours", encoded("must-have")]]);
+  });
 });

@@ -55,6 +55,52 @@ describe("SY-1: sync's code isn't part of the main download", () => {
   });
 });
 
+describe("loading the runtime, and stopping", () => {
+  test("a load that failed (offline, say) is tried again by the next action", async () => {
+    const { load: works, calls } = fakeModule();
+    const load = vi.fn().mockRejectedValueOnce(new TypeError("Failed to fetch dynamically imported module")).mockImplementation(works);
+    const sync = createLazySyncRuntime({ load });
+    await expect(sync.turnOn()).rejects.toThrow();
+    await sync.turnOn();
+    expect(load).toHaveBeenCalledTimes(2);
+    expect(calls).toEqual(["start", "turnOn"]);
+  });
+
+  test("stopping before the idle load cancels it, and starting again works", async () => {
+    const { load } = fakeModule();
+    const sync = createLazySyncRuntime({ load });
+    await sync.start();
+    sync.stop();
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(load).not.toHaveBeenCalled();
+    await sync.start();
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(load).toHaveBeenCalledTimes(1);
+  });
+
+  test("when the browser blocks storage, the app still runs: sync is unavailable and saves just happen", async () => {
+    const blocked = {
+      get length(): number {
+        throw new DOMException("denied", "SecurityError");
+      },
+      key: () => {
+        throw new DOMException("denied", "SecurityError");
+      },
+      getItem: () => {
+        throw new DOMException("denied", "SecurityError");
+      },
+      setItem: () => undefined,
+      removeItem: () => undefined,
+    };
+    const sync = createLazySyncRuntime({ kv: blocked });
+    expect(sync.getState()).toEqual({ kind: "unsupported" });
+    const write = vi.fn();
+    expect(sync.saved({ id: "x".repeat(22), title: "t", encoded: "e" }, null, undefined, write)).toBeNull();
+    expect(write).toHaveBeenCalled();
+    await expect(sync.turnOn()).rejects.toMatchObject({ reason: "unavailable" });
+  });
+});
+
 describe("SY-71: a supporter's heart shows at once, before the runtime loads", () => {
   test("the state comes from what this browser last heard from the server", () => {
     writeSecret(localStorage, new Uint8Array(32).fill(2));

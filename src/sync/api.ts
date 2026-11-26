@@ -180,27 +180,30 @@ export const createApi = (keys: Signer, options: ApiOptions = {}) => {
     /** `GET /v1/account`. */
     account: async (): Promise<SyncAccount> => parseAccount(await readJson(await send("GET", "/v1/account"))),
 
-    /** `GET /v1/menus?since=` (SY-32). `full` marks the pages of a full listing. */
+    /**
+     * `GET /v1/menus?since=` (SY-32). `full` marks the pages of a full listing.
+     * A page that isn't exactly what the server sends is refused as a whole: a
+     * full listing treats every menu it doesn't list as deleted, so a garbled or
+     * partly read page must never pass for a short one.
+     */
     pull: async (since: number, full = false): Promise<PullPage> => {
-      const body = await readJson(await send("GET", `/v1/menus?since=${since}${full ? "&full=1" : ""}`));
-      const menus = Array.isArray(body.menus) ? body.menus : [];
-      const rows: ServerRow[] = [];
-      for (const m of menus) {
-        if (!isObject(m) || typeof m.id !== "string" || typeof m.version !== "number" || typeof m.ciphertext !== "string") continue;
-        rows.push({
-          id: m.id,
-          version: m.version,
-          seq: num(m.seq, 0),
-          deleted: m.deleted === true,
-          updatedAt: num(m.updatedAt, 0),
-          ciphertext: m.ciphertext,
-        });
-      }
+      const response = await send("GET", `/v1/menus?since=${since}${full ? "&full=1" : ""}`);
+      const body = await readJson(response);
+      const bad = () => new ApiError(response.status, "bad_response");
+      if (!Array.isArray(body.menus) || typeof body.next !== "number" || typeof body.more !== "boolean") throw bad();
+      if (typeof body.resync !== "boolean" || (body.purged !== undefined && typeof body.purged !== "number")) throw bad();
+      const rows = body.menus.map((m: unknown): ServerRow => {
+        if (!isObject(m)) throw bad();
+        const { id, version, seq, deleted, updatedAt, ciphertext } = m;
+        if (typeof id !== "string" || typeof version !== "number" || typeof seq !== "number") throw bad();
+        if (typeof deleted !== "boolean" || typeof ciphertext !== "string") throw bad();
+        return { id, version, seq, deleted, updatedAt: num(updatedAt, 0), ciphertext };
+      });
       return {
         menus: rows,
-        next: num(body.next, since),
-        more: body.more === true,
-        resync: body.resync === true,
+        next: body.next,
+        more: body.more,
+        resync: body.resync,
         ...(typeof body.purged === "number" ? { purged: body.purged } : {}),
       };
     },
