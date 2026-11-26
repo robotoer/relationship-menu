@@ -14,7 +14,7 @@ Live at **https://wantsandwonts.com**. The old address, relationship-menu.vercel
    - the *template link* has your items but none of your answers, for someone to fill in fresh;
    - the *menu link* includes your answers (and your name, if you added one), so only send it to the people you're comparing with;
    - *slugs* are the same data without the web address.
-4. **Compare.** Paste two or more menu links into Compare. Items are matched by their text, so the menus don't have to be identical. An overview shows how much you agree, alignment per group, the biggest differences and each person's answers. Filter, search, or sort by biggest difference.
+4. **Compare.** Paste two or more menu links into Compare. Items are matched by their text, so the menus don't have to be identical. "Where you stand" sorts every item into conflicts, things to talk about, unanswered items, quick checks and the ones you're on the same page about; then shows what to talk about first, what matters most to each of you, and each group at a glance. Filter, search, or sort by biggest difference.
 5. **Talk it through.** A guided conversation goes through the differences one at a time, easiest first: prompts for each, a place for notes, where you landed (agreed, compromise, revisit later…) and next steps. At the end there's a summary to copy, download or print. Notes stay in your browser.
 
 There are no accounts and no server database for menus. Menus are saved in your browser (localStorage), and a link carries the whole menu inside it. Opening someone else's link saves a copy to your Library without overwriting anything of yours.
@@ -66,7 +66,8 @@ src/
   compare-slug.ts      reading and writing menu links/slugs
   data-comparer.ts     matching items across menus
   compare-filters.ts   the compare view's filters
-  compare-insights.ts  the overview: alignment, biggest differences, per person
+  compare-focus.ts     where people stand on each item (one bucket per item)
+  compare-insights.ts  the overview: what to talk about first, per person, per group
   discussion.ts        the guided discussion: agenda, prompts, notes, summary
   templates.ts         template menus and ready-made groups
   storage.ts           browser storage (localStorage)

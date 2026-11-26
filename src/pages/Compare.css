@@ -4,7 +4,7 @@
 
 .compare-page-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr));
   gap: 1.5rem;
   padding: 1rem 0;
   align-items: start;
@@ -36,8 +36,17 @@
 }
 
 .compare-key .compare-key-swatch {
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
+  font-size: 12px;
+}
+
+.compare-items {
+  margin-top: 2rem;
+}
+.compare-items-title {
+  margin: 0 0 0.25rem;
+  color: var(--c-yellow);
 }
 
 .compare-empty {
@@ -90,11 +99,12 @@
   content: "▶";
 }
 
-/* Color hints matching the answer colors. */
-.compare-filter-conflict .compare-filter-count { background: var(--pref-off-limits); }
-.compare-filter-both-want .compare-filter-count { background: var(--pref-like-to-have); color: var(--c-ink); }
-.compare-filter-agree .compare-filter-count { background: var(--pref-must-have); }
-.compare-filter-differ .compare-filter-count { background: var(--pref-maybe); color: var(--c-ink); }
+/* Color hints matching the zone colors in the overview. */
+.compare-filter-conflict .compare-filter-count { background: var(--zone-conflict); }
+.compare-filter-talk .compare-filter-count { background: var(--zone-talk); color: var(--c-ink); }
+.compare-filter-open .compare-filter-count { background: var(--c-white); color: var(--c-ink); outline: 2px dashed var(--c-ink); outline-offset: -2px; }
+.compare-filter-quick .compare-filter-count { background: var(--zone-quick); color: var(--c-ink); }
+.compare-filter-aligned .compare-filter-count { background: var(--zone-aligned); }
 
 .compare-filter-description {
   margin: 0.75rem 0 0;

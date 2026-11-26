@@ -157,7 +157,8 @@ test.describe("Compare filters and people", () => {
     await page.getByRole("group", { name: "Show items" }).getByRole("button", { name: /^Conflicts/ }).click();
     await expect(grid.locator(".menu-item-compare")).toHaveCount(1);
     await expect(grid).toContainText("Kissing");
-    await page.getByRole("group", { name: "Show items" }).getByRole("button", { name: /^Agree/ }).click();
+    // Both Maybe: a quick check, not a conversation.
+    await page.getByRole("group", { name: "Show items" }).getByRole("button", { name: /^Quick checks/ }).click();
     await expect(grid.locator(".menu-item-compare")).toHaveCount(1);
     await expect(grid).toContainText("Dancing");
   });

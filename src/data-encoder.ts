@@ -13,7 +13,12 @@ import { deflate, inflate } from "pako";
 export const encodeData = (data: any): string => {
   const stringified = JSON.stringify(data);
   const compressed = deflate(stringified);
-  return btoa(String.fromCharCode(...compressed));
+  // In chunks: spreading a large array into one call can overflow the stack.
+  let binary = "";
+  for (let i = 0; i < compressed.length; i += 0x8000) {
+    binary += String.fromCharCode(...compressed.subarray(i, i + 0x8000));
+  }
+  return btoa(binary);
 };
 
 /**

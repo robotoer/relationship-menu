@@ -9,13 +9,14 @@ import { Link } from "react-router-dom";
 import { MenuCompareLegend } from "../components/MenuCompareLegend";
 import { MenuGroup } from "../components/MenuGroup";
 import {
+  COMPARE_VALUE_GLYPHS,
   COMPARE_VALUE_LABELS,
   MenuItemCompare,
 } from "../components/MenuItemCompare";
 import { MenuComparison } from "../model/compare";
 import { CompareSection } from "../components/CompareSection";
 import { ReactNode, useMemo, useState } from "react";
-import { COMPARE_FILTERS, CompareFilter, matchesFilter } from "../compare-filters";
+import { FOCUS_FILTERS, FocusFilter, matchesFocusFilter } from "../compare-focus";
 import { byDifference, compareInsights, flattenComparison, matchesQuery } from "../compare-insights";
 import { buildAgenda } from "../discussion";
 import { CompareOverview } from "../components/CompareOverview";
@@ -24,13 +25,15 @@ import { platform } from "../platform";
 type CompareSort = "menu" | "difference";
 
 /**
- * A key explaining what each color in the comparison grid means.
+ * A key explaining what each color and symbol in the comparison grid means.
  */
 const CompareColorKey = () => (
   <ul className="compare-key" aria-label="Color key">
     {Object.entries(COMPARE_VALUE_LABELS).map(([className, label]) => (
       <li key={className}>
-        <span className={`compare-key-swatch ${className}`} aria-hidden="true" />
+        <span className={`compare-key-swatch ${className}`} aria-hidden="true">
+          {COMPARE_VALUE_GLYPHS[className]}
+        </span>
         {label}
       </li>
     ))}
@@ -80,7 +83,7 @@ export const ComparePage = ({
   const columnTitles = (legendTitles ?? titles).map(
     (title, index) => title || `Menu ${index + 1}`
   );
-  const [filter, setFilter] = useState<CompareFilter>("all");
+  const [filter, setFilter] = useState<FocusFilter>("all");
   const [query, setQuery] = useState("");
   const [groupFilter, setGroupFilter] = useState("");
   const [sort, setSort] = useState<CompareSort>("menu");
@@ -90,7 +93,6 @@ export const ComparePage = ({
     [comparison, columnTitles.length]
   );
   const topicCount = useMemo(() => buildAgenda(comparison).length, [comparison]);
-  const counts = insights.counts;
   const groupNames = Object.keys(comparison);
   // Filter, search and group selection, then either menu order (grouped) or one
   // list sorted by difference.
@@ -98,7 +100,7 @@ export const ComparePage = ({
     () =>
       flattenComparison(comparison).filter(
         (item) =>
-          matchesFilter(item, filter) &&
+          matchesFocusFilter(item, filter) &&
           matchesQuery(item, query) &&
           (!groupFilter || item.group === groupFilter)
       ),
@@ -111,11 +113,21 @@ export const ComparePage = ({
     return Array.from(byGroup.entries());
   }, [shown, sort]);
   const narrowed = filter !== "all" || query.trim() !== "" || groupFilter !== "";
-  const hasItems = counts.all > 0;
-  const chooseFilter = (id: CompareFilter) => {
+  const hasItems = insights.total > 0;
+  const counts: Record<FocusFilter, number> = {
+    all: insights.total,
+    ...insights.zones,
+    notes: insights.withNotes,
+  };
+  const chooseFilter = (id: FocusFilter) => {
     if (id !== filter) track("compare_filter_used", { filter: id });
     setFilter(id);
   };
+  const chooseSort = (next: CompareSort) => {
+    if (next !== sort) track("compare_sorted", { sort: next });
+    setSort(next);
+  };
+  const toItems = () => document.getElementById("compare-items")?.scrollIntoView?.({ behavior: "smooth" });
   return (
     <div className="compare-page">
       <h1 className="sr-only">Compare menus</h1>
@@ -136,98 +148,106 @@ export const ComparePage = ({
             <CompareOverview
               insights={insights}
               names={columnTitles}
-              onFilter={(id) => {
-                chooseFilter(id);
-                document.getElementById("compare-items")?.scrollIntoView?.({ behavior: "smooth" });
+              onFilter={(zone) => {
+                chooseFilter(zone);
+                toItems();
+              }}
+              onGroup={(group) => {
+                setFilter("all");
+                setGroupFilter(group);
+                toItems();
+              }}
+              onShowFocus={() => {
+                setFilter("all");
+                setGroupFilter("");
+                setQuery("");
+                chooseSort("difference");
+                toItems();
               }}
               discussLink={discussLink}
               topicCount={topicCount}
               actions={saveControls}
             />
           )}
-          <CompareColorKey />
-          {hasItems && (
-            <div className="compare-filters" role="group" aria-label="Show items">
-              {COMPARE_FILTERS.map(({ id, label, description }) => (
-                <button
-                  key={id}
-                  type="button"
-                  className={`compare-filter compare-filter-${id}`}
-                  aria-pressed={filter === id}
-                  title={description}
-                  onClick={() => chooseFilter(id)}
-                >
-                  {label} <span className="compare-filter-count">{counts[id]}</span>
-                </button>
-              ))}
-            </div>
-          )}
           {!hasItems && (
             <p className="compare-empty">These menus don't have any items yet.</p>
           )}
           {hasItems && (
-            <div className="compare-toolbar" id="compare-items">
-              <label>
-                <span>Search</span>
-                <input
-                  type="search"
-                  value={query}
-                  placeholder="Item, group or note"
-                  onChange={(e) => {
-                    if (e.target.value.trim() && !query.trim()) track("compare_searched");
-                    setQuery(e.target.value);
-                  }}
-                />
-              </label>
-              {groupNames.length > 1 && (
+            <section className="compare-items" aria-labelledby="compare-items-title">
+              <h2 id="compare-items-title" className="compare-items-title">
+                Item by item
+              </h2>
+              <div className="compare-filters" role="group" aria-label="Show items">
+                {FOCUS_FILTERS.map(({ id, label, description }) => (
+                  <button
+                    key={id}
+                    type="button"
+                    className={`compare-filter compare-filter-${id}`}
+                    aria-pressed={filter === id}
+                    title={description}
+                    onClick={() => chooseFilter(id)}
+                  >
+                    {label} <span className="compare-filter-count">{counts[id]}</span>
+                  </button>
+                ))}
+              </div>
+              <div className="compare-toolbar" id="compare-items">
                 <label>
-                  <span>Group</span>
-                  <select value={groupFilter} onChange={(e) => setGroupFilter(e.target.value)}>
-                    <option value="">All groups</option>
-                    {groupNames.map((g) => (
-                      <option key={g} value={g}>
-                        {g}
-                      </option>
-                    ))}
+                  <span>Search</span>
+                  <input
+                    type="search"
+                    value={query}
+                    placeholder="Item, group or note"
+                    onChange={(e) => {
+                      if (e.target.value.trim() && !query.trim()) track("compare_searched");
+                      setQuery(e.target.value);
+                    }}
+                  />
+                </label>
+                {groupNames.length > 1 && (
+                  <label>
+                    <span>Group</span>
+                    <select value={groupFilter} onChange={(e) => setGroupFilter(e.target.value)}>
+                      <option value="">All groups</option>
+                      {groupNames.map((g) => (
+                        <option key={g} value={g}>
+                          {g}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+                <label>
+                  <span>Order</span>
+                  <select value={sort} onChange={(e) => chooseSort(e.target.value as CompareSort)}>
+                    <option value="menu">Menu order</option>
+                    <option value="difference">Biggest differences first</option>
                   </select>
                 </label>
+                {narrowed && (
+                  <button
+                    type="button"
+                    className="compare-clear"
+                    onClick={() => {
+                      setFilter("all");
+                      setQuery("");
+                      setGroupFilter("");
+                    }}
+                  >
+                    Show everything
+                  </button>
+                )}
+              </div>
+              {filter !== "all" && groups.length > 0 && (
+                <p className="compare-filter-description">
+                  {FOCUS_FILTERS.find((f) => f.id === filter)?.description}.
+                </p>
               )}
-              <label>
-                <span>Order</span>
-                <select
-                  value={sort}
-                  onChange={(e) => {
-                    const next = e.target.value as CompareSort;
-                    if (next !== sort) track("compare_sorted", { sort: next });
-                    setSort(next);
-                  }}
-                >
-                  <option value="menu">Menu order</option>
-                  <option value="difference">Biggest differences first</option>
-                </select>
-              </label>
-              {narrowed && (
-                <button
-                  type="button"
-                  className="compare-clear"
-                  onClick={() => {
-                    setFilter("all");
-                    setQuery("");
-                    setGroupFilter("");
-                  }}
-                >
-                  Show everything
-                </button>
+              <CompareColorKey />
+              {groups.length === 0 && (
+                <p className="compare-empty">Nothing matches. Try another filter or search.</p>
               )}
-            </div>
-          )}
-          {hasItems && groups.length === 0 && (
-            <p className="compare-empty">Nothing matches. Try another filter or search.</p>
-          )}
-          {hasItems && filter !== "all" && groups.length > 0 && (
-            <p className="compare-filter-description">
-              {COMPARE_FILTERS.find((f) => f.id === filter)?.description}.
-            </p>
+            </section>
           )}
           <div className="compare-page-grid">
             {groups.map(([title, group], index) => (
@@ -247,13 +267,13 @@ export const ComparePage = ({
             ))}
           </div>
           {platform().support && (
-          <p className="support-nudge">
-            Did this help you two talk?{" "}
-            <Link to="/support" state={{ supportFrom: "compare" }}>
-              Support Wants &amp; Won'ts
-            </Link>{" "}
-            to keep it free and private.
-          </p>
+            <p className="support-nudge">
+              Did this help you two talk?{" "}
+              <Link to="/support" state={{ supportFrom: "compare" }}>
+                Support Wants &amp; Won'ts
+              </Link>{" "}
+              to keep it free and private.
+            </p>
           )}
         </>
       )}

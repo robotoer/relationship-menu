@@ -248,42 +248,49 @@ flowchart TB
 | CP-4 | Blank items are ignored. If one menu lists the same item twice, its first answer counts. | [Property](../../src/__props__/compare.props.test.ts) |
 | CP-5 | Every item from every menu appears in the comparison exactly once. | [Property](../../src/__props__/compare.props.test.ts) |
 
-### Filters
+### Where people stand on an item
 
-| Filter | An item matches when… |
-| --- | --- |
-| All | always |
-| Agree | everyone answered, all the same |
-| All want | everyone answered Must have or Like to have |
-| Conflicts | someone wants it (Must/Like) and someone marked it Off limits |
-| Talk about it | everyone answered, answers differ, and it's not a conflict |
-| Unanswered | someone has it but didn't answer |
-| Not on every menu | some menu doesn't include it |
+Every item is put in exactly **one** bucket (`src/compare-focus.ts`), built only on the verified predicates in `src/answer-cells.ts`. The buckets answer the question two people actually have: where do we need to talk, what only needs a quick check, and where are we already aligned. Must have against Like to have is *not* a disagreement: you both want it.
+
+| Zone (filter) | Bucket | An item is here when… |
+| --- | --- | --- |
+| Conflicts | Conflict | someone wants it (Must/Like) and someone marked it Off limits, whether or not everyone answered |
+| Talk about it | Talk about it | everyone answered, answers differ, it's not a conflict, and not everyone wants it (e.g. Must have vs Maybe, Maybe vs Off limits) |
+| Not answered | Not answered yet | not a conflict, and someone didn't answer or doesn't have it on their menu |
+| Quick checks | Want it, different amounts | everyone wants it, some more (Must have and Like to have) |
+| Quick checks | Everyone's unsure | everyone answered Maybe |
+| Same page | Everyone wants it | everyone gave the same yes |
+| Same page | Shared limit | everyone marked it Off limits |
+
+The filters are **All**, the five zones, and **With notes** (someone wrote a note on it). The older filters (Agree, All want, Unanswered, Not on every menu) remain as the verified predicates the buckets are built from.
 
 | ID | Rule | Checked by |
 | --- | --- | --- |
 | CP-10 | When everyone answered an item, it is in **exactly one** of Agree, Talk about it, Conflicts. | [Proof](../../src/answer-cells.ts), [Property](../../src/__props__/compare.props.test.ts) |
 | CP-11 | All want implies everyone answered; Agree and Conflicts never overlap. | [Proof](../../src/answer-cells.ts), [Property](../../src/__props__/compare.props.test.ts) |
-| CP-12 | A filter shows exactly the matching items, keeps their order, and hides groups left empty. The count on each filter equals what it shows. | [Property](../../src/__props__/compare.props.test.ts) |
+| CP-12 | A filter shows exactly the matching items, keeps their order, and hides groups left empty. The count on each filter equals what it shows. | [Property](../../src/__props__/compare.props.test.ts), [Property](../../src/__props__/insights-discussion.props.test.ts) (CP-30) |
 | CP-14 | Each person's note on an item is shown under it, labelled with their name. Notes never change matching, answers, filters or counts; if a menu has the item twice, its first note counts. | [Property](../../src/__props__/compare.props.test.ts), Test |
-| CP-13 | The comparison appears after pressing Compare; a shared compare link with two or more valid menus opens straight to it. Columns are labelled with the person's name when known, else the menu title. | Test (e2e) |
+| CP-13 | The comparison appears after pressing Compare; a shared compare link with two or more valid menus opens straight to it. Columns are headed with the person's name when known, else the menu title, written across above each column (cut short with its full text as a tooltip). Each answer square carries a symbol as well as its color (★ Must have, ✓ Like to have, ? Maybe, ✕ Off limits, – no answer), and the item's text sits beside the squares. Rows that need a talk carry a tag (Conflict, Talk about it, Not answered yet) and a colored edge; quick checks only the edge. | Test (unit + e2e) |
 
-### At a glance
+### Where you stand
 
-An overview above the items (`src/compare-insights.ts`, `CompareOverview`):
-- the headline: the share of items everyone answered that they agree on, how many conflicts there are, and how many items aren't answered by everyone;
-- tiles for shared wants, agree, talk about it and conflicts, which also apply that filter;
-- alignment per group;
-- the biggest differences;
-- each person's must-haves, off-limits and open items;
-- a way into the guided discussion.
+An overview above the items (`src/compare-insights.ts`, `CompareOverview`), written for two people deciding where to spend their conversation:
+- **the headline:** how many items you're on the same page on, how many are worth a real conversation (and how many of those are conflicts), how many only need a quick check, and how many aren't answered by everyone;
+- **one bar** split into the five zones, with a button per zone that shows those items below;
+- **talk about these first:** conflicts, then differences, then unanswered items, each naming who answered what and showing their notes;
+- **what matters most to each of you:** each person's must-haves that aren't a yes for the others, and their Off limits that someone else wants, with how the others answered;
+- **where you're aligned:** what you all want, and your shared limits;
+- **by group:** a bar per group split the same way, with its conflicts and differences; the group's name shows its items;
+- a way into talking it through (a conversation, §7c), and saving the comparison as one.
 
 | ID | Rule | Checked by |
 | --- | --- | --- |
-| CP-20 | The overview's counts are the filters' counts; group totals and each person's answers add up to the number of items. | [Property](../../src/__props__/insights-discussion.props.test.ts), Test |
-| CP-21 | Alignment is the agreed share of items everyone answered (0–100%), shown per group too; with nothing fully answered it says so instead of showing a number. | [Property](../../src/__props__/insights-discussion.props.test.ts), Test |
+| CP-30 | Every item is in exactly one bucket and one zone, so the zone counts, the bar and the filters all add up to the number of items, per group too; each person's answers add up to the number of items. | [Property](../../src/__props__/insights-discussion.props.test.ts), Test |
+| CP-31 | The buckets agree with the verified filters: Conflict exactly when CP-11's conflict holds; Same page and Everyone's unsure only when everyone gave the same answer; Want it, different amounts only when everyone wants it; Talk about it only when answers differ and not everyone wants it. | [Property](../../src/__props__/insights-discussion.props.test.ts), Test |
+| CP-32 | "Talk about these first" is exactly the conflicts, differences and unanswered items: conflicts first, then differences, then unanswered; within each the largest gap first, then items with notes, then menu order. The overview shows the first six and can show them all below, most important first. | [Property](../../src/__props__/insights-discussion.props.test.ts), Test (unit + e2e) |
+| CP-33 | For each person, "must-haves that aren't a yes" is exactly their Must haves where someone else answered Maybe or Off limits, didn't answer, or doesn't have it; "Off limits that someone wants" is exactly their Off limits where someone else answered Must or Like. | [Property](../../src/__props__/insights-discussion.props.test.ts), Test |
+| CP-34 | Outside the grid an answer is always shown with whose it is ("Ana: Must Have"), never as an unlabelled color. | Test (unit + e2e) |
 | CP-22 | "Biggest differences first" orders items by how far apart the answers are (Must have … Off limits), conflicts above everything, ties in menu order; items with fewer than two answers go last. Nothing is added or dropped. | [Property](../../src/__props__/insights-discussion.props.test.ts), Test |
-| CP-23 | The overview lists at most five biggest differences, and only real ones (answers not all the same). | [Property](../../src/__props__/insights-discussion.props.test.ts), Test |
 | CP-24 | Search matches item text, group names and notes (ignoring case); it combines with the filter and a group choice, and "Show everything" clears all three. | Test (unit + e2e) |
 | CP-25 | Sorting by difference shows one list, with each item's group as a caption. | Test (unit + e2e) |
 
@@ -442,7 +449,7 @@ flowchart LR
 | Links | LK-6…LK-8 | Test (e2e) | `e2e/` |
 | Comparing | CP-10, CP-11 | **Proof** of the code itself + Property | [`answer-cells.ts`](../../src/answer-cells.ts), [`compare.props`](../../src/__props__/compare.props.test.ts) |
 | Comparing | CP-1…CP-5, CP-12, CP-14 | Property (against a naive reference) | compare props |
-| Comparing | CP-20…CP-25 | Property + Test | [`insights-discussion.props`](../../src/__props__/insights-discussion.props.test.ts), `Compare.test.tsx`, `e2e/discuss.spec.ts` |
+| Comparing | CP-22, CP-24, CP-25, CP-30…CP-34 | Property + Test | [`insights-discussion.props`](../../src/__props__/insights-discussion.props.test.ts), `compare-insights.test.ts`, `Compare.test.tsx`, `e2e/discuss.spec.ts` |
 | Discussing | DS-1…DS-8 | Property (DS-2, DS-3) + Test | `discussion.test.ts`, `Discuss.test.tsx`, `e2e/discuss.spec.ts` |
 | Conversations | CV-1…CV-14 | Property (CV-8, CV-9) + Test | `__props__/conversation.props.test.ts`, `conversation.test.ts`, `Talk.test.tsx`, `Discuss.test.tsx`, `ConversationList.test.tsx`, `e2e/conversation.spec.ts` |
 | Comparing | CP-13 | Test (e2e) | `e2e/` |

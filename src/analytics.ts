@@ -8,7 +8,7 @@
  * compiler rather than by review.
  */
 
-import { CompareFilter } from "./compare-filters";
+import { FocusFilter } from "./compare-focus";
 import { LibrarySort } from "./library-info";
 
 type LinkKind = "menu" | "template" | "invite" | "menu_slug" | "template_slug";
@@ -122,7 +122,7 @@ export type AnalyticsEvent =
         conflict_count: number;
       };
     }
-  | { name: "compare_filter_used"; params: { filter: CompareFilter } }
+  | { name: "compare_filter_used"; params: { filter: FocusFilter } }
   | { name: "compare_searched"; params?: undefined }
   | { name: "compare_sorted"; params: { sort: "menu" | "difference" } }
   // Guided discussion

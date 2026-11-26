@@ -113,7 +113,7 @@ describe("ComparePage", () => {
     expect(grid().getByText("Trust")).toBeInTheDocument();
   });
 
-  it("filters the grid to conflicting items and shows counts", () => {
+  it("filters the grid to conflicting items and shows counts that add up (CP-12, CP-30)", () => {
     const comparison = {
       Physical: [
         { item: "Kissing", values: ["must-have", "must-have"] as any },
@@ -134,6 +134,13 @@ describe("ComparePage", () => {
     expect(grid().queryByText("Emotional")).not.toBeInTheDocument();
     fireEvent.click(filters().getByRole("button", { name: /^All 3/ }));
     expect(grid().getByText("Kissing")).toBeInTheDocument();
+    // The zones split every item exactly once.
+    // Kissing (both Must have) is the same page; Trust (both Maybe) is a quick check.
+    expect(filters().getByRole("button", { name: /Same page/ })).toHaveTextContent("1");
+    expect(filters().getByRole("button", { name: /Quick checks/ })).toHaveTextContent("1");
+    // Rows that need a talk say so; aligned rows don't.
+    expect(grid().getByText("Conflict")).toBeInTheDocument();
+    expect(document.querySelectorAll(".compare-page-grid .zone-tag")).toHaveLength(1);
   });
 
   it("shows an overview and can search, pick a group and sort by difference (CP-24, CP-25)", () => {
@@ -147,9 +154,24 @@ describe("ComparePage", () => {
     render(
       <ComparePage {...defaultProps} comparison={comparison} showComparison={true} discussLink="/discuss?x" />
     );
-    const overview = within(screen.getByRole("region", { name: "At a glance" }));
-    expect(overview.getByText(/You agree on/)).toHaveTextContent("You agree on 33% of the 3 items everyone answered, with 1 conflict.");
+    const overview = within(screen.getByRole("region", { name: "Where you stand" }));
+    expect(overview.getByText(/on the same page/)).toHaveTextContent(
+      "Alice & Bob: you're on the same page on 1 of 3 items. 2 are worth a real conversation, including 1 conflict."
+    );
     expect(overview.getByRole("link", { name: /Talk it through/ })).toHaveAttribute("href", "/discuss?x");
+    // What to talk about first names who answered what, and shows their notes (CP-32).
+    const first = overview.getByRole("heading", { name: "Talk about these first" }).parentElement!;
+    expect(first).toHaveTextContent(/Dancing.*Alice: Must Have.*Bob: Off Limits.*at weddings/);
+    // What matters most to each person (CP-33).
+    const people = overview.getByRole("heading", { name: "What matters most to each of you" }).parentElement!;
+    expect(people).toHaveTextContent("Must-haves that aren't a yes for Bob:");
+    expect(people).toHaveTextContent("Off limits, but Alice wants it:");
+    // Each zone opens its items below.
+    fireEvent.click(overview.getByRole("button", { name: /^Talk about it: 1/ }));
+    expect(filters().getByRole("button", { name: /Talk about it/ })).toHaveAttribute("aria-pressed", "true");
+    expect(grid().getByText("Trust")).toBeInTheDocument();
+    expect(grid().queryByText("Dancing")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Show everything" }));
 
     // Search matches notes too.
     fireEvent.change(screen.getByRole("searchbox"), { target: { value: "wedding" } });
