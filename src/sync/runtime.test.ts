@@ -136,8 +136,12 @@ describe("SY-1, SY-9: turning sync on and off", () => {
     expect(a.runtime.getState()).toEqual({ kind: "off" });
     await a.runtime.turnOn();
     expect(a.runtime.getState()).toMatchObject({ kind: "on" });
-    expect(await a.runtime.syncCode()).toHaveLength(24);
+    const words = await a.runtime.syncCode();
+    expect(words).toHaveLength(24);
     expect(a.tracked).toEqual([{ name: "sync_enabled", params: { how: "new" } }]);
+    // Turning on again changes nothing: the same code.
+    await a.runtime.turnOn();
+    expect(await a.runtime.syncCode()).toEqual(words);
 
     await a.runtime.turnOff();
     expect(a.runtime.getState()).toEqual({ kind: "off" });
@@ -375,6 +379,33 @@ describe("SY-8: replacing the sync code", () => {
     await b.runtime.refreshAccount();
     expect(b.runtime.getState()).toMatchObject({ kind: "on", notices: ["code_replaced"] });
     expect(b.menus().map((m) => m.title)).toEqual(["Ours"]);
+  });
+
+  test("another device enters the new code: it switches, keeps its menus, and nothing is duplicated (SY-13)", async () => {
+    const a = makeDevice(server);
+    a.save(menu(ID(1), "Ours"));
+    await supporter(server, a);
+    await settle();
+    const b = makeDevice(server);
+    await b.runtime.start();
+    await b.runtime.restore((await a.runtime.syncCode()).join(" "));
+    await settle();
+    b.save(menu(ID(2), "Only on B"));
+
+    await a.runtime.replaceCode();
+    // The new words are there as soon as it resolves (SY-8 shows them at once).
+    const newWords = await a.runtime.syncCode();
+    await settle();
+    await b.runtime.refreshAccount();
+    expect(b.runtime.getState()).toMatchObject({ notices: ["code_replaced"] });
+
+    // While sync is on with the old code, B switches to the new one.
+    await b.runtime.restore(newWords.join(" "));
+    await settle();
+    expect(await accountIdOf(b)).toBe(await accountIdOf(a));
+    expect(b.runtime.getState()).toMatchObject({ kind: "on", notices: [] });
+    expect(b.menus().map((m) => m.title)).toEqual(["Only on B", "Ours"]);
+    expect(server.liveMenuIds(await accountIdOf(a))).toEqual([ID(1), ID(2)]);
   });
 
   test("offline, nothing is replaced", async () => {

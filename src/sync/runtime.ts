@@ -547,26 +547,28 @@ export const createSyncRuntime = (options: RuntimeOptions = {}): SyncRuntime => 
     replaceCode: async () => {
       const on = requireOn();
       // Stop the loop: nothing is pushed under the old code from here.
-      const gen = ++generation;
+      generation++;
       poke();
+      let secret: Uint8Array | null = null;
       try {
         await catchUp(on.api, on.keys);
-        const secret = newSyncSecret();
+        secret = newSyncSecret();
         const next = await deriveKeys(secret);
         try {
           await on.api.rotate(next);
         } catch (error) {
-          secret.fill(0);
           throw toSyncError(error);
         }
-        if (gen !== generation) return;
+        // The server has moved the supporter status to the new code: from here on,
+        // nothing may stop the new code being kept, or the account would be lost.
         writeSecret(kv, secret);
-        secret.fill(0);
         // Every menu is new to the new account: push them all again.
         resetMenuStates(kv);
         report({ remove: ["code_replaced", "unreadable"], unreadable: 0 });
       } finally {
-        if (gen === generation) await activate();
+        secret?.fill(0);
+        // The new code if it was kept; otherwise the old one, as before.
+        await activate();
       }
     },
 
