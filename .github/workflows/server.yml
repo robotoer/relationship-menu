@@ -1,0 +1,88 @@
+# Supporter sync Worker (server/). See docs/spec/sync.md and server/README.md.
+# Tests every change to server/; deploys the *test* environment (Stripe test
+# mode, D1 menu-sync-test, a workers.dev URL) from main. Production deploys
+# are added later, by hand, when we go live.
+name: Sync server
+
+on:
+  push:
+    branches: [main]
+    paths: ["server/**", ".github/workflows/server.yml"]
+  pull_request:
+    paths: ["server/**", ".github/workflows/server.yml"]
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: "Also deploy this ref to the test environment"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  WRANGLER_SEND_METRICS: "false"
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: yarn
+          cache-dependency-path: server/yarn.lock
+      - run: yarn install --immutable
+      - name: Typecheck
+        run: yarn typecheck
+      - name: Test (Vitest in the Workers runtime)
+        run: yarn test
+      - name: Bundle check
+        run: yarn wrangler deploy --dry-run --env test --outdir "$RUNNER_TEMP/worker"
+
+  deploy-test:
+    name: Deploy (test environment)
+    needs: test
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.deploy)
+    runs-on: ubuntu-24.04
+    concurrency:
+      group: deploy-sync-test
+      cancel-in-progress: false
+    defaults:
+      run:
+        working-directory: server
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Check the Cloudflare token is set
+        id: token
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "::warning::CLOUDFLARE_API_TOKEN or CLOUDFLARE_ACCOUNT_ID isn't set; skipping the deploy."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+        working-directory: .
+      - uses: actions/checkout@v6
+        if: steps.token.outputs.ready == 'true'
+      - uses: actions/setup-node@v6
+        if: steps.token.outputs.ready == 'true'
+        with:
+          node-version: 22
+          cache: yarn
+          cache-dependency-path: server/yarn.lock
+      - run: yarn install --immutable
+        if: steps.token.outputs.ready == 'true'
+      - name: Apply D1 migrations (menu-sync-test)
+        if: steps.token.outputs.ready == 'true'
+        run: yarn wrangler d1 migrations apply menu-sync-test --env test --remote
+      - name: Deploy the Worker (wantsandwonts-test)
+        if: steps.token.outputs.ready == 'true'
+        run: yarn wrangler deploy --env test

@@ -1,0 +1,126 @@
+# Supporter sync Worker. See docs/spec/sync.md (§7 API, §13 costs).
+#
+# Environments:
+#   (none)      local `wrangler dev` and the Vitest suite; Miniflare's local D1.
+#   test        Stripe test mode, D1 `menu-sync-test`, a workers.dev URL.
+#               Deployed from `main` by .github/workflows/server.yml.
+#   production  Stripe live mode, D1 `menu-sync-prod`. Not deployed yet; the
+#               hosting PR adds the wantsandwonts.com route (HO-1).
+#
+# Secrets (never in this file): STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET.
+#   npx wrangler secret put STRIPE_SECRET_KEY --env test
+
+name = "wantsandwonts-local"
+main = "src/index.ts"
+compatibility_date = "2026-11-01"
+workers_dev = false
+
+# SY-44: no per-request invocation logs; the Worker writes one line per error.
+[observability]
+enabled = true
+[observability.logs]
+invocation_logs = false
+
+[vars]
+APP_ORIGIN = "http://localhost:3099"
+MANAGED_PAYMENTS = "true"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "menu-sync-local"
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "migrations"
+
+# SY-43. Limits are per Cloudflare location and approximate. Locally (and in the
+# Vitest suite) the general per-account limit is raised so tests can make many
+# writes; the deployed environments below use 60 a minute.
+[[ratelimits]]
+name = "RL_ACCOUNT"
+namespace_id = "1001"
+simple = { limit = 1000, period = 60 }
+
+[[ratelimits]]
+name = "RL_SENSITIVE"
+namespace_id = "1002"
+simple = { limit = 5, period = 60 }
+
+[[ratelimits]]
+name = "RL_IP"
+namespace_id = "1003"
+simple = { limit = 10, period = 60 }
+
+# ---------------------------------------------------------------------------
+[env.test]
+name = "wantsandwonts-test"
+workers_dev = true
+
+[env.test.observability]
+enabled = true
+[env.test.observability.logs]
+invocation_logs = false
+
+[env.test.vars]
+APP_ORIGIN = "http://localhost:3099"
+MANAGED_PAYMENTS = "true"
+
+[[env.test.d1_databases]]
+binding = "DB"
+database_name = "menu-sync-test"
+database_id = "f14f5608-e4a9-4272-b136-8a5c928de807"
+migrations_dir = "migrations"
+
+[[env.test.ratelimits]]
+name = "RL_ACCOUNT"
+namespace_id = "1001"
+simple = { limit = 60, period = 60 }
+
+[[env.test.ratelimits]]
+name = "RL_SENSITIVE"
+namespace_id = "1002"
+simple = { limit = 5, period = 60 }
+
+[[env.test.ratelimits]]
+name = "RL_IP"
+namespace_id = "1003"
+simple = { limit = 10, period = 60 }
+
+[env.test.triggers]
+crons = ["17 3 * * *"]
+
+# ---------------------------------------------------------------------------
+[env.production]
+name = "wantsandwonts"
+workers_dev = false
+
+[env.production.observability]
+enabled = true
+[env.production.observability.logs]
+invocation_logs = false
+
+[env.production.vars]
+APP_ORIGIN = "https://wantsandwonts.com"
+MANAGED_PAYMENTS = "true"
+
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "menu-sync-prod"
+database_id = "be712c7e-c171-4e5b-b0cd-5a40096c0bed"
+migrations_dir = "migrations"
+
+[[env.production.ratelimits]]
+name = "RL_ACCOUNT"
+namespace_id = "2001"
+simple = { limit = 60, period = 60 }
+
+[[env.production.ratelimits]]
+name = "RL_SENSITIVE"
+namespace_id = "2002"
+simple = { limit = 5, period = 60 }
+
+[[env.production.ratelimits]]
+name = "RL_IP"
+namespace_id = "2003"
+simple = { limit = 10, period = 60 }
+
+[env.production.triggers]
+crons = ["17 3 * * *"]
