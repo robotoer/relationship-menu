@@ -148,6 +148,46 @@ describe("push on this device (NT-20…NT-22, NT-28, §7b)", () => {
       expect(await within(panel).findByRole("button", { name: "🔔 Notify me on this device" })).toBeInTheDocument();
     });
 
+    it("stays on when a pull that started before the tap finishes after it (NT-20)", async () => {
+      const server = createFakeBoxServer();
+      // Hold the first pull of copies open until the tap has been handled.
+      let release!: () => void;
+      const gate = new Promise<void>((resolve) => (release = resolve));
+      let held = false;
+      const fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+        const path = new URL(String(input), "https://app.test").pathname;
+        if (!held && (init?.method ?? "GET") === "GET" && path.endsWith("/copies")) {
+          held = true;
+          await gate;
+        }
+        return server.fetch(input, init);
+      }) as typeof globalThis.fetch;
+      const store = createLiveStore(new IDBFactory());
+      const deps: LiveDeps = { api: createBoxApi({ fetch }), store, authorizeAccount: account };
+      await shareLive({ ...deps, api: createBoxApi({ fetch: server.fetch }) }, account, newConversation([ana, ben], 1000, ID));
+      install(fakeBrowser());
+      await renderLive(deps);
+      const panel = await screen.findByRole("region", { name: "Shared live" });
+      await waitFor(() => expect(held).toBe(true));
+      fireEvent.click(await within(panel).findByRole("button", { name: "🔔 Notify me on this device" }));
+      // Give turning on time to finish if it doesn't wait for the pull (the bug), then let the pull end.
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        release();
+        await new Promise((resolve) => setTimeout(resolve, 300));
+      });
+      expect(await within(panel).findByText(/On for this device/)).toBeInTheDocument();
+      await waitFor(async () => expect((await store.get(ID))?.push?.subId).toBeTruthy());
+      // Another pull keeps it on, here and in storage.
+      await act(async () => {
+        window.dispatchEvent(new Event("focus"));
+      });
+      await waitFor(async () => expect((await store.get(ID))?.seq).toBeGreaterThanOrEqual(0));
+      expect(within(panel).getByText(/On for this device/)).toBeInTheDocument();
+      expect((await store.get(ID))?.push?.subId).toBeTruthy();
+      expect(server.subscriptions.size).toBe(1);
+    });
+
     it("explains a refusal, a browser without push, and a server without it", async () => {
       const server = createFakeBoxServer();
       const deps: LiveDeps = { api: createBoxApi({ fetch: server.fetch }), store: createLiveStore(new IDBFactory()), authorizeAccount: account };

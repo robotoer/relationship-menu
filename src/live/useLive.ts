@@ -63,6 +63,21 @@ export const useLive = (
   const merged = useRef(onMerged);
   merged.current = onMerged;
   const queue = useRef<Promise<unknown>>(Promise.resolve());
+  /**
+   * The newest entry, at once: work queued after this reads it, rather than the
+   * copy from the last render. Without it, a pull that started before "Notify me"
+   * wrote back the entry without the push subscription (here and in storage).
+   */
+  const commit = useCallback((next: LiveEntry | null) => {
+    entryRef.current = next;
+    setEntry(next);
+  }, []);
+  /** Runs `work` after everything already queued (syncs, enabling or disabling push). */
+  const enqueue = useCallback(<T,>(work: () => Promise<T>): Promise<T> => {
+    const run = queue.current.then(work, work);
+    queue.current = run.catch(() => undefined);
+    return run;
+  }, []);
   const prepared = useRef<PushPrepared | null>(null);
   const [notifyWork, setNotifyWork] = useState<"idle" | "working" | "error" | "unavailable" | "denied">("idle");
 
@@ -73,7 +88,7 @@ export const useLive = (
     deps.store.get(conversation.id).then(
       (e) => {
         if (cancelled) return;
-        setEntry(e);
+        commit(e);
         setStatus(e ? { state: "syncing", members: 0, unreadable: 0 } : { state: "off" });
       },
       () => !cancelled && setStatus({ state: "off" })
@@ -81,7 +96,7 @@ export const useLive = (
     return () => {
       cancelled = true;
     };
-  }, [deps, conversation.id]);
+  }, [deps, conversation.id, commit]);
 
   const fail = useCallback(
     async (e: unknown, current: LiveEntry) => {
@@ -91,7 +106,7 @@ export const useLive = (
         if (e.reason === "not_found" || e.status === 401 || e.status === 403) {
           // Sharing was stopped, or this device was removed (NT-15): forget the box, keep the conversation.
           await deps.store.delete(current.conversationId).catch(() => undefined);
-          setEntry(null);
+          commit(null);
           return setStatus({ state: "stopped" });
         }
         if (e.reason === "read_only") return setStatus({ state: "read_only", members: 0 });
@@ -99,7 +114,7 @@ export const useLive = (
       }
       setStatus({ state: "error", reason: e instanceof Error && e.name === "CopyTooLargeError" ? "too_large" : "failed" });
     },
-    [deps]
+    [deps, commit]
   );
 
   /** Pull, merge, then write this device's copy if it's behind. Serialized. */
@@ -116,20 +131,19 @@ export const useLive = (
             merged.current(pulled.conversation);
           }
           if (pulled.readOnly) {
-            setEntry(next);
+            commit(next);
             return setStatus({ state: "read_only", members: pulled.members });
           }
           if (push && needsPush(next, local.current)) next = await pushLive(deps, next, local.current);
-          setEntry(next);
+          commit(next);
           setStatus({ state: "live", members: pulled.members, lastSyncAt: Date.now(), unreadable: pulled.unreadable });
         } catch (e) {
           await fail(e, current);
         }
       };
-      queue.current = queue.current.then(run, run);
-      return queue.current as Promise<void>;
+      return enqueue(run);
     },
-    [deps, fail]
+    [deps, fail, commit, enqueue]
   );
 
   // Pull when the box is found, on focus, when visible, and every 2 minutes; push when hidden.
@@ -198,12 +212,12 @@ export const useLive = (
             ? Promise.resolve("granted")
             : window.Notification.requestPermission();
         setNotifyWork("working");
-        void (async () => {
+        void enqueue(async () => {
           try {
             if ((await permission) !== "granted") return setNotifyWork("denied");
             const ready = prepared.current ?? (prepared.current = await preparePush(deps.api));
             const next = await enablePush(deps, entryRef.current ?? current, ready);
-            setEntry(next);
+            commit(next);
             setNotifyWork("idle");
             track("notifications_enabled", { channel: "webpush" });
           } catch (e) {
@@ -215,20 +229,22 @@ export const useLive = (
                   : "error"
             );
           }
-        })();
+        });
       },
       disable: async () => {
         const current = entryRef.current;
         if (!deps || !current) return;
         setNotifyWork("working");
-        try {
-          const ready = prepared.current;
-          setEntry(await disablePush(deps, current, ready && "registration" in ready ? ready.registration : null));
-          setNotifyWork("idle");
-          track("notifications_disabled");
-        } catch {
-          setNotifyWork("error");
-        }
+        await enqueue(async () => {
+          try {
+            const ready = prepared.current;
+            commit(await disablePush(deps, entryRef.current ?? current, ready && "registration" in ready ? ready.registration : null));
+            setNotifyWork("idle");
+            track("notifications_disabled");
+          } catch {
+            setNotifyWork("error");
+          }
+        });
       },
     },
     entry,
@@ -239,7 +255,7 @@ export const useLive = (
       setStatus({ state: "syncing", members: 1, unreadable: 0 });
       try {
         const created = await shareLive(deps, deps.authorizeAccount, local.current);
-        setEntry(created);
+        commit(created);
         setStatus({ state: "live", members: 1, lastSyncAt: Date.now(), unreadable: 0 });
         track("live_shared");
       } catch (e) {
@@ -247,32 +263,34 @@ export const useLive = (
         else setStatus({ state: "error", reason: e instanceof Error && e.name === "CopyTooLargeError" ? "too_large" : "failed" });
       }
     },
-    renew: async () => {
-      const current = entryRef.current;
-      if (!deps || !current?.isHost) return;
-      try {
-        setEntry(await renewInvite(deps, current));
-      } catch (e) {
-        await fail(e, current);
-      }
-    },
-    end: async () => {
-      const current = entryRef.current;
-      if (!deps || !current) return;
-      try {
-        await endLive(deps, current);
-        // The server dropped this box's subscriptions; drop the browser's if nothing else uses it.
-        const ready = prepared.current;
-        await forgetBrowserSubscriptionIfUnused(deps.store, ready && "registration" in ready ? ready.registration : null).catch(
-          () => undefined
-        );
-        setEntry(null);
-        setStatus({ state: "off" });
-        track(current.isHost ? "live_stopped" : "live_left");
-      } catch (e) {
-        await fail(e, current);
-      }
-    },
+    renew: () =>
+      enqueue(async () => {
+        const current = entryRef.current;
+        if (!deps || !current?.isHost) return;
+        try {
+          commit(await renewInvite(deps, current));
+        } catch (e) {
+          await fail(e, current);
+        }
+      }),
+    end: () =>
+      enqueue(async () => {
+        const current = entryRef.current;
+        if (!deps || !current) return;
+        try {
+          await endLive(deps, current);
+          // The server dropped this box's subscriptions; drop the browser's if nothing else uses it.
+          const ready = prepared.current;
+          await forgetBrowserSubscriptionIfUnused(deps.store, ready && "registration" in ready ? ready.registration : null).catch(
+            () => undefined
+          );
+          commit(null);
+          setStatus({ state: "off" });
+          track(current.isHost ? "live_stopped" : "live_left");
+        } catch (e) {
+          await fail(e, current);
+        }
+      }),
     syncNow: () => sync(),
   };
 };
