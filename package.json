@@ -23,6 +23,7 @@
     "test": "vitest",
     "test:e2e": "playwright test --workers=1",
     "test:e2e:ui": "playwright test --ui",
+    "og-image": "node design/render-og-image.mjs",
     "verify": "while read -r f; do [ -n \"$f\" ] && npx -y -p lemmascript@0.6.12 lsc check --backend=dafny \"$f\"; done < LemmaScript-files.txt && dafny verify docs/spec/formal/dafny/MenuEditing.dfy"
   },
   "jest": {
