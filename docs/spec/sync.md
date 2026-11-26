@@ -218,7 +218,7 @@ When a pull brings a remote record newer than what this device has seen:
 | --- | --- | --- |
 | SY-30 | **Local first.** A save writes to browser storage first (SV-10, unchanged). Sync never blocks, slows or fails a save. | Test (unit + e2e offline) |
 | SY-31 | **Push.** Changed menus are sent about 2 s after the last save, one request at a time, and retried with backoff (1 s up to 5 min) while offline. When the page is hidden, the queue is flushed with `fetch(…, {keepalive: true})`. Its 64 KB limit is why one menu is capped at 64 KiB. | Property (queue) + Test |
-| SY-32 | **Pull.** Pulls happen on load, when the tab becomes visible, every 5 minutes while it's visible, and after a rejected push. Each pull asks only for changes since the last one (`since=<seq>`), 100 rows per page. | Test |
+| SY-32 | **Pull.** Pulls happen on load, when the tab becomes visible, every 5 minutes while it's visible, and after a rejected push. Each pull asks only for changes since the last one (`since=<seq>`), 100 rows per page. If the cursor is older than a tombstone the server has forgotten (SY-23), the reply says `resync`: the device pulls from 0 and treats synced menus that are now missing as deleted. | Test (`server/test/menus.test.ts`, `cron.test.ts`) |
 | SY-33 | A synced change to a menu open in the editor with no unsaved edits replaces it in place, with a quiet "Updated on another device." If the editor has unsaved edits, SY-35 applies when they're saved. | Test (e2e) |
 | SY-34 | **Fast-forward.** A menu that hasn't changed here since its last sync takes the newer synced version. | Property |
 | SY-35 | **Conflict.** If a menu changed on this device and on another since they last synced, the newer edit (by its edit time, then device id) keeps the menu. The other is kept as a new menu titled "Title (from another device)", or "… (2)" and so on if that title is taken, using the copy logic already in `App.tsx`. Nothing is overwritten unseen. | Proof (TLC) + Property |
@@ -247,6 +247,8 @@ When a pull brings a remote record newer than what this device has seen:
 | `POST /v1/account/rotate` | signed by old key + proof from new key | SY-8 *(added)* |
 | `DELETE /v1/account` | signed | SY-68 *(added)* |
 | `GET /v1/health` | none | `ok`, for the uptime check *(added)* |
+
+The exact wire format (headers, bodies, status codes) is in [`server/README.md`](../../server/README.md#wire-protocol); the tests in `server/test/` double as the reference client.
 
 D1 tables:
 
@@ -562,7 +564,7 @@ Things to confirm in test mode during Phase 1, before relying on it:
 | merge is idempotent (the same pull twice = once); fast-forward; dirty content always survives (as the menu or a copy); tombstones and rollbacks without valid ciphertext are ignored | SY-17…SY-19, SY-34…SY-37 | real `sync-merge.ts` |
 | two simulated devices + an in-memory server, random interleavings (like `autosave.props`): converge, nothing lost | SY-38, SY-39 | real merge + push queue |
 | Crypto unit tests: HKDF RFC 5869 vectors through our wrapper; frozen derivation vectors; AES-GCM tamper and AAD tests; "ciphertext contains no plaintext" | SY-1, SY-2, SY-15, SY-16 | `src/sync-crypto.test.ts` |
-| Server: Vitest + `@cloudflare/vitest-pool-workers` (Miniflare, real D1): auth, If-Match, quotas, no CORS headers, rate limits, webhooks with Stripe fixture payloads, cron, no-content logging | SY-6…SY-8, SY-40…SY-46, SY-60…SY-68 | `server/test/` |
+| Server: Vitest + `@cloudflare/vitest-plugin` (the renamed `vitest-pool-workers`; Miniflare, real D1): auth, If-Match, quotas, no CORS headers, rate limits, webhooks with Stripe fixture payloads, cron, no-content logging | SY-6…SY-8, SY-40…SY-46, SY-60…SY-68 | `server/test/` |
 | Playwright: two contexts pair, edit, see, offline conflict → copy; Stripe test checkout (test card 4242…); lapsed → read-only; restore on a fresh context; analytics no-leak | SY-10…SY-13, SY-33, SY-35, SY-61, SY-66, SY-75, SY-80 | `e2e/sync.spec.ts`, `e2e/analytics.spec.ts` |
 | Playwright with two origins (`localhost` and `127.0.0.1` are different origins): old links redirect, saved menus move, nothing is overwritten, a second visit sends only changes | HO-3…HO-7 | `e2e/handoff.spec.ts` |
 
