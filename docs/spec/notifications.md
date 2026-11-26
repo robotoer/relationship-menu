@@ -115,6 +115,7 @@ flowchart LR
 | NT-30 | While a live conversation is open and visible: pull on open, on focus, after a push arrives, and every 2 minutes. Push this device's copy 3 seconds after the last edit, and when the page is hidden. | Test (fake timers) |
 | NT-31 | Offline edits are kept locally (they're in the conversation already) and pushed when back online. Nothing is lost if the box is unreachable: the conversation still works as an ordinary local conversation, and link swapping still works. | Test |
 | NT-32 | A live conversation can still be sent as a link (CV-6). The link doesn't include the box key, so it doesn't give live access. | Test |
+| NT-33 | Turning "Notify me" on or off on a device waits for any pull or push already in flight, and they all run one at a time. A pull that started before the tap can't write back this device's old state and undo the change: the device would show off while its subscription still exists, or on with none. | Test (a held pull) |
 
 ---
 

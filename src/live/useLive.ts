@@ -91,6 +91,7 @@ export const useLive = (
         if (e.reason === "not_found" || e.status === 401 || e.status === 403) {
           // Sharing was stopped, or this device was removed (NT-15): forget the box, keep the conversation.
           await deps.store.delete(current.conversationId).catch(() => undefined);
+          entryRef.current = null;
           setEntry(null);
           return setStatus({ state: "stopped" });
         }
@@ -116,10 +117,13 @@ export const useLive = (
             merged.current(pulled.conversation);
           }
           if (pulled.readOnly) {
+            entryRef.current = next;
             setEntry(next);
             return setStatus({ state: "read_only", members: pulled.members });
           }
           if (push && needsPush(next, local.current)) next = await pushLive(deps, next, local.current);
+          // The next queued task reads this before React re-renders.
+          entryRef.current = next;
           setEntry(next);
           setStatus({ state: "live", members: pulled.members, lastSyncAt: Date.now(), unreadable: pulled.unreadable });
         } catch (e) {
@@ -198,11 +202,17 @@ export const useLive = (
             ? Promise.resolve("granted")
             : window.Notification.requestPermission();
         setNotifyWork("working");
-        void (async () => {
+        // Queued behind any sync in flight (NT-33): a pull that started before the tap
+        // would otherwise write back the entry without `push`, losing the subscription.
+        const task = async () => {
           try {
             if ((await permission) !== "granted") return setNotifyWork("denied");
             const ready = prepared.current ?? (prepared.current = await preparePush(deps.api));
-            const next = await enablePush(deps, entryRef.current ?? current, ready);
+            // A sync just before may have found sharing stopped and forgotten the box.
+            const at = entryRef.current;
+            if (!at) return setNotifyWork("idle");
+            const next = await enablePush(deps, at, ready);
+            entryRef.current = next;
             setEntry(next);
             setNotifyWork("idle");
             track("notifications_enabled", { channel: "webpush" });
@@ -215,20 +225,30 @@ export const useLive = (
                   : "error"
             );
           }
-        })();
+        };
+        queue.current = queue.current.then(task, task);
       },
-      disable: async () => {
+      disable: () => {
         const current = entryRef.current;
-        if (!deps || !current) return;
+        if (!deps || !current) return Promise.resolve();
         setNotifyWork("working");
-        try {
-          const ready = prepared.current;
-          setEntry(await disablePush(deps, current, ready && "registration" in ready ? ready.registration : null));
-          setNotifyWork("idle");
-          track("notifications_disabled");
-        } catch {
-          setNotifyWork("error");
-        }
+        // Queued like enable: a pull in flight would otherwise write `push` back.
+        const task = async () => {
+          try {
+            const at = entryRef.current;
+            if (!at) return setNotifyWork("idle");
+            const ready = prepared.current;
+            const next = await disablePush(deps, at, ready && "registration" in ready ? ready.registration : null);
+            entryRef.current = next;
+            setEntry(next);
+            setNotifyWork("idle");
+            track("notifications_disabled");
+          } catch {
+            setNotifyWork("error");
+          }
+        };
+        queue.current = queue.current.then(task, task);
+        return queue.current as Promise<void>;
       },
     },
     entry,

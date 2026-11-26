@@ -114,11 +114,12 @@ const sanitizeMenu = (menu: unknown): RelationshipMenu | null => {
  * @returns The decoded title and menu, or null if the entry is not a valid slug.
  */
 export const decodeCompareSlug = (raw: string): DecodedCompareSlug | null => {
-  // Each part is padded base64 (a multiple of 4 characters). A part 3 characters
-  // over lost a trailing "+" (it arrived as a space and was trimmed): put it back.
+  // Each part is padded base64 (a multiple of 4 characters). A part that falls short
+  // lost one or more trailing "+"s (they arrived as spaces and were trimmed): put
+  // them back.
   const parts = normalizeCompareEntry(raw)
     .split(":")
-    .map((part) => (part.length % 4 === 3 ? `${part}+` : part));
+    .map((part) => part + "+".repeat((4 - (part.length % 4)) % 4));
   if (parts.length < 2 || parts.length > 3) {
     return null;
   }

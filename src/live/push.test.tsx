@@ -148,6 +148,35 @@ describe("push on this device (NT-20…NT-22, NT-28, §7b)", () => {
       expect(await within(panel).findByRole("button", { name: "🔔 Notify me on this device" })).toBeInTheDocument();
     });
 
+    it("NT-33: turning on while a pull is in flight keeps the subscription", async () => {
+      const server = createFakeBoxServer();
+      const store = createLiveStore(new IDBFactory());
+      // Holds the first pull (GET …/copies?since=) until released.
+      let release = () => {};
+      let held: Promise<void> | null = null;
+      const fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+        if (held && (init?.method ?? "GET") === "GET" && String(input).includes("/copies?since=")) {
+          const wait = held;
+          held = null;
+          await wait;
+        }
+        return server.fetch(input, init);
+      }) as typeof globalThis.fetch;
+      const deps: LiveDeps = { api: createBoxApi({ fetch }), store, authorizeAccount: account };
+      await shareLive(deps, account, newConversation([ana, ben], 1000, ID));
+      install(fakeBrowser());
+      held = new Promise((resolve) => (release = resolve));
+      await renderLive(deps);
+      const panel = await screen.findByRole("region", { name: "Shared live" });
+      fireEvent.click(await within(panel).findByRole("button", { name: "🔔 Notify me on this device" }));
+      // The pull that started first finishes, and only then does the subscription happen.
+      release();
+      expect(await within(panel).findByText(/up to date/)).toBeInTheDocument();
+      expect(await within(panel).findByText(/On for this device/)).toBeInTheDocument();
+      expect(server.subscriptions.size).toBe(1);
+      await waitFor(async () => expect((await store.get(ID))?.push?.subId).toBeTruthy());
+    });
+
     it("explains a refusal, a browser without push, and a server without it", async () => {
       const server = createFakeBoxServer();
       const deps: LiveDeps = { api: createBoxApi({ fetch: server.fetch }), store: createLiveStore(new IDBFactory()), authorizeAccount: account };

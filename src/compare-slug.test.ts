@@ -45,6 +45,20 @@ describe("compare-slug", () => {
     expect(decodeCompareSlug(mangled)).not.toBeNull();
   });
 
+  it("LK-4: decodes a slug whose last two '+' became spaces and were trimmed", () => {
+    // Found by the LK-4 property: this menu's base64 ends in "++".
+    const trust: RelationshipMenu = {
+      Trust: [
+        { item: "kissing", value: "maybe", note: "}V" },
+        { item: "H3SA~", value: "maybe", note: "zj" },
+        { item: "5527T'", value: "must-have", note: "Y4" },
+      ],
+    };
+    const plus = encodeMenuSlug("", trust);
+    expect(plus.endsWith("++")).toBe(true);
+    expect(decodeCompareSlug(plus.replace(/\+/g, " "))).toEqual({ title: "", menu: trust });
+  });
+
   it.each([
     ["empty string", ""],
     ["partial slug", slug.slice(0, 10)],

@@ -1,5 +1,5 @@
 import { StrictMode } from "react";
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { App } from "../App";
@@ -105,7 +105,8 @@ describe("SY-10: opening a pairing link turns on sync", () => {
     const sync = fakeSync({ state: { kind: "off" } });
     openPairLink(sync);
     const heading = await screen.findByRole("heading", { name: "This device is syncing" });
-    expect(heading).toHaveFocus();
+    // Focus moves in an effect just after the heading appears.
+    await waitFor(() => expect(heading).toHaveFocus());
     expect(screen.getByRole("status")).toHaveTextContent("Sync is on.");
     expect(screen.getByRole("link", { name: "Go to your menus" })).toHaveAttribute("href", "/library");
     expect(screen.getByRole("link", { name: "Sync settings" })).toHaveAttribute("href", "/sync");
@@ -154,7 +155,8 @@ describe("SY-12: a link that no longer works", () => {
 
   test("already used: says so, adds the replace-your-code advice, and offers the words", async () => {
     openPairLink(fails("pairing_used"));
-    expect(await screen.findByRole("heading", { name: "Couldn't add this device" })).toHaveFocus();
+    const failed = await screen.findByRole("heading", { name: "Couldn't add this device" });
+    await waitFor(() => expect(failed).toHaveFocus());
     expect(screen.getByText("This link has already been used.")).toBeInTheDocument();
     expect(screen.getByText("If that wasn't you, replace your sync code.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Type the 24 words instead" })).toHaveAttribute("href", "/sync");
