@@ -171,7 +171,9 @@ const NotifyControl = ({ live }: { live: Live }) => {
     "home-screen":
       "On iPhone and iPad, notifications work once Wants & Won'ts is on your Home Screen: tap Share, then Add to Home Screen, and open it from there.",
     unsupported: "This browser can't show notifications. You'll still see everything new when you open the conversation.",
-    denied: "Notifications are blocked for this site. You can allow them in your browser's settings, then try again.",
+    denied: platform().nativePush
+      ? "Notifications are off for Wants & Won'ts. You can turn them on in your phone's Settings, then try again."
+      : "Notifications are blocked for this site. You can allow them in your browser's settings, then try again.",
     unavailable: "Notifications aren't available right now. You'll still see everything new when you open the conversation.",
     error: "Couldn't change notifications. Please try again.",
   };

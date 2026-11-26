@@ -76,3 +76,7 @@ export const createLiveStore = (factory: IDBFactory | undefined = globalThis.ind
 };
 
 export type LiveStore = ReturnType<typeof createLiveStore>;
+
+/** The conversation a box belongs to on this device, or null (for a tapped notification, NT-27). */
+export const conversationForBox = async (store: LiveStore, boxId: string): Promise<string | null> =>
+  (await store.all()).find((e) => e.boxId === boxId)?.conversationId ?? null;

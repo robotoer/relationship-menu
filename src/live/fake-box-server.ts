@@ -122,8 +122,10 @@ export const createFakeBoxServer = ({ now = () => Date.now() } = {}) => {
         return reply(200, { version, seq: box.seq });
       }
       if (request.method === "POST" && path === `/v1/boxes/${boxId}/subscriptions`) {
-        const sub = JSON.parse(new TextDecoder().decode(body));
-        if (!/^https:\/\/[^/]*(fcm\.googleapis\.com|push\.apple\.com|push\.services\.mozilla\.com|notify\.windows\.com)\//.test(sub.endpoint)) {
+        const raw = JSON.parse(new TextDecoder().decode(body));
+        // Store-app tokens (§7c) are kept like endpoints.
+        const sub = raw.kind === "fcm" ? { endpoint: `fcm:${raw.token}`, p256dh: "", auth: "", platform: raw.platform } : raw;
+        if (raw.kind !== "fcm" && !/^https:\/\/[^/]*(fcm\.googleapis\.com|push\.apple\.com|push\.services\.mozilla\.com|notify\.windows\.com)\//.test(sub.endpoint)) {
           return error(400, "bad_endpoint");
         }
         const existing = [...subscriptions].find(([, x]) => x.boxId === boxId && x.memberId === memberId && x.endpoint === sub.endpoint);

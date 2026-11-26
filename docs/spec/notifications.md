@@ -251,6 +251,44 @@ push_subs (sub_id TEXT PRIMARY KEY, box_id TEXT NOT NULL, member_id TEXT NOT NUL
 
 **On the device (phase 3):** a tiny service worker, `/push-sw.js`, registered only when someone turns notifications on. It has no `fetch` handler, so it caches nothing. On `push` it shows the **Private** text (NT-26), *"Wants & Won'ts: something new in a conversation"*, tagged by box so a newer one replaces an older one. On a tap it opens `/talk?id=<conversation>`, looking the box up in the device's own `wants-live` store, and the page pulls the box first (NT-27).
 
+## 7c. Wire protocol: store apps (phase 5)
+
+The iOS and Android apps get notifications through **Firebase Cloud Messaging (FCM) HTTP v1** on both platforms (NT-40, decision 5). The app registers an FCM token instead of a web push subscription:
+
+| Method and path | Auth | Request | Response |
+| --- | --- | --- | --- |
+| `POST /v1/boxes/:id/subscriptions` | member | `{kind: "fcm", token, platform: "android"\|"ios"}`. `token` is the FCM registration token: 1–4096 characters of `[A-Za-z0-9_:-]` | `201 {subId}`; the same token for the same member returns the existing one · `400 bad_request` · `409 too_many_subscriptions` · `503 push_unavailable` when the Worker has no FCM service account |
+
+Web push subscriptions are unchanged (`kind` omitted, or `"webpush"`). `DELETE …/subscriptions/:subId` works for both.
+
+**Sending.** The scheduling is the same as for web push (§7b: 15 minutes, 20 a day, coalesced counts, the 5-minute cron). The message is `POST https://fcm.googleapis.com/v1/projects/<project_id>/messages:send`:
+
+```json
+{ "message": {
+    "token": "<token>",
+    "notification": { "title": "Wants & Won'ts", "body": "Something new in a conversation." },
+    "data": { "box": "<boxId>", "kind": "comment|notes", "count": "<n>" },
+    "android": { "collapse_key": "<boxId>", "priority": "normal", "ttl": "86400s",
+                 "notification": { "tag": "box-<boxId>" } },
+    "apns": { "headers": { "apns-collapse-id": "<boxId>", "apns-priority": "5", "apns-expiration": "<now + 1 day>" },
+              "payload": { "aps": { "thread-id": "<boxId>" } } } } }
+```
+
+The body says "N new changes in a conversation." when `count > 1`. The text is fixed and generic, so the lock screen shows no names or topics (NT-41). FCM's payload isn't end-to-end encrypted, and it holds nothing but the box id and counts.
+
+**Auth.** The Worker holds a Google service account (`FCM_SERVICE_ACCOUNT` secret: its JSON key, with `project_id`, `client_email`, `private_key`). It signs an RS256 JWT with `iss = client_email`, `scope = https://www.googleapis.com/auth/firebase.messaging`, `aud = https://oauth2.googleapis.com/token` and an expiry of at most 1 hour. It exchanges that at `https://oauth2.googleapis.com/token` for an access token, cached until a minute before it expires. Only those two fixed Google addresses are ever called for FCM; nothing comes from the client.
+
+**Answers.** `200` → sent. `404`, or `400` whose error is `UNREGISTERED` or `INVALID_ARGUMENT` about the token → the subscription is deleted. `429`, `5xx` or unreachable → kept waiting for the cron, as with web push. `401`/`403` → kept waiting, logged as `push_auth` (a broken service account shouldn't drop people's subscriptions).
+
+```sql
+-- server/migrations/0005_push_kinds.sql
+ALTER TABLE push_subs ADD COLUMN kind TEXT NOT NULL DEFAULT 'webpush' CHECK (kind IN ('webpush', 'fcm'));
+ALTER TABLE push_subs ADD COLUMN platform TEXT CHECK (platform IS NULL OR platform IN ('android', 'ios'));
+-- FCM rows keep the token in `endpoint`; p256dh and auth are empty.
+```
+
+**On the device:** the app host passes a native push implementation to the web app through `setPlatform({ nativePush })` (`src/platform.ts`). With it, "Notify me" asks the operating system for permission and an FCM token instead of using web push. A tap on a notification opens the conversation that box belongs to (`conversationForBox` in `src/live/live-store.ts`).
+
 ---
 
 ## 8. Privacy and threat model

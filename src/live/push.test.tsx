@@ -11,6 +11,7 @@ import { createFakeBoxServer } from "./fake-box-server";
 import { createLiveStore } from "./live-store";
 import { shareLive } from "./live-session";
 import { disablePush, enablePush, preparePush, pushSupport } from "./push";
+import { resetPlatform, setPlatform } from "../platform";
 import type { LiveDeps } from "./useLive";
 
 const ana = encodeMenuSlug("Ana's", { G: [{ item: "Kids", value: "must-have" }] }, { name: "Ana" });
@@ -165,6 +166,49 @@ describe("push on this device (NT-20…NT-22, NT-28, §7b)", () => {
       await shareLive(deps, account, newConversation([ana, ben], 1000, ID));
       await renderLive(deps);
       expect(await screen.findByText(/This browser can't show notifications/)).toBeInTheDocument();
+    });
+  });
+
+  describe("in the store apps (§7c)", () => {
+    afterEach(() => resetPlatform());
+
+    it("uses the host's push: an FCM token registered with the box, unregistered when nothing uses it", async () => {
+      const register = vi.fn(async () => ({ token: "fcm-token:abc_123", platform: "ios" as const }));
+      const unregister = vi.fn(async () => {});
+      setPlatform({ nativePush: { register, unregister } });
+      expect(pushSupport()).toBe("ok");
+      const server = createFakeBoxServer();
+      const deps = { api: createBoxApi({ fetch: server.fetch }), store: createLiveStore(new IDBFactory()) };
+      const entry = await shareLive(deps, account, newConversation([ana, ben], 1000, ID));
+      const prepared = await preparePush(deps.api);
+      expect(prepared).toEqual({ native: true });
+      const on = await enablePush(deps, entry, prepared);
+      expect([...server.subscriptions.values()][0]).toMatchObject({ endpoint: "fcm:fcm-token:abc_123", platform: "ios" });
+      await disablePush(deps, on);
+      expect(server.subscriptions.size).toBe(0);
+      expect(unregister).toHaveBeenCalledTimes(1);
+    });
+
+    it("a refusal in the phone's own prompt says so, with the phone's wording", async () => {
+      setPlatform({ nativePush: { register: async () => null, unregister: async () => {} } });
+      localStorage.clear();
+      const server = createFakeBoxServer();
+      const deps: LiveDeps = { api: createBoxApi({ fetch: server.fetch }), store: createLiveStore(new IDBFactory()), authorizeAccount: account };
+      await shareLive(deps, account, newConversation([ana, ben], 1000, ID));
+      saveConversation(newConversation([ana, ben], 1000, ID));
+      render(
+        <StorageProvider storage={createLocalStorage()}>
+          <MemoryRouter initialEntries={[`/talk?id=${ID}`]}>
+            <Routes>
+              <Route path="/talk" element={<TalkRoute live={deps} />} />
+            </Routes>
+          </MemoryRouter>
+        </StorageProvider>
+      );
+      const panel = await screen.findByRole("region", { name: "Shared live" });
+      fireEvent.click(await within(panel).findByRole("button", { name: "🔔 Notify me on this device" }));
+      expect(await within(panel).findByText(/in your phone's Settings/)).toBeInTheDocument();
+      expect(server.subscriptions.size).toBe(0);
     });
   });
 });

@@ -23,6 +23,7 @@ export type LiveFailure =
   | "push_unavailable"
   | "bad_endpoint"
   | "too_many_subscriptions"
+  | "permission_denied"
   | "failed";
 
 export class LiveError extends Error {
@@ -148,7 +149,10 @@ export const createBoxApi = ({
       return key;
     },
     /** POST /v1/boxes/:id/subscriptions (§7b). */
-    subscribe: async (m: Member, sub: { endpoint: string; p256dh: string; auth: string }) => {
+    subscribe: async (
+      m: Member,
+      sub: { endpoint: string; p256dh: string; auth: string } | { kind: "fcm"; token: string; platform: "android" | "ios" }
+    ) => {
       const path = `/v1/boxes/${m.boxId}/subscriptions`;
       const data = await send("POST", path, { body: jsonBody(sub), headers: JSON_HEADERS, sign: asMember(m, "POST", path) });
       return { subId: String(data.subId) };
