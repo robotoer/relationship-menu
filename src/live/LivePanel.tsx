@@ -137,6 +137,7 @@ export const LivePanel = ({ live }: { live: Live }) => {
           Make an invite link
         </button>
       )}
+      <NotifyControl live={live} />
       <div className="discuss-actions">
         <button type="button" onClick={() => void live.syncNow()}>
           Update now
@@ -160,5 +161,51 @@ export const LivePanel = ({ live }: { live: Live }) => {
         )}
       </div>
     </section>
+  );
+};
+
+/** "Notify me" on this device (NT-20…NT-22, NT-26, NT-28). */
+const NotifyControl = ({ live }: { live: Live }) => {
+  const { state, enable, disable } = live.notify;
+  const note: Record<string, string> = {
+    "home-screen":
+      "On iPhone and iPad, notifications work once Wants & Won'ts is on your Home Screen: tap Share, then Add to Home Screen, and open it from there.",
+    unsupported: "This browser can't show notifications. You'll still see everything new when you open the conversation.",
+    denied: "Notifications are blocked for this site. You can allow them in your browser's settings, then try again.",
+    unavailable: "Notifications aren't available right now. You'll still see everything new when you open the conversation.",
+    error: "Couldn't change notifications. Please try again.",
+  };
+  return (
+    <div className="conv-notify">
+      <h3>Notifications</h3>
+      {state === "on" ? (
+        <>
+          <p>
+            🔔 On for this device. They only say "Something new in a conversation": no names, no topics. At most one
+            every 15 minutes.
+          </p>
+          <button type="button" onClick={() => void disable()}>
+            Turn off on this device
+          </button>
+        </>
+      ) : state === "off" || state === "working" || state === "error" ? (
+        <>
+          <p className="conv-hint">
+            Get a notification on this device when someone else comments or adds notes: at most one every 15 minutes,
+            with no names or topics on the lock screen.
+          </p>
+          <button type="button" className="button-primary" disabled={state === "working"} onClick={enable}>
+            {state === "working" ? "Turning on…" : "🔔 Notify me on this device"}
+          </button>
+          {state === "error" && (
+            <p className="discuss-coach-error" role="alert">
+              {note.error}
+            </p>
+          )}
+        </>
+      ) : (
+        <p className="conv-hint">{note[state]}</p>
+      )}
+    </div>
   );
 };

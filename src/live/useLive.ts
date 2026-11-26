@@ -10,6 +10,7 @@ import { Conversation } from "../conversation";
 import { BoxApi, LiveError, LiveFailure } from "./box-api";
 import { LiveEntry, LiveStore } from "./live-store";
 import { endLive, inviteLink, needsPush, pullLive, pushLive, renewInvite, shareLive } from "./live-session";
+import { PushPrepared, disablePush, enablePush, forgetBrowserSubscriptionIfUnused, preparePush, pushSupport } from "./push";
 import { track } from "../analytics";
 
 export type LiveDeps = {
@@ -31,8 +32,12 @@ export type LiveStatus =
 export const PULL_EVERY_MS = 2 * 60 * 1000;
 export const PUSH_AFTER_MS = 3000;
 
+export type NotifyState = "off" | "on" | "working" | "unsupported" | "home-screen" | "denied" | "unavailable" | "error";
+
 export type Live = {
   status: LiveStatus;
+  /** "Notify me" on this device (NT-20…NT-22, NT-28). */
+  notify: { state: NotifyState; enable: () => void; disable: () => Promise<void> };
   entry: LiveEntry | null;
   canShare: boolean;
   invite: string | null;
@@ -57,6 +62,8 @@ export const useLive = (
   const merged = useRef(onMerged);
   merged.current = onMerged;
   const queue = useRef<Promise<unknown>>(Promise.resolve());
+  const prepared = useRef<PushPrepared | null>(null);
+  const [notifyWork, setNotifyWork] = useState<"idle" | "working" | "error" | "unavailable" | "denied">("idle");
 
   // Which box (if any) this conversation is shared in, on this device.
   useEffect(() => {
@@ -143,6 +150,31 @@ export const useLive = (
     };
   }, [live, sync]);
 
+  // Get push ready before any tap (Safari needs the subscribe call straight from it).
+  const support = typeof window === "undefined" ? "unsupported" : pushSupport();
+  useEffect(() => {
+    if (!deps || !live || support !== "ok" || prepared.current) return;
+    let cancelled = false;
+    preparePush(deps.api).then(
+      (p) => {
+        if (!cancelled) prepared.current = p;
+      },
+      (e) => !cancelled && setNotifyWork(e instanceof LiveError && e.reason === "push_unavailable" ? "unavailable" : "idle")
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [deps, live, support]);
+
+  const notifyState: NotifyState =
+    notifyWork === "working" || notifyWork === "error" || notifyWork === "unavailable" || notifyWork === "denied"
+      ? notifyWork
+      : support !== "ok"
+        ? support
+        : entry?.push
+          ? "on"
+          : "off";
+
   // Write this device's copy 3 seconds after the last local change.
   useEffect(() => {
     if (!live || !entryRef.current || !needsPush(entryRef.current, conversation)) return;
@@ -152,6 +184,41 @@ export const useLive = (
 
   return {
     status,
+    notify: {
+      state: notifyState,
+      enable: () => {
+        const current = entryRef.current;
+        if (!deps || !current) return;
+        // Ask first, straight from the tap; then subscribe and register with the box.
+        const permission =
+          window.Notification.permission === "granted" ? Promise.resolve("granted" as NotificationPermission) : window.Notification.requestPermission();
+        setNotifyWork("working");
+        void (async () => {
+          try {
+            if ((await permission) !== "granted") return setNotifyWork("denied");
+            const ready = prepared.current ?? (prepared.current = await preparePush(deps.api));
+            const next = await enablePush(deps, entryRef.current ?? current, ready);
+            setEntry(next);
+            setNotifyWork("idle");
+            track("notifications_enabled", { channel: "webpush" });
+          } catch (e) {
+            setNotifyWork(e instanceof LiveError && e.reason === "push_unavailable" ? "unavailable" : "error");
+          }
+        })();
+      },
+      disable: async () => {
+        const current = entryRef.current;
+        if (!deps || !current) return;
+        setNotifyWork("working");
+        try {
+          setEntry(await disablePush(deps, current, prepared.current?.registration));
+          setNotifyWork("idle");
+          track("notifications_disabled");
+        } catch {
+          setNotifyWork("error");
+        }
+      },
+    },
     entry,
     canShare: !!deps?.authorizeAccount,
     invite: entry ? inviteLink(origin, entry) : null,
@@ -182,6 +249,8 @@ export const useLive = (
       if (!deps || !current) return;
       try {
         await endLive(deps, current);
+        // The server dropped this box's subscriptions; drop the browser's if nothing else uses it.
+        await forgetBrowserSubscriptionIfUnused(deps.store, prepared.current?.registration).catch(() => undefined);
         setEntry(null);
         setStatus({ state: "off" });
         track(current.isHost ? "live_stopped" : "live_left");

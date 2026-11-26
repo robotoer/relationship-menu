@@ -29,6 +29,8 @@ export type LiveEntry = {
    * had nothing unsent: writing it only catches up, so it isn't news (NT-23).
    */
   receivedVersion?: string;
+  /** This device's push subscription for this box, when "Notify me" is on (NT-20). */
+  push?: { subId: string };
 };
 
 const DB = "wants-live";

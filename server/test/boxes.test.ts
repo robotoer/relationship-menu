@@ -453,7 +453,7 @@ describe("GET and PUT copies (NT-2…NT-4)", () => {
     );
   });
 
-  it("accepts and ignores a Notify header (phase 3)", async () => {
+  it("accepts any Notify header (what it does is in push.test.ts)", async () => {
     const { boxId, host } = await liveBox();
     expect((await host.putCopy(boxId, record(100), {}, { notify: "comment" })).status).toBe(200);
     expect((await host.putCopy(boxId, record(100), { version: 1 }, { notify: "notes" })).status).toBe(200);

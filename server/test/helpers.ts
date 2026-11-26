@@ -7,9 +7,10 @@
 import { env } from "cloudflare:workers";
 import { vi } from "vitest";
 import { PROTOCOL, canonicalBoxRequest, canonicalRequest } from "../src/auth";
-import { concat, sha256, toBase64Url, toHex, utf8 } from "../src/bytes";
+import { concat, fromBase64Url, sha256, toBase64Url, toHex, utf8 } from "../src/bytes";
 import { handleRequest } from "../src/index";
 import type { Env } from "../src/env";
+import { deriveKeys, ecdh } from "../src/webpush";
 
 export { env };
 
@@ -95,14 +96,22 @@ export class BoxDevice {
   async fetch(
     method: string,
     pathAndQuery: string,
-    options: { body?: Uint8Array | string | object; headers?: Record<string, string>; ts?: number; boxId?: string; env?: Env } = {}
+    options: {
+      body?: Uint8Array | string | object;
+      headers?: Record<string, string>;
+      ts?: number;
+      boxId?: string;
+      env?: Env;
+      /** Collects work left running after the response (createExecutionContext). */
+      ctx?: Pick<ExecutionContext, "waitUntil">;
+    } = {}
   ): Promise<Response> {
     const body = toBody(options.body);
     const boxId = options.boxId ?? pathAndQuery.match(/^\/v1\/boxes\/([^/?]+)/)?.[1] ?? "";
     const headers = new Headers(options.headers);
     headers.set("authorization", await this.authorization(method, pathAndQuery, boxId, body, options.ts));
     const request = new Request(`https://sync.test${pathAndQuery}`, { method, headers, body: body.length ? body : undefined });
-    return options.env ? handleRequest(request, options.env) : call(request);
+    return handleRequest(request, options.env ?? env, options.ctx);
   }
 
   /**
@@ -120,8 +129,15 @@ export class BoxDevice {
   }
 
   /** PUT this device's copy. */
-  putCopy(boxId: string, ciphertext: Uint8Array, precondition: { version?: number } = {}, headers: Record<string, string> = {}) {
+  putCopy(
+    boxId: string,
+    ciphertext: Uint8Array,
+    precondition: { version?: number } = {},
+    headers: Record<string, string> = {},
+    options: { env?: Env; ctx?: Pick<ExecutionContext, "waitUntil"> } = {}
+  ) {
     return this.fetch("PUT", `/v1/boxes/${boxId}/copies/${this.memberId}`, {
+      ...options,
       body: ciphertext,
       headers: {
         ...(precondition.version === undefined ? { "if-none-match": "*" } : { "if-match": `"${precondition.version}"` }),
@@ -294,3 +310,97 @@ export const event = (type: string, object: object, id = `evt_${newId()}`) => ({
 });
 
 export { PROTOCOL };
+
+// ---- Web push (notifications.md §7b) ----------------------------------------------
+
+/** A fresh VAPID key pair in the secrets' format: 65-byte public point and 32-byte d, base64url. */
+export const vapidKeys = async () => {
+  const pair = (await crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, ["sign", "verify"])) as CryptoKeyPair;
+  const jwk = (await crypto.subtle.exportKey("jwk", pair.privateKey)) as JsonWebKey;
+  const publicKey = concat(new Uint8Array([0x04]), fromBase64Url(jwk.x!)!, fromBase64Url(jwk.y!)!);
+  return { publicKey: toBase64Url(publicKey), privateKey: jwk.d!, verifyKey: pair.publicKey };
+};
+
+export const VAPID = await vapidKeys();
+export const VAPID_SUBJECT = "mailto:push@wantsandwonts.example";
+
+/** The test Worker's bindings with push turned on. */
+export const PUSH_ENV: Env = {
+  ...env,
+  VAPID_PUBLIC_KEY: VAPID.publicKey,
+  VAPID_PRIVATE_KEY: VAPID.privateKey,
+  VAPID_SUBJECT,
+};
+
+/**
+ * A browser's push subscription (what `PushManager.subscribe` gives the app):
+ * its endpoint on a push service, its P-256 key pair and auth secret. It can
+ * decrypt what's pushed to it, as the browser would (RFC 8291).
+ */
+export class PushBrowser {
+  private constructor(
+    readonly endpoint: string,
+    readonly keys: CryptoKeyPair,
+    readonly publicKey: Uint8Array,
+    readonly authSecret: Uint8Array
+  ) {}
+
+  static async create(host = "fcm.googleapis.com"): Promise<PushBrowser> {
+    const keys = (await crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, ["deriveBits"])) as CryptoKeyPair;
+    const publicKey = new Uint8Array((await crypto.subtle.exportKey("raw", keys.publicKey)) as ArrayBuffer);
+    return new PushBrowser(`https://${host}/fcm/send/${newId()}${newId()}`, keys, publicKey, crypto.getRandomValues(new Uint8Array(16)));
+  }
+
+  /** The body of POST /v1/boxes/:id/subscriptions. */
+  get subscription() {
+    return { endpoint: this.endpoint, p256dh: toBase64Url(this.publicKey), auth: toBase64Url(this.authSecret) };
+  }
+
+  /** Decrypts an `aes128gcm` body (RFC 8188 header, one record) to its plaintext. */
+  async decrypt(body: Uint8Array): Promise<string> {
+    const salt = body.slice(0, 16);
+    const rs = new DataView(body.buffer, body.byteOffset).getUint32(16);
+    const idlen = body[20]!;
+    const senderKey = body.slice(21, 21 + idlen);
+    const record = body.slice(21 + idlen);
+    if (rs !== 4096 || idlen !== 65 || record.length > rs) throw new Error("bad aes128gcm header");
+    const { cek, nonce } = await deriveKeys(await ecdh(this.keys.privateKey, senderKey), this.authSecret, this.publicKey, senderKey, salt);
+    const key = await crypto.subtle.importKey("raw", cek, "AES-GCM", false, ["decrypt"]);
+    const padded = new Uint8Array(await crypto.subtle.decrypt({ name: "AES-GCM", iv: nonce }, key, record));
+    // The last record: data, then 0x02, then optional zero padding.
+    let end = padded.length - 1;
+    while (end >= 0 && padded[end] === 0) end--;
+    if (padded[end] !== 0x02) throw new Error("bad padding delimiter");
+    return new TextDecoder().decode(padded.slice(0, end));
+  }
+}
+
+export type Delivered = { browser: PushBrowser; headers: Headers; plaintext: string; status: number };
+
+/**
+ * Replaces fetch() with push services that know `browsers`: each push is
+ * decrypted with the receiving browser's keys and recorded. `answer` sets what
+ * an endpoint replies (a status, or "network" for a failed connection); 201 by
+ * default. A call to anything else fails the test.
+ */
+export const fakePushService = (browsers: PushBrowser[]) => {
+  const delivered: Delivered[] = [];
+  const answers = new Map<string, number | "network">();
+  const spy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+    const request = new Request(input as RequestInfo, init);
+    const browser = browsers.find((b) => b.endpoint === request.url);
+    if (!browser) throw new Error("Unexpected fetch");
+    const answer = answers.get(browser.endpoint) ?? 201;
+    if (answer === "network") throw new TypeError("Network connection lost.");
+    const plaintext = await browser.decrypt(new Uint8Array(await request.arrayBuffer()));
+    delivered.push({ browser, headers: request.headers, plaintext, status: answer });
+    return new Response(null, { status: answer });
+  });
+  return {
+    delivered,
+    spy,
+    answer: (browser: PushBrowser, status: number | "network") => answers.set(browser.endpoint, status),
+    /** What was pushed to `browser`, parsed. */
+    to: (browser: PushBrowser) => delivered.filter((d) => d.browser === browser).map((d) => JSON.parse(d.plaintext) as unknown),
+  };
+};

@@ -7,17 +7,25 @@
 import { deleteAccount, getAccountStatus, rotateAccount } from "./accounts";
 import { authenticate, authenticateMember, type Caller } from "./auth";
 import { handleWebhook, openPortal, startCheckout } from "./billing";
-import { createBox, deleteBox, joinBox, leaveBox, listCopies, loadMember, newInvite, putCopy, type Member } from "./boxes";
-import { runDailyPurge } from "./cron";
+import { createBox, deleteBox, joinBox, leaveBox, listCopies, loadMember, newInvite, putCopy, type Background, type Member } from "./boxes";
+import { runCron } from "./cron";
 import { BOX_LIMITS, LIMITS, type Env } from "./env";
 import { HttpError, errorResponse, readBody, text } from "./http";
 import { enforce } from "./limits";
 import { log } from "./log";
 import { deleteMenu, listMenus, putMenu } from "./menus";
+import { createSubscription, deleteSubscription, getPushKey } from "./notify";
 import { createPairing, takePairing } from "./pairing";
 import { COACH_LIMITS, handleCoach } from "./coach";
 
-type Context = { env: Env; request: Request; url: URL; params: string[] };
+type Context = {
+  env: Env;
+  request: Request;
+  url: URL;
+  params: string[];
+  /** Work that may finish after the response (ctx.waitUntil), e.g. sending pushes. */
+  background: Background;
+};
 
 type Route = {
   /** For logs: a pattern, never the concrete path (SY-44). */
@@ -129,11 +137,25 @@ const ROUTES: Route[] = [
   },
   {
     pattern: "PUT /v1/boxes/:id/copies/:memberId", method: "PUT", path: /^\/v1\/boxes\/([^/]+)\/copies\/([^/]+)$/, maxBody: BOX_LIMITS.copyBytes, auth: "member",
-    handle: ({ env, request, params }, body, _c, member) => putCopy(env, asMember(member), request, params[1] ?? "", body),
+    handle: ({ env, request, params, background }, body, _c, member) =>
+      putCopy(env, asMember(member), request, params[1] ?? "", body, background),
   },
   {
     pattern: "DELETE /v1/boxes/:id", method: "DELETE", path: /^\/v1\/boxes\/([^/]+)$/, maxBody: 0, auth: "member",
     handle: ({ env }, _b, _c, member) => deleteBox(env, asMember(member)),
+  },
+  // Web push (docs/spec/notifications.md §7b).
+  {
+    pattern: "GET /v1/push/key", method: "GET", path: /^\/v1\/push\/key$/, maxBody: 0, auth: "none",
+    handle: async ({ env }) => getPushKey(env),
+  },
+  {
+    pattern: "POST /v1/boxes/:id/subscriptions", method: "POST", path: /^\/v1\/boxes\/([^/]+)\/subscriptions$/, maxBody: LIMITS.jsonBytes, auth: "member",
+    handle: ({ env }, body, _c, member) => createSubscription(env, asMember(member), body),
+  },
+  {
+    pattern: "DELETE /v1/boxes/:id/subscriptions/:subId", method: "DELETE", path: /^\/v1\/boxes\/([^/]+)\/subscriptions\/([^/]+)$/, maxBody: 0, auth: "member",
+    handle: ({ env, params }, _b, _c, member) => deleteSubscription(env, asMember(member), params[1] ?? ""),
   },
 ];
 
@@ -148,8 +170,24 @@ const match = (method: string, pathname: string): { route: Route; params: string
   return { route, params: (pathname.match(route.path) ?? []).slice(1) };
 };
 
-export const handleRequest = async (request: Request, env: Env): Promise<Response> => {
+/**
+ * Handles one request. `ctx` is the Worker's ExecutionContext: work that outlives
+ * the response goes to its waitUntil. Tests pass one (cloudflare:test
+ * createExecutionContext) and await it with waitOnExecutionContext; without one,
+ * that work still runs, unawaited.
+ */
+export const handleRequest = async (
+  request: Request,
+  env: Env,
+  ctx?: Pick<ExecutionContext, "waitUntil">
+): Promise<Response> => {
   const url = new URL(request.url);
+  const background: Background = (work) => {
+    const settled = work.catch((error: unknown) => {
+      log({ route: "push", status: 500, code: "internal", kind: error instanceof Error ? error.name : "unknown" });
+    });
+    ctx?.waitUntil(settled);
+  };
   let pattern = `${request.method} ${url.pathname.startsWith("/v1/") ? "/v1/?" : "/?"}`;
   try {
     const { route, params } = match(request.method, url.pathname);
@@ -168,7 +206,7 @@ export const handleRequest = async (request: Request, env: Env): Promise<Respons
       await enforce(env.RL_ACCOUNT, caller.accountId);
       if (route.auth === "sensitive") await enforce(env.RL_SENSITIVE, caller.accountId);
     }
-    return await route.handle({ env, request, url, params }, body, caller, member);
+    return await route.handle({ env, request, url, params, background }, body, caller, member);
   } catch (error) {
     if (error instanceof HttpError) {
       if (error.status >= 500 || error.status === 429) log({ route: pattern, status: error.status, code: error.code });
@@ -181,8 +219,9 @@ export const handleRequest = async (request: Request, env: Env): Promise<Respons
 };
 
 export default {
-  fetch: (request, env) => handleRequest(request, env),
-  scheduled: async (_controller, env, ctx) => {
-    ctx.waitUntil(runDailyPurge(env));
+  fetch: (request, env, ctx) => handleRequest(request, env, ctx),
+  // Daily: the purge (NT-53, NT-56). Every 5 minutes: held-back notifications (NT-24).
+  scheduled: async (controller, env, ctx) => {
+    ctx.waitUntil(runCron(env, controller.cron, controller.scheduledTime));
   },
 } satisfies ExportedHandler<Env>;

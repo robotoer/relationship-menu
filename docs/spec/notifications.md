@@ -1,6 +1,6 @@
 # Live conversations and notifications
 
-**Status:** approved 26 November 2026 with the recommended answer to every decision in §12. Phases 1–2 (boxes, live sharing without notifications) are being built; the wire protocol is in [§7a](#7a-wire-protocol-v1). It builds on [conversations](README.md#7c-conversations) (§7c, PR #87) and [supporter sync](sync.md). Rule IDs use the prefix `NT`. Every "Checked by" entry names the check we plan to write.
+**Status:** approved 26 November 2026 with the recommended answer to every decision in §12. Phases 1–2 (boxes, live sharing without notifications) are built (PR #88); phase 3 (web push, Private text) is being built, with its protocol in [§7b](#7b-wire-protocol-push-phase-3). It builds on [conversations](README.md#7c-conversations) (§7c, PR #87) and [supporter sync](sync.md). Rule IDs use the prefix `NT`. Every "Checked by" entry names the check we plan to write.
 
 **In short:** today, people who aren't in the same room take turns by sending the conversation as a link (CV-6). That stays, free for everyone. This adds **live sharing**:
 - A supporter can share a conversation *live*.
@@ -208,6 +208,48 @@ box_copies   (box_id TEXT, member_id TEXT, version INTEGER, seq INTEGER, updated
 ```
 
 Account deletion and purge delete the account's boxes. Rotation (SY-8) moves `host_account` to the new account. The daily cron clears expired join hashes.
+
+## 7b. Wire protocol: push (phase 3)
+
+| Method and path | Auth | Request | Response |
+| --- | --- | --- | --- |
+| `GET /v1/push/key` | none | — | `200 {key}`: the VAPID public key (base64url, 65-byte uncompressed P-256) · `503 push_unavailable` when the Worker has no VAPID keys |
+| `POST /v1/boxes/:id/subscriptions` | member | `{endpoint, p256dh, auth}` from the browser's `PushSubscription` (keys base64url) | `201 {subId}`; the same endpoint for the same member returns the existing `subId` · `400 bad_endpoint` (not `https`, or not a known push service, NT-55) · `409 too_many_subscriptions` (5 per member per box) · `503 push_unavailable` |
+| `DELETE /v1/boxes/:id/subscriptions/:subId` | member, own subscription only | — | `204` · `404 not_found` |
+
+**When a copy is written** (`PUT …/copies/:memberId`) with `Notify: comment` or `Notify: notes`, every subscription in the box **of another member** is offered a notification (NT-23). For each subscription:
+
+- If at least **15 minutes** have passed since its last push and it has had fewer than **20** today (UTC day), it's sent now, with `count` = the waiting changes + this one, and `kind` = `comment` if any of them was a comment, else `notes`.
+- Otherwise the change waits: `pending_count + 1`, and `pending_kind` becomes `comment` if this one is.
+- A cron **every 5 minutes** sends whatever is waiting once the 15 minutes have passed (and the day allows).
+- The push is RFC 8030 with VAPID (RFC 8292, ES256 JWT, `sub` from `VAPID_SUBJECT`) and an `aes128gcm` body (RFC 8291). The plaintext is exactly `{"box": "<boxId>", "kind": "comment"|"notes", "count": n}`. Headers: `TTL: 86400`, `Urgency: normal`, `Topic: <boxId>` (so a push service keeps only the newest one per box for an offline device).
+- The push service answers `404`/`410` → the subscription is deleted. `429`/`5xx`/network errors → it stays waiting for the next cron. Nothing about the push is logged except route, status and code (SY-44).
+
+| ID | Rule | Checked by |
+| --- | --- | --- |
+| NT-55 | The server only ever sends to `https` endpoints on known push services: `fcm.googleapis.com` (and its subdomains), `*.push.services.mozilla.com`, `*.push.apple.com` (and `web.push.apple.com`), `*.notify.windows.com`. Anything else is `400 bad_endpoint`, so a subscription can't make the Worker call arbitrary addresses. | Test (server) |
+| NT-56 | Leaving, Stop sharing, account deletion and the daily cron delete the affected subscriptions; a subscription the push service has forgotten (404/410) is deleted at once. | Test (server) |
+
+```sql
+-- server/migrations/0004_push.sql
+push_subs (sub_id TEXT PRIMARY KEY, box_id TEXT NOT NULL, member_id TEXT NOT NULL,
+           endpoint TEXT NOT NULL, p256dh TEXT NOT NULL, auth TEXT NOT NULL, created_at INTEGER NOT NULL,
+           last_sent_at INTEGER, pending_kind TEXT, pending_count INTEGER NOT NULL DEFAULT 0,
+           day TEXT, sent_today INTEGER NOT NULL DEFAULT 0)   -- index (box_id), unique (box_id, member_id, endpoint)
+```
+
+**As built** (`server/src/push.ts`, `webpush.ts`, `notify.ts`):
+- A send is claimed with a compare-and-set on the subscription row before the request, so a write and the cron racing can't both send.
+- A failed attempt (429, 5xx, unreachable) gives back the window and the day's count, so the next 5-minute cron retries it. Any other 4xx/3xx drops that notification but keeps the subscription. Pushes don't follow redirects.
+- The allowlist (NT-55) also requires the default port, no credentials, and an endpoint of at most 1,024 characters.
+- Re-subscribing the same endpoint returns the existing `subId` with the new keys.
+- Push counts as off (503) also when the keys or subject are malformed; turning notifications off always works.
+- NT-53's 60-day clean-up deletes a subscription only when changes have waited for it for 60 days without a successful send.
+- The scheduling rules are checked by 300 random histories against an independent oracle (`server/test/push.test.ts`); the TLA+ model `Notify.tla` (§9) follows in its own PR.
+
+**Secrets:** `VAPID_PUBLIC_KEY` (base64url, 65 bytes), `VAPID_PRIVATE_KEY` (base64url, the 32-byte private scalar), `VAPID_SUBJECT` (a project `mailto:` or `https:` contact, not a person's address). Without them, push is off (503) and everything else works.
+
+**On the device (phase 3):** a tiny service worker, `/push-sw.js`, registered only when someone turns notifications on. It has no `fetch` handler, so it caches nothing. On `push` it shows the **Private** text (NT-26), *"Wants & Won'ts: something new in a conversation"*, tagged by box so a newer one replaces an older one. On a tap it opens `/talk?id=<conversation>`, looking the box up in the device's own `wants-live` store, and the page pulls the box first (NT-27).
 
 ---
 

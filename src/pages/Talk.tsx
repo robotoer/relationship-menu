@@ -136,6 +136,17 @@ export const TalkRoute = ({ coach, live }: { coach?: CoachClient; live?: LiveDep
   const id = params.get("id");
 
   const [loaded, setLoaded] = useState<Loaded>(() => resolve(location.hash, id, entries));
+  // NT-27: opened from a notification; recorded once, then the marker leaves the address.
+  useEffect(() => {
+    if (params.get("from") !== "notification") return;
+    track("notification_opened");
+    const next = new URLSearchParams(params);
+    next.delete("from");
+    selfNavigation.current = true;
+    navigate(`/talk?${next.toString()}`, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // NT-11: an invite's key leaves the address bar before anything else happens.
   useLayoutEffect(() => {
     if (location.hash.includes("live=")) window.history.replaceState(window.history.state, "", location.pathname);

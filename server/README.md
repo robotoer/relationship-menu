@@ -1,6 +1,6 @@
 # The Wants & Won'ts Worker
 
-One Cloudflare Worker serves the whole site: the built app as static files, and, under `/v1/`, the API for supporters' end-to-end encrypted sync and Stripe billing, with a D1 database. Its rules are in [`docs/spec/sync.md`](../docs/spec/sync.md) (§7 for the API, §8 for payments, §12 for hosting) and, for live sharing, [`docs/spec/notifications.md`](../docs/spec/notifications.md) (§7a), and each test names the rule it checks.
+One Cloudflare Worker serves the whole site: the built app as static files, and, under `/v1/`, the API for supporters' end-to-end encrypted sync and Stripe billing, with a D1 database. Its rules are in [`docs/spec/sync.md`](../docs/spec/sync.md) (§7 for the API, §8 for payments, §12 for hosting) and, for live sharing and its notifications, [`docs/spec/notifications.md`](../docs/spec/notifications.md) (§7a, §7b), and each test names the rule it checks.
 
 Static files never run Worker code: Cloudflare's asset router serves them, and any other path that isn't `/v1/*` gets the app's `index.html` (`[assets]` in `wrangler.toml`, HO-1). So the app costs nothing in Worker requests, and the API is on the app's own address, with no CORS (HO-2).
 
@@ -84,14 +84,34 @@ A bad or mismatched header gets 401 (`clock_skew` for the time). Then an unknown
 | `POST /v1/boxes/:id/members` | none (10/min per IP) | `{key, join}`: the device's box key, and J in base64url | `201 {memberId}`, also when already a member | 400, 404, 403 `bad_join`, 410 `invite_expired` (7 days, or cleared by the cron), 409 `box_full` (16 members) |
 | `POST /v1/boxes/:id/invite` | host | `{joinHash}` | `{inviteExpiresAt}`: 7 days from now; the old J stops working | 403 `not_host`, 402 `read_only` |
 | `GET /v1/boxes/:id/copies?since=<seq>` | member | | `{copies:[{memberId, version, seq, updatedAt, ciphertext}], seq, readOnly, members}`: the copies written after `since` (all for 0), oldest first | 400 |
-| `PUT /v1/boxes/:id/copies/:memberId` | that member | ciphertext, 28 B to 256 KiB, with `If-None-Match: *` (first copy) or `If-Match: "<version>"`; `Notify` is accepted and ignored for now | `{version, seq}` | 400, 402 `read_only`, 403 `not_yours`, 412 `version_mismatch {current: {version}}` (`current: null` if there's no copy yet), 413, 428 |
-| `DELETE /v1/boxes/:id/members/me` | member | | 204, and its copy goes too | 409 `host_must_stop` |
-| `DELETE /v1/boxes/:id` | host | | 204: every copy and member goes | 403 `not_host` |
+| `PUT /v1/boxes/:id/copies/:memberId` | that member | ciphertext, 28 B to 256 KiB, with `If-None-Match: *` (first copy) or `If-Match: "<version>"`, and `Notify: comment\|notes\|none` (see [Web push](#web-push)) | `{version, seq}` | 400, 402 `read_only`, 403 `not_yours`, 412 `version_mismatch {current: {version}}` (`current: null` if there's no copy yet), 413, 428 |
+| `DELETE /v1/boxes/:id/members/me` | member | | 204, and its copy and push subscriptions go too | 409 `host_must_stop` |
+| `DELETE /v1/boxes/:id` | host | | 204: every copy, member and push subscription goes | 403 `not_host` |
 
 - Member requests count against the general per-account limit, keyed per box and member device (60/min deployed).
 - `readOnly` is true once the host's account has lapsed (or is gone): members can still read, leave and stop, but writes and new invites get 402 `read_only` (NT-16).
 - Deleting the host's account, or the daily purge of an account lapsed 12 months, deletes its boxes. Replacing the sync code (`/v1/account/rotate`) moves them to the new account. The daily cron also clears expired join hashes.
 - Copies aren't counted in the menus quota.
+
+### Web push
+
+Members' devices can ask to be told when another member writes ([`notifications.md`](../docs/spec/notifications.md) §4 and §7b). [`src/notify.ts`](src/notify.ts) has the routes and the sending, [`src/push.ts`](src/push.ts) decides *when* (a pure state machine), and [`src/webpush.ts`](src/webpush.ts) does RFC 8291 encryption and RFC 8292 VAPID with WebCrypto alone. In the tests, `PushBrowser` and `fakePushService` ([`test/helpers.ts`](test/helpers.ts)) play the browser and the push service, decrypting every push.
+
+| Method and path | Auth | Body | Success | Errors |
+| --- | --- | --- | --- | --- |
+| `GET /v1/push/key` | none | | `{key}`: the VAPID public key (base64url, 65-byte uncompressed P-256), for `pushManager.subscribe` | 503 `push_unavailable` |
+| `POST /v1/boxes/:id/subscriptions` | member | `{endpoint, p256dh, auth}` from the browser's `PushSubscription` (keys base64url: 65 bytes starting `0x04`, and 16 bytes) | `201 {subId}`; the same endpoint for the same member device returns its existing `subId` (with the keys just sent) | 400 `bad_request`, 400 `bad_endpoint`, 409 `too_many_subscriptions` (5 per member device per box), 503 `push_unavailable` |
+| `DELETE /v1/boxes/:id/subscriptions/:subId` | member, own subscription only | | 204 (works without VAPID keys too) | 400, 404 `not_found` |
+
+- **Endpoints (NT-55):** `https` only, on the default port, no credentials, and the host must be one of `fcm.googleapis.com`, `push.services.mozilla.com`, `push.apple.com` or `notify.windows.com`, or end in `.` plus one of them (so `web.push.apple.com` is fine and `fcm.googleapis.com.evil.test` isn't). Pushes don't follow redirects. So a subscription can't make the Worker call anything else.
+- **Who's told (NT-23):** a copy write with `Notify: comment` or `Notify: notes` (any case) is offered to every subscription of every *other* member device in the box. `none`, a missing header or anything else tells nobody, and so does a refused write (412, 402 read-only, …). The response never waits: the pushes run after it, in `ctx.waitUntil`.
+- **How often (NT-24):** a subscription gets at most one push every 15 minutes and 20 per UTC day. A change that can't go now waits (`pending_count + 1`, `pending_kind` becomes `comment` if it is one); the next push carries `count` = everything waiting plus itself, and `kind` = `comment` if any was. A cron every 5 minutes sends whatever waits once the window and the day allow (at most 500 subscriptions per run, longest-waiting first). Each send is claimed in D1 with a compare-and-set first, so concurrent writes can't send twice in a window.
+- **The push:** RFC 8030 `POST` with `TTL: 86400`, `Urgency: normal`, `Topic: <boxId>` (a push service keeps only the newest per box for an offline device), `Content-Encoding: aes128gcm` and `Authorization: vapid t=<ES256 JWT>, k=<public key>` (JWT `aud` = the endpoint's origin, `exp` = 12 hours, `sub` = `VAPID_SUBJECT`). The body is one RFC 8188 record (rs 4096) whose plaintext is exactly `{"box":"<boxId>","kind":"comment"|"notes","count":n}`.
+- **The push service's answer (NT-28):** 2xx is done. 404 or 410 deletes the subscription. 429, 5xx or no answer undoes the attempt (the changes wait again, and the window and day count are as before), so the 5-minute cron retries. Any other answer (another 4xx, a redirect) is logged and the push dropped; the subscription stays.
+- **Clean-up (NT-53, NT-56):** leaving, Stop sharing, account deletion and the daily purge of a host's boxes delete the affected subscriptions. The daily cron also deletes any whose box or member device is gone, any with changes undelivered for 60 days (the push service keeps failing), and clears past days' counters.
+- **Logs (SY-44):** one line per failed push (`push_gone`, `push_retry`, `push_unreachable`, `push_failed`) with only route, status and code, and one count line per 5-minute cron that had something to do. Never an endpoint, key, id or payload.
+
+**Crons** (`[env.*.triggers]` in `wrangler.toml`; `scheduled` in `src/index.ts` picks the job by `controller.cron`): `17 3 * * *` is the daily purge ([`src/cron.ts`](src/cron.ts)) and `*/5 * * * *` flushes waiting notifications. Locally, try them with `wrangler dev --test-scheduled` and `curl "http://localhost:8787/__scheduled?cron=*/5+*+*+*+*"`.
 
 ### Keys, records and pairing blobs
 
@@ -145,6 +165,23 @@ npx wrangler secret put STRIPE_SECRET_KEY --env test
 
 ```bash
 npx wrangler secret put STRIPE_WEBHOOK_SECRET --env test
+```
+
+**Web push** needs three secrets; without them `GET /v1/push/key` and subscribing answer 503 `push_unavailable`, nothing is sent, and everything else works (NT-54):
+- **`VAPID_PUBLIC_KEY`:** base64url of the 65-byte uncompressed P-256 public key.
+- **`VAPID_PRIVATE_KEY`:** base64url of the 32-byte private scalar `d`.
+- **`VAPID_SUBJECT`:** a project contact for the push services, `mailto:` or `https:`, never a person's own address.
+
+Make a key pair (Node 20 or later) and paste each value at `wrangler secret put`'s prompt. Use a separate pair per environment, and don't replace one casually: browsers subscribed with the old public key stop getting pushes until the app subscribes them again.
+
+```bash
+node -e 'crypto.subtle.generateKey({name:"ECDSA",namedCurve:"P-256"},true,["sign"]).then(async k=>{const j=await crypto.subtle.exportKey("jwk",k.privateKey);const b=s=>Buffer.from(s,"base64url");console.log("VAPID_PUBLIC_KEY="+Buffer.concat([Buffer.from([4]),b(j.x),b(j.y)]).toString("base64url"));console.log("VAPID_PRIVATE_KEY="+j.d)})'
+```
+
+```bash
+npx wrangler secret put VAPID_PUBLIC_KEY --env test
+npx wrangler secret put VAPID_PRIVATE_KEY --env test
+npx wrangler secret put VAPID_SUBJECT --env test
 ```
 
 **`STRIPE_SECRET_KEY`** is a Stripe *restricted* key. Create it under Developers → API keys → Create restricted key, with these permissions:

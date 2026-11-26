@@ -56,6 +56,9 @@ Google Analytics is loaded only on `wantsandwonts.com` (until November 2026, `re
 | `live_joined` | Someone opened a live invite | `outcome`: `ok`, `expired`, `full`, `gone`, `offline`, `failed` |
 | `live_left` | A member left a live conversation | — |
 | `live_stopped` | The host stopped sharing live | — |
+| `notifications_enabled` | "Notify me" was turned on for a live conversation on this device | `channel`: `webpush` |
+| `notifications_disabled` | "Notify me" was turned off | — |
+| `notification_opened` | A notification was tapped (the page opened with `from=notification`) | — |
 | `ai_prep_interest` | "Prepare this conversation with AI (coming soon)" is clicked: measures interest, nothing is sent | |
 | `library_searched` | The Library is searched (once per visit; never the text) | |
 | `library_sorted` | The Library sort is changed | `sort`: `edited`, `created`, `title` |
