@@ -268,6 +268,47 @@ flowchart TB
 | CP-14 | Each person's note on an item is shown under it, labelled with their name. Notes never change matching, answers, filters or counts; if a menu has the item twice, its first note counts. | [Property](../../src/__props__/compare.props.test.ts), Test |
 | CP-13 | The comparison appears after pressing Compare; a shared compare link with two or more valid menus opens straight to it. Columns are labelled with the person's name when known, else the menu title. | Test (e2e) |
 
+### At a glance
+
+An overview above the items (`src/compare-insights.ts`, `CompareOverview`):
+- the headline: the share of items everyone answered that they agree on, how many conflicts there are, and how many items aren't answered by everyone;
+- tiles for shared wants, agree, talk about it and conflicts, which also apply that filter;
+- alignment per group;
+- the biggest differences;
+- each person's must-haves, off-limits and open items;
+- a way into the guided discussion.
+
+| ID | Rule | Checked by |
+| --- | --- | --- |
+| CP-20 | The overview's counts are the filters' counts; group totals and each person's answers add up to the number of items. | [Property](../../src/__props__/insights-discussion.props.test.ts), Test |
+| CP-21 | Alignment is the agreed share of items everyone answered (0–100%), shown per group too; with nothing fully answered it says so instead of showing a number. | [Property](../../src/__props__/insights-discussion.props.test.ts), Test |
+| CP-22 | "Biggest differences first" orders items by how far apart the answers are (Must have … Off limits), conflicts above everything, ties in menu order; items with fewer than two answers go last. Nothing is added or dropped. | [Property](../../src/__props__/insights-discussion.props.test.ts), Test |
+| CP-23 | The overview lists at most five biggest differences, and only real ones (answers not all the same). | [Property](../../src/__props__/insights-discussion.props.test.ts), Test |
+| CP-24 | Search matches item text, group names and notes (ignoring case); it combines with the filter and a group choice, and "Show everything" clears all three. | Test (unit + e2e) |
+| CP-25 | Sorting by difference shows one list, with each item's group as a caption. | Test (unit + e2e) |
+
+---
+
+## 7b. Talking it through
+
+**In short:** from the comparison, "Talk it through" (`/discuss`, same link format) turns the differences into a guided conversation. It starts with ground rules, then goes through one topic at a time: everyone's answers, a few prompts, a place for notes, an outcome and a next step. At the end there's a summary to keep. Notes stay in this browser.
+
+```mermaid
+flowchart LR
+  I[Intro: plan + ground rules] --> S[Shared ground ×2] --> E[Talk about it] --> C[Conflicts] --> K[Check in: unanswered] --> R[Summary: by outcome]
+```
+
+| ID | Rule | Checked by |
+| --- | --- | --- |
+| DS-1 | The intro shows who's talking, how many topics of each kind, a rough time, and the ground rules. Nothing is decided by the app. | Test |
+| DS-2 | The agenda has every conflict, difference and not-fully-answered item exactly once, in this order: up to two shared wants (Must have first), differences, conflicts (largest gap first within each, ties in menu order), then check-ins. Agreed items that aren't shared wants are left out. | [Property](../../src/__props__/insights-discussion.props.test.ts), Test |
+| DS-3 | Each topic has prompts suited to its kind, chosen the same way every time. | [Property](../../src/__props__/insights-discussion.props.test.ts), Test |
+| DS-4 | Each topic shows everyone's answers and notes from their menus, with a notes field, one of five outcomes (Agreed, Compromise, Revisit later, Agree to disagree, Boundary) and an optional next step. Topics can be skipped, revisited from the progress dots, and finished in any order. | Test (unit + e2e) |
+| DS-5 | Notes are saved in this browser as they're typed, under a key made from the people's names and menu titles (so they survive changed answers). They never leave the browser and never reach analytics. | Test (unit + e2e) |
+| DS-6 | Coming back offers "Continue", which goes to the first topic not yet covered. | Test (unit + e2e) |
+| DS-7 | The summary groups covered topics by outcome, with answers, notes and next steps. It can be copied or downloaded as Markdown, or printed. | Test (unit + e2e) |
+| DS-8 | "Prepare with AI" isn't built: it says so and records interest only. Nothing about the menus is sent. | Test |
+
 ---
 
 ## 8. Pages and navigation
@@ -358,6 +399,8 @@ flowchart LR
 | Links | LK-6…LK-8 | Test (e2e) | `e2e/` |
 | Comparing | CP-10, CP-11 | **Proof** of the code itself + Property | [`answer-cells.ts`](../../src/answer-cells.ts), [`compare.props`](../../src/__props__/compare.props.test.ts) |
 | Comparing | CP-1…CP-5, CP-12, CP-14 | Property (against a naive reference) | compare props |
+| Comparing | CP-20…CP-25 | Property + Test | [`insights-discussion.props`](../../src/__props__/insights-discussion.props.test.ts), `Compare.test.tsx`, `e2e/discuss.spec.ts` |
+| Discussing | DS-1…DS-8 | Property (DS-2, DS-3) + Test | `discussion.test.ts`, `Discuss.test.tsx`, `e2e/discuss.spec.ts` |
 | Comparing | CP-13 | Test (e2e) | `e2e/` |
 | Pages, privacy, accessibility | NV, PR, AX | Test / Review | see each table |
 

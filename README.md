@@ -14,7 +14,8 @@ Live at **https://relationship-menu.vercel.app**.
    - the *template link* has your items but none of your answers, for someone to fill in fresh;
    - the *menu link* includes your answers (and your name, if you added one), so only send it to the people you're comparing with;
    - *slugs* are the same data without the web address.
-4. **Compare.** Paste two or more menu links into Compare. Items are matched by their text, so the menus don't have to be identical. Filter to see conflicts, agreements, or things nobody has answered yet.
+4. **Compare.** Paste two or more menu links into Compare. Items are matched by their text, so the menus don't have to be identical. An overview shows how much you agree, alignment per group, the biggest differences and each person's answers. Filter, search, or sort by biggest difference.
+5. **Talk it through.** A guided conversation goes through the differences one at a time, easiest first: prompts for each, a place for notes, where you landed (agreed, compromise, revisit later…) and next steps. At the end there's a summary to copy, download or print. Notes stay in your browser.
 
 There are no accounts and no server database. Menus are saved in your browser (localStorage), and a link carries the whole menu inside it. Opening someone else's link saves a copy to your Library without overwriting anything of yours.
 
@@ -49,7 +50,7 @@ CI (GitHub Actions) runs the build, unit tests and the full end-to-end suite on 
 ```
 src/
   App.tsx              routes, and the state/loading/saving around each page
-  pages/               Landing, Menu (editor), Library, Compare
+  pages/               Landing, Menu (editor), Library, Compare, Discuss, Support
   components/          share dialog, keyboard help, menu rows, compare grid, ...
   model/               types for menus, items and comparisons
   menu-editing.ts      pure functions for every edit to a menu (used for undo/redo)
@@ -58,6 +59,8 @@ src/
   compare-slug.ts      reading and writing menu links/slugs
   data-comparer.ts     matching items across menus
   compare-filters.ts   the compare view's filters
+  compare-insights.ts  the overview: alignment, biggest differences, per person
+  discussion.ts        the guided discussion: agenda, prompts, notes, summary
   templates.ts         template menus and ready-made groups
   storage.ts           browser storage (localStorage)
   analytics.ts         the typed analytics events (no menu data)

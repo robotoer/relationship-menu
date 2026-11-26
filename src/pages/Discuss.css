@@ -1,0 +1,243 @@
+.discuss-page {
+  max-width: 50rem;
+  margin: 0 auto;
+  padding: 0 1rem 3rem;
+}
+.discuss-page h1 {
+  color: var(--c-yellow);
+  text-shadow: 3px 3px 0 var(--c-plum);
+  line-height: 1.5;
+}
+.discuss-page h1:focus {
+  outline: none;
+}
+.discuss-page h2 {
+  margin-top: 1.75rem;
+  color: var(--c-cyan);
+}
+.discuss-lead {
+  font-size: 1.25rem;
+}
+
+.discuss-kinds,
+.discuss-rules {
+  padding-left: 1.25rem;
+}
+.discuss-kinds li,
+.discuss-rules li {
+  margin: 0.35rem 0;
+}
+
+.discuss-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.discuss-ai {
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: var(--px) dashed var(--c-shade);
+}
+.discuss-ai-button {
+  background: transparent;
+  color: var(--c-cyan);
+  border-style: dashed;
+  box-shadow: none;
+}
+
+/* ---- One topic ---- */
+.discuss-progress {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.discuss-progress ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.discuss-dot {
+  width: 18px;
+  height: 18px;
+  min-height: 0;
+  padding: 0;
+  background: var(--c-shade);
+  border: 2px solid var(--c-mist);
+  box-shadow: none;
+}
+.discuss-dot.done { background: var(--c-mist); }
+.discuss-dot[aria-current="step"] {
+  outline: var(--px) solid var(--c-yellow);
+  outline-offset: 2px;
+}
+.discuss-dot.kind-celebrate.done { background: var(--pref-like-to-have); }
+.discuss-dot.kind-explore.done { background: var(--pref-maybe); }
+.discuss-dot.kind-conflict.done { background: var(--pref-off-limits); }
+
+.discuss-card {
+  padding: 1.25rem;
+  color: var(--c-ink);
+  background: var(--c-white);
+  border: var(--line);
+  box-shadow: 6px 6px 0 0 var(--c-mist);
+}
+.discuss-card.kind-celebrate { box-shadow: 6px 6px 0 0 var(--pref-like-to-have); }
+.discuss-card.kind-explore { box-shadow: 6px 6px 0 0 var(--pref-maybe); }
+.discuss-card.kind-conflict { box-shadow: 6px 6px 0 0 var(--pref-off-limits); }
+.discuss-card h1 {
+  margin: 0.25rem 0 0.75rem;
+  color: var(--c-ink);
+  text-shadow: none;
+  font-size: 1.1rem;
+}
+.discuss-card h2 {
+  margin-top: 1.25rem;
+  color: var(--c-ink);
+  font-size: 0.7rem;
+}
+.discuss-kind {
+  margin: 0;
+  color: var(--c-slate);
+  font-family: var(--font-pixel);
+  font-size: 0.55rem;
+  text-transform: uppercase;
+}
+
+.discuss-answers {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.discuss-answers li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.2rem 0;
+}
+.discuss-their-note {
+  flex-basis: 100%;
+  padding-left: 1.6rem;
+  color: var(--c-shade);
+}
+
+.discuss-prompts {
+  padding-left: 1.25rem;
+}
+.discuss-prompts li {
+  margin: 0.4rem 0;
+}
+
+.discuss-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 1.25rem;
+}
+.discuss-field > span,
+.discuss-outcomes legend {
+  font-family: var(--font-pixel);
+  font-size: 0.6rem;
+  text-transform: uppercase;
+}
+.discuss-field textarea,
+.discuss-field input {
+  width: 100%;
+}
+
+.discuss-outcomes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: 0.5rem;
+  margin: 1.25rem 0 0;
+  padding: 0;
+  border: none;
+}
+.discuss-outcomes legend {
+  margin-bottom: 0.5rem;
+  padding: 0;
+}
+.discuss-outcome-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  min-height: 44px;
+  padding: 0.5rem;
+  border: 2px solid var(--c-mist);
+  cursor: pointer;
+}
+.discuss-outcome-option:has(input:checked) {
+  border-color: var(--c-ink);
+  background: #fff3c4;
+}
+.discuss-outcome-option input {
+  margin-top: 0.3rem;
+}
+.discuss-outcome-option span {
+  display: flex;
+  flex-direction: column;
+}
+.discuss-outcome-option small {
+  color: var(--c-slate);
+  font-size: 1rem;
+}
+
+/* ---- Summary ---- */
+.discuss-outcome ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.discuss-count {
+  padding: 0 0.4rem;
+  color: var(--c-ink);
+  background: var(--c-mist);
+}
+.discuss-summary-item {
+  display: flex;
+  gap: 0.75rem;
+  margin: 0.5rem 0;
+  padding: 0.75rem 1rem;
+  color: var(--c-ink);
+  background: var(--c-white);
+  border: var(--line);
+}
+.discuss-summary-item p {
+  margin: 0.35rem 0 0;
+}
+.discuss-summary-swatches {
+  display: flex;
+  flex: none;
+  gap: 3px;
+  padding-top: 0.3rem;
+}
+.discuss-summary-group,
+.discuss-next {
+  color: var(--c-slate);
+}
+
+@media print {
+  .navbar,
+  .discuss-actions,
+  .discuss-ai {
+    display: none !important;
+  }
+  .discuss-page h1,
+  .discuss-page h2 {
+    color: #000;
+    text-shadow: none;
+  }
+}
+
+@media (max-width: 520px) {
+  .discuss-nav button {
+    flex: 1 1 auto;
+  }
+}
