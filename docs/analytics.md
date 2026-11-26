@@ -41,6 +41,10 @@ Google Analytics is loaded only on `relationship-menu.vercel.app`, and not in au
 | `library_searched` | The Library is searched (once per visit; never the text) | |
 | `library_sorted` | The Library sort is changed | `sort`: `edited`, `created`, `title` |
 | `menu_deleted` | A menu is deleted from the Library | |
+| `menus_exported` | Export all menus is used in the Library (never the file, its titles or how many) | |
+| `persistent_storage_granted` / `persistent_storage_denied` | The browser's answer to keeping this site's storage, asked once per browser after the first save (spec SV-11). Read with GA's own Browser and OS dimensions | |
+| `home_screen_hint_shown` | The Home Screen tip appears (iPhone/iPad Safari only; once per page load) | |
+| `home_screen_hint_dismissed` | The Home Screen tip is dismissed (it then stays hidden in that browser) | |
 | `save_failed` | A save fails | |
 | `support_viewed` | The Support page is opened | `from`: `nav`, `share` (after sharing), `compare` (under results), `landing`, `direct` |
 | `support_option_chosen` | An amount is picked on the Support page (checkout isn't open yet, so this measures interest) | `amount_usd` (6, 12, 24, 30), `plan` (`yearly`, `lifetime`) |
