@@ -32,8 +32,16 @@ const IPHONE: BrowserInfo = {
   displayModeStandalone: true,
 };
 
-/** The links in an export, in order. */
-const linksIn = (text: string) => text.split("\n").filter((line) => line.startsWith(ORIGIN));
+/** The menu links in an export, in order: lines that are exactly a link to this site's editor. */
+const linksIn = (text: string) =>
+  text.split("\n").filter((line) => {
+    try {
+      const url = new URL(line);
+      return url.origin === ORIGIN && url.pathname === "/menu" && url.searchParams.has("encoded");
+    } catch {
+      return false;
+    }
+  });
 
 describe("Export all menus (SV-13)", () => {
   it("SV-13: one file listing every menu by title, each with a link that brings it back", () => {

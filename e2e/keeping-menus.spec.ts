@@ -84,7 +84,16 @@ test.describe("SV-13: Export all menus", () => {
     expect(text).toContain("2 menus saved in this browser");
     expect(text).toContain("1. Ana's menu");
     expect(text).toContain("2. Ben's menu");
-    const links = text.split("\n").filter((line) => line.startsWith("http://localhost:3099/menu?encoded="));
+    // Exactly links to this site's editor (whatever port the tests run on).
+    const origin = new URL(page.url()).origin;
+    const links = text.split("\n").filter((line) => {
+      try {
+        const url = new URL(line);
+        return url.origin === origin && url.pathname === "/menu" && url.searchParams.has("encoded");
+      } catch {
+        return false;
+      }
+    });
     expect(links).toHaveLength(2);
 
     // In a browser that has never seen these menus, a link from the file restores one.
