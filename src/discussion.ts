@@ -8,8 +8,8 @@
  */
 
 import { MenuComparison } from "./model/compare";
-import { itemCategories } from "./compare-filters";
 import { answerGap, flattenComparison, GroupedItem } from "./compare-insights";
+import { Bucket, bucketOf } from "./compare-focus";
 import { itemId } from "./data-comparer";
 import { loadSavedGuide, SavedCoachGuide } from "./coach";
 
@@ -23,6 +23,8 @@ export type Topic = GroupedItem & {
   /** Stable id for this item (normalised group + item text). */
   key: string;
   kind: TopicKind;
+  /** Where people stand on it, in finer detail than `kind` (src/compare-focus.ts). */
+  bucket: Bucket;
   prompts: string[];
 };
 
@@ -71,6 +73,28 @@ const PROMPTS: Record<TopicKind, string[]> = {
   ],
 };
 
+/** Prompts for agreed items people choose to put on the agenda (CV-15). */
+const AGREED_PROMPTS: Partial<Record<Bucket, string[]>> = {
+  "shared-maybe": [
+    "You're both unsure. What makes each of you hesitate?",
+    "What would you need to know or feel first?",
+    "Is there a small, low-stakes way to try it and see?",
+  ],
+  "shared-no": [
+    "You both ruled this out. Is it worth saying why, so it's understood?",
+    "Is this a firm limit for both of you, or a 'not now'?",
+  ],
+};
+
+/** How topics of a bucket are labelled when it says more than their kind. */
+export const BUCKET_LABELS: Partial<Record<Bucket, { label: string; intro: string }>> = {
+  "shared-maybe": { label: "Both unsure", intro: "You both answered Maybe." },
+  "shared-no": { label: "Shared limit", intro: "You both marked it Off limits." },
+};
+
+/** The label for a topic: its bucket's, where that's more precise, else its kind's. */
+export const topicLabel = (t: Pick<Topic, "kind" | "bucket">) => BUCKET_LABELS[t.bucket] ?? TOPIC_KINDS[t.kind];
+
 /** Ground rules shown before the agenda. */
 export const GROUND_RULES = [
   "Take turns. Whoever's speaking finishes before the other responds.",
@@ -90,21 +114,78 @@ export const hashString = (text: string): number => {
 };
 
 /** `count` prompts for a topic, chosen deterministically from its key. */
-export const promptsFor = (kind: TopicKind, key: string, count = 3): string[] => {
-  const list = PROMPTS[kind];
+export const promptsFor = (kind: TopicKind, key: string, count = 3, bucket?: Bucket): string[] => {
+  const list = (bucket && AGREED_PROMPTS[bucket]) || PROMPTS[kind];
   const start = hashString(key) % list.length;
   return Array.from({ length: Math.min(count, list.length) }, (_, i) => list[(start + i) % list.length]);
 };
 
 export const topicKey = (group: string, item: string) => `${itemId(group)}\u0000${itemId(item)}`;
 
-const kindOf = (item: GroupedItem): TopicKind | null => {
-  const c = itemCategories(item.values);
-  if (c.has("conflict")) return "conflict";
-  if (c.has("unanswered") || c.has("missing")) return "check-in";
-  if (c.has("differ")) return "explore";
-  if (c.has("both-want")) return "celebrate";
-  return null; // agreed, and not something everyone wants: nothing to discuss
+const KIND_OF_BUCKET: Record<Bucket, TopicKind> = {
+  conflict: "conflict",
+  talk: "explore",
+  degree: "explore",
+  open: "check-in",
+  "shared-want": "celebrate",
+  "shared-maybe": "celebrate",
+  "shared-no": "celebrate",
+};
+
+/** Which items an agenda has, and in which order (CV-15, CV-17). */
+export type AgendaOptions = {
+  /** Which buckets are on it. */
+  include: Record<Bucket, boolean>;
+  /** With "Everyone wants it" not included: start with up to this many of them anyway. */
+  warmUp: number;
+  /** Shared ground first and conflicts last, or the reverse. */
+  order: "gentle" | "hardest";
+};
+
+const BUCKET_IDS: Bucket[] = ["conflict", "talk", "open", "degree", "shared-maybe", "shared-want", "shared-no"];
+
+/** The agenda the app has always suggested: every difference, conflict and open item, and two shared wants. */
+export const DEFAULT_AGENDA: AgendaOptions = {
+  include: Object.fromEntries(BUCKET_IDS.map((b) => [b, ["conflict", "talk", "open", "degree"].includes(b)])) as Record<
+    Bucket,
+    boolean
+  >,
+  warmUp: 2,
+  order: "gentle",
+};
+
+/**
+ * The agenda for some options (DS-2, CV-15): shared wants (all of them, or up to
+ * `warmUp`, Must haves first), then items everyone is unsure about, then shared
+ * limits, then differences and conflicts (largest gap first), then items not
+ * everyone answered; only buckets that are included. "Hardest first" reverses the
+ * order of those groups. Ties keep menu order.
+ */
+export const agendaFor = (comparison: MenuComparison, options: AgendaOptions): Topic[] => {
+  const items = flattenComparison(comparison).map((item, index) => ({ item, index, bucket: bucketOf(item.values) }));
+  const inBuckets = (...buckets: Bucket[]) => items.filter((x) => buckets.includes(x.bucket) && options.include[x.bucket]);
+  const byGap = (a: (typeof items)[number], b: (typeof items)[number]) =>
+    (answerGap(b.item.values) ?? 0) - (answerGap(a.item.values) ?? 0) || a.index - b.index;
+  const mustCount = (x: (typeof items)[number]) => x.item.values.filter((v) => v === "must-have").length;
+  const wants = items
+    .filter((x) => x.bucket === "shared-want")
+    .sort((a, b) => mustCount(b) - mustCount(a) || a.index - b.index)
+    .slice(0, options.include["shared-want"] ? undefined : options.warmUp);
+
+  const groups = [
+    wants,
+    inBuckets("shared-maybe"),
+    inBuckets("shared-no"),
+    inBuckets("talk", "degree").sort(byGap),
+    inBuckets("conflict").sort(byGap),
+    inBuckets("open"),
+  ];
+  const ordered = (options.order === "hardest" ? [groups[4], groups[3], groups[5], groups[2], groups[1], groups[0]] : groups).flat();
+  return ordered.map(({ item, bucket }) => {
+    const key = topicKey(item.group, item.item);
+    const kind = KIND_OF_BUCKET[bucket];
+    return { ...item, key, kind, bucket, prompts: promptsFor(kind, key, 3, bucket) };
+  });
 };
 
 /**
@@ -112,26 +193,8 @@ const kindOf = (item: GroupedItem): TopicKind | null => {
  * difference and every conflict (largest gap first), then items not everyone
  * answered. Agreed items that aren't shared wants are left out.
  */
-export const buildAgenda = (comparison: MenuComparison, maxCelebrate = 2): Topic[] => {
-  const items = flattenComparison(comparison).map((item, index) => ({ item, index, kind: kindOf(item) }));
-  const ofKind = (kind: TopicKind) => items.filter((x) => x.kind === kind);
-  const byGap = (a: (typeof items)[number], b: (typeof items)[number]) =>
-    (answerGap(b.item.values) ?? 0) - (answerGap(a.item.values) ?? 0) || a.index - b.index;
-  const mustCount = (x: (typeof items)[number]) => x.item.values.filter((v) => v === "must-have").length;
-
-  const ordered = [
-    ...ofKind("celebrate")
-      .sort((a, b) => mustCount(b) - mustCount(a) || a.index - b.index)
-      .slice(0, maxCelebrate),
-    ...ofKind("explore").sort(byGap),
-    ...ofKind("conflict").sort(byGap),
-    ...ofKind("check-in"),
-  ];
-  return ordered.map(({ item, kind }) => {
-    const key = topicKey(item.group, item.item);
-    return { ...item, key, kind: kind!, prompts: promptsFor(kind!, key) };
-  });
-};
+export const buildAgenda = (comparison: MenuComparison, maxCelebrate = 2): Topic[] =>
+  agendaFor(comparison, { ...DEFAULT_AGENDA, warmUp: maxCelebrate });
 
 /** What people wrote down for one topic. */
 export type TopicRecord = { note?: string; outcome?: Outcome; followUp?: string };

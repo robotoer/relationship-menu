@@ -13,7 +13,8 @@
 import { decodeData, encodeData } from "./data-encoder";
 import { DecodedCompareSlug, decodeCompareSlug, normalizeCompareEntry } from "./compare-slug";
 import { compareMenus } from "./data-comparer";
-import { buildAgenda, discussionKey, hashString, OUTCOMES, Outcome, Topic, TOPIC_KINDS } from "./discussion";
+import { AgendaOptions, agendaFor, DEFAULT_AGENDA, discussionKey, hashString, OUTCOMES, Outcome, Topic, TOPIC_KINDS } from "./discussion";
+import { BUCKETS, Bucket, bucketOf } from "./compare-focus";
 import { loadSavedGuide, SavedCoachGuide } from "./coach";
 import { newMenuId, MENU_ID_PATTERN } from "./menu-id";
 import { compareInsights, GroupSummary } from "./compare-insights";
@@ -76,6 +77,30 @@ export type Part = {
   updatedAt: number;
 };
 
+/** How notes from each person's menu show on a topic (CV-16). */
+export type MenuNotesView = "show" | "highlight" | "hide";
+
+/**
+ * How this conversation is set up (CV-15…CV-17): what's on the agenda, in which
+ * order, how menu notes show, and whether suggested questions do. Shared by
+ * everyone: it travels in the conversation's link, and the newer change wins.
+ */
+export type ConversationSettings = AgendaOptions & {
+  menuNotes: MenuNotesView;
+  prompts: boolean;
+  updatedAt: number;
+};
+
+export const DEFAULT_SETTINGS: Omit<ConversationSettings, "updatedAt"> = {
+  ...DEFAULT_AGENDA,
+  menuNotes: "show",
+  prompts: true,
+};
+
+/** A conversation's settings, or the defaults (the agenda it has always had). */
+export const settingsOf = (c: Pick<Conversation, "settings">): ConversationSettings =>
+  c.settings ?? { ...DEFAULT_SETTINGS, updatedAt: 0 };
+
 /** One compared menu: its link slug, and when it was last replaced. */
 export type MenuSlot = { slug: string; updatedAt: number };
 
@@ -93,6 +118,8 @@ export type Conversation = {
   topics: Record<string, TopicEntry>;
   areas: Record<string, AreaEntry>;
   coach?: SavedCoachGuide;
+  /** Absent until someone changes a setting. */
+  settings?: ConversationSettings;
 };
 
 const dict = <T>(): Record<string, T> => Object.create(null);
@@ -126,10 +153,10 @@ export const menuNames = (menus: DecodedCompareSlug[]) =>
 export const decodedMenus = (c: Pick<Conversation, "menus">): DecodedCompareSlug[] =>
   c.menus.map((m) => decodeCompareSlug(m.slug)).filter((d): d is DecodedCompareSlug => d !== null);
 
-/** The agenda for a conversation's current menus. */
-export const conversationAgenda = (c: Pick<Conversation, "menus">): Topic[] => {
+/** The agenda for a conversation's current menus and settings (CV-15). */
+export const conversationAgenda = (c: Pick<Conversation, "menus" | "settings">): Topic[] => {
   const menus = decodedMenus(c);
-  return menus.length >= 2 ? buildAgenda(compareMenus(menus.map((d) => d.menu))) : [];
+  return menus.length >= 2 ? agendaFor(compareMenus(menus.map((d) => d.menu)), settingsOf(c)) : [];
 };
 
 /** A new conversation about these menu slugs (or links). */
@@ -234,6 +261,29 @@ const parsePart = (raw: unknown): Part | null => {
   };
 };
 
+const BUCKET_IDS = Object.keys(BUCKETS) as Bucket[];
+
+const parseSettings = (raw: unknown): ConversationSettings | undefined => {
+  if (!raw || typeof raw !== "object") return undefined;
+  const v = raw as Record<string, unknown>;
+  const include = { ...DEFAULT_SETTINGS.include };
+  if (v.include && typeof v.include === "object") {
+    for (const b of BUCKET_IDS) {
+      const on = (v.include as Record<string, unknown>)[b];
+      if (typeof on === "boolean") include[b] = on;
+    }
+  }
+  const warmUp = typeof v.warmUp === "number" && Number.isFinite(v.warmUp) ? Math.max(0, Math.min(5, Math.floor(v.warmUp))) : DEFAULT_SETTINGS.warmUp;
+  return {
+    include,
+    warmUp,
+    order: v.order === "hardest" ? "hardest" : "gentle",
+    menuNotes: v.menuNotes === "highlight" || v.menuNotes === "hide" ? v.menuNotes : "show",
+    prompts: typeof v.prompts === "boolean" ? v.prompts : true,
+    updatedAt: time(v.updatedAt),
+  };
+};
+
 /** A conversation from storage or a link, cleaned up; null if it isn't one (CV-9). */
 export const parseConversation = (raw: unknown): Conversation | null => {
   if (!raw || typeof raw !== "object") return null;
@@ -263,6 +313,7 @@ export const parseConversation = (raw: unknown): Conversation | null => {
     .filter((p): p is Part => p !== null && !seenParts.has(p.id) && (seenParts.add(p.id), true))
     .slice(0, CONVERSATION_LIMITS.parts);
   const coach = loadSavedGuide(v.coach);
+  const settings = parseSettings(v.settings);
   const createdAt = time(v.createdAt);
   return {
     kind: "conversation",
@@ -277,6 +328,7 @@ export const parseConversation = (raw: unknown): Conversation | null => {
     topics,
     areas,
     ...(coach ? { coach } : {}),
+    ...(settings ? { settings } : {}),
   };
 };
 
@@ -349,6 +401,7 @@ export const mergeConversations = (a: Conversation, b: Conversation): Conversati
       ? later({ ...a.coach, updatedAt: a.coach.createdAt }, { ...b.coach, updatedAt: b.coach.createdAt })!
       : a.coach ?? b.coach;
   const { updatedAt: _u, ...coachFields } = (coach ?? {}) as SavedCoachGuide & { updatedAt?: number };
+  const settings = later(a.settings, b.settings);
   return {
     kind: "conversation",
     version: 1,
@@ -362,6 +415,7 @@ export const mergeConversations = (a: Conversation, b: Conversation): Conversati
     topics,
     areas,
     ...(coach ? { coach: coachFields as SavedCoachGuide } : {}),
+    ...(settings ? { settings } : {}),
   };
 };
 
@@ -388,6 +442,24 @@ const touch = (c: Conversation, now: number, change: Partial<Conversation>): Con
   ...change,
   updatedAt: Math.max(now, c.updatedAt),
 });
+
+/** How many of the conversation's items are in each bucket, for the settings (CV-15). */
+export const bucketCounts = (c: Pick<Conversation, "menus">): Record<Bucket, number> => {
+  const counts = Object.fromEntries(BUCKET_IDS.map((k) => [k, 0])) as Record<Bucket, number>;
+  const menus = decodedMenus(c);
+  if (menus.length < 2) return counts;
+  for (const group of Object.values(compareMenus(menus.map((d) => d.menu)))) {
+    for (const item of group) counts[bucketOf(item.values)]++;
+  }
+  return counts;
+};
+
+/** Changes some settings (CV-15…CV-17). */
+export const updateSettings = (
+  c: Conversation,
+  change: Partial<Omit<ConversationSettings, "updatedAt">>,
+  now = Date.now()
+): Conversation => touch(c, now, { settings: { ...settingsOf(c), ...change, updatedAt: now } });
 
 export const setTitle = (c: Conversation, title: string, now = Date.now()) =>
   touch(c, now, { title: title.slice(0, CONVERSATION_LIMITS.title), titleUpdatedAt: now });
@@ -485,9 +557,16 @@ export const saveCoachGuide = (c: Conversation, guide: SavedCoachGuide, now = Da
 
 /**
  * The agenda in parts of at most `perPart` topics, keeping each area together where
- * it fits. Areas go easiest first (most shared, fewest conflicts), as in the agenda.
+ * it fits. Areas go easiest first (most shared, fewest conflicts), as in the agenda,
+ * or hardest first when the conversation is set up that way (CV-17).
  */
-export const suggestParts = (agenda: Topic[], perPart = 6, now = Date.now(), makeId = newMenuId): Part[] => {
+export const suggestParts = (
+  agenda: Topic[],
+  perPart = 6,
+  now = Date.now(),
+  makeId = newMenuId,
+  order: AgendaOptions["order"] = "gentle"
+): Part[] => {
   const areas: { group: string; topics: Topic[]; hardness: number; first: number }[] = [];
   agenda.forEach((t, i) => {
     let area = areas.find((a) => a.group === t.group);
@@ -495,7 +574,8 @@ export const suggestParts = (agenda: Topic[], perPart = 6, now = Date.now(), mak
     area.topics.push(t);
     area.hardness += t.kind === "conflict" ? 3 : t.kind === "explore" ? 1 : t.kind === "check-in" ? 0.5 : 0;
   });
-  areas.sort((a, b) => a.hardness / a.topics.length - b.hardness / b.topics.length || a.first - b.first);
+  const sign = order === "hardest" ? -1 : 1;
+  areas.sort((a, b) => sign * (a.hardness / a.topics.length - b.hardness / b.topics.length) || a.first - b.first);
 
   const parts: { groups: string[]; keys: string[] }[] = [];
   for (const area of areas) {

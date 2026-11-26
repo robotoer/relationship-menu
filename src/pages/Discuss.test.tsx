@@ -197,6 +197,27 @@ describe("DiscussPage (DS-1..DS-8)", () => {
     });
   });
 
+  it("shapes the agenda: what you agree on, menu notes hidden until revealed, prompts off (CV-15…CV-17)", () => {
+    renderPage();
+    expect(screen.getByText(/Ana & Ben: 3 topics/)).toBeInTheDocument();
+    const panel = within(screen.getByRole("group", { name: "What's on the agenda" }).closest("details")!);
+    // Pets is a difference (Like vs Maybe); taking differences off leaves 2 topics.
+    fireEvent.click(panel.getByRole("checkbox", { name: /Talk about it/ }));
+    expect(screen.getByText(/Ana & Ben: 2 topics/)).toBeInTheDocument();
+    expect(gtag).toHaveBeenCalledWith("event", "conversation_settings_changed", { setting: "include" });
+    expect(saved().settings?.include.talk).toBe(false);
+
+    fireEvent.click(panel.getByRole("radio", { name: /Hide until revealed/ }));
+    fireEvent.click(panel.getByRole("checkbox", { name: /Show them on each topic/ }));
+    fireEvent.click(screen.getByRole("button", { name: "▶ Start" }));
+    fireEvent.click(screen.getByRole("button", { name: /Skip for now/ }));
+    expect(screen.getByRole("heading", { level: 1, name: "Kids" })).toBeInTheDocument();
+    expect(document.querySelector(".discuss-card")).not.toHaveTextContent("two, someday");
+    expect(screen.queryByRole("heading", { name: "Talk about" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Show what Ana wrote on their menu" }));
+    expect(screen.getByRole("region", { name: "From your menus" })).toHaveTextContent("Ana: “two, someday”");
+  });
+
   describe("conversations (CV-3, CV-4, CV-5, CV-11, CV-13, CV-14)", () => {
     it("shows the plan in parts and saves it with the first change", () => {
       renderPage();
