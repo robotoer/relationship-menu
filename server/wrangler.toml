@@ -13,7 +13,7 @@
 # The app is built first, at the repository root (`yarn build` → ../build).
 #
 # Secrets (never in this file): STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, and
-#   ANTHROPIC_API_KEY for the AI coach (docs/spec/coach.md). The coach stays off
+#   OPENROUTER_API_KEY for the AI coach (docs/spec/coach.md). The coach stays off
 #   until an environment also sets COACH_ENABLED = "true" in its vars.
 #   npx wrangler secret put STRIPE_SECRET_KEY --env test
 
