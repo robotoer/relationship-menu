@@ -2,11 +2,14 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from "
 import { Storage, createLocalStorage } from "../storage";
 import { RelationshipMenuDocument } from "../model/menu";
 
+export type SavedDocument = RelationshipMenuDocument & { id: string };
+
 type StorageContextType = {
   storage: Storage;
-  /** Every saved menu, by title. Kept in step with saves and deletes. */
-  documents: { [title: string]: RelationshipMenuDocument };
-  deleteDocument: (title: string) => Promise<void>;
+  /** Every saved menu, by menu id (SY-20). Kept in step with saves and deletes. */
+  documents: { [id: string]: SavedDocument };
+  /** Deletes the menu with this id. */
+  deleteDocument: (id: string) => Promise<void>;
 };
 
 const StorageContext = createContext<StorageContextType | undefined>(undefined);
@@ -33,9 +36,11 @@ export const StorageProvider: React.FC<{
         try {
           const ids = await base.saveDocuments(...docs);
           setDocuments((prev) => {
-            // No prototype: titles are user text (e.g. "__proto__").
             const next: typeof prev = Object.assign(Object.create(null), prev);
-            for (const doc of docs) next[doc.title] = doc;
+            docs.forEach((doc, i) => {
+              const id = ids[i];
+              if (id !== undefined) next[id] = { ...doc, id };
+            });
             return next;
           });
           return ids;
@@ -44,11 +49,11 @@ export const StorageProvider: React.FC<{
           return [];
         }
       },
-      deleteDocument: async (title: string) => {
-        await base.deleteDocument(title);
+      deleteDocument: async (id: string) => {
+        await base.deleteDocument(id);
         setDocuments((prev) => {
           const next: typeof prev = Object.assign(Object.create(null), prev);
-          delete next[title];
+          delete next[id];
           return next;
         });
       },

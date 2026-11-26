@@ -12,8 +12,8 @@ vi.mock("react-random-avatars", () => ({
 
 describe("LibraryPage", () => {
   const menus = [
-    { title: "My First Menu", encoded: "encoded1", id: "id1" },
-    { title: "My Second Menu", encoded: "encoded2", id: "id2" },
+    { title: "My First Menu", encoded: "encoded1", id: "id1", link: "slug1" },
+    { title: "My Second Menu", encoded: "encoded2", id: "id2", link: "slug2" },
   ];
 
   it("should render all menu tiles", () => {
@@ -68,7 +68,7 @@ describe("LibraryPage", () => {
     expect(screen.queryByText("Delete")).not.toBeInTheDocument();
   });
 
-  it("should call onDelete with the menu title when delete is clicked", async () => {
+  it("should call onDelete with the menu id when delete is clicked", async () => {
     const onDelete = vi.fn().mockResolvedValue(undefined);
     render(
       <MemoryRouter>
@@ -83,7 +83,7 @@ describe("LibraryPage", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "Yes, delete My First Menu" })
     );
-    expect(onDelete).toHaveBeenCalledWith("My First Menu");
+    expect(onDelete).toHaveBeenCalledWith("id1");
   });
 
   it("should not delete when the confirmation is declined", () => {
@@ -127,12 +127,13 @@ describe("LibraryPage", () => {
       {
         title: "Beta",
         id: "b",
+        link: "b",
         encoded: enc({ G: [{ item: "Trust", value: "maybe" }, { item: "Dancing" }] }),
         person: { name: "Sam", pronouns: "they/them" },
         createdAt: Date.UTC(2026, 2, 2),
         updatedAt: Date.now() - 2 * 24 * 3600 * 1000,
       },
-      { title: "Alpha", id: "a", encoded: enc({ G: [{ item: "Hiking" }] }) },
+      { title: "Alpha", id: "a", link: "a", encoded: enc({ G: [{ item: "Hiking" }] }) },
     ];
     render(
       <MemoryRouter>

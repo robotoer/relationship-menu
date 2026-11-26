@@ -25,27 +25,28 @@ import { openedFromState, track, trackOnce } from "../analytics";
  * @component
  * @param {Object} props - The component props.
  * @param {RelationshipMenuDocument[]} props.menus - The array of relationship menus to display.
- * @param {function} [props.onDelete] - Optional callback to delete a menu by title.
+ * @param {function} [props.onDelete] - Optional callback to delete a menu by its id.
  * @returns {JSX.Element} The rendered Library page.
  */
 export const LibraryPage = ({
   menus,
   onDelete,
 }: {
-  menus: (RelationshipMenuDocument & { id: string })[];
-  onDelete?: (title: string) => void | Promise<void>;
+  /** Saved menus: `id` is the menu id (SY-20); `link` is the slug its tile opens. */
+  menus: (RelationshipMenuDocument & { id: string; link: string })[];
+  onDelete?: (id: string) => void | Promise<void>;
 }) => {
-  // Title of the menu whose Delete was clicked and is waiting for confirmation.
+  // Id of the menu whose Delete was clicked and is waiting for confirmation.
   const [confirming, setConfirming] = useState<string | null>(null);
   // Move keyboard focus into the confirmation when it appears.
   const keepButton = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     if (confirming !== null) keepButton.current?.focus();
   }, [confirming]);
-  const handleDelete = async (title: string) => {
+  const handleDelete = async (id: string) => {
     setConfirming(null);
     try {
-      await onDelete?.(title);
+      await onDelete?.(id);
       track("menu_deleted");
     } catch (e) {
       console.error("Failed to delete menu:", e);
@@ -109,15 +110,16 @@ export const LibraryPage = ({
           const stats = menuStats(menu.encoded);
           const name = menu.title || "Untitled menu";
           return (
-            <div key={menu.title} className="menu-tile-wrapper">
+            <div key={menu.id} className="menu-tile-wrapper">
               <MenuTile
                 title={menu.title}
                 image={
                   <RandomAvatar name={menu.person?.name || menu.title} size={56} />
                 }
-                link={`/menu?encoded=${encodeURIComponent(menu.id)}`}
-                // So reopening a saved menu isn't counted as a shared link (analytics).
-                linkState={openedFromState("library")}
+                link={`/menu?encoded=${encodeURIComponent(menu.link)}`}
+                // The menu id says which saved menu this is (titles can repeat); the
+                // rest keeps reopening a saved menu from counting as a shared link.
+                linkState={{ ...openedFromState("library"), menuId: menu.id }}
               >
                 <dl className="menu-tile-details">
                   {menu.person?.name && (
@@ -180,12 +182,12 @@ export const LibraryPage = ({
                 </dl>
               </MenuTile>
               {onDelete &&
-                (confirming === menu.title ? (
+                (confirming === menu.id ? (
                   <div className="delete-menu-confirm" role="group" aria-label="Confirm delete">
                     <span>Delete for good?</span>
                     <button
                       className="delete-menu-button"
-                      onClick={() => handleDelete(menu.title)}
+                      onClick={() => handleDelete(menu.id)}
                       aria-label={`Yes, delete ${name}`}
                     >
                       Yes
@@ -202,7 +204,7 @@ export const LibraryPage = ({
                 ) : (
                   <button
                     className="delete-menu-button"
-                    onClick={() => setConfirming(menu.title)}
+                    onClick={() => setConfirming(menu.id)}
                     aria-label={`Delete ${name}`}
                   >
                     Delete

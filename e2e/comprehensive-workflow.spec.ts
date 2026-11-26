@@ -356,7 +356,7 @@ test.describe('Comprehensive Workflow Tests', () => {
         const keys: string[] = [];
         for (let i = 0; i < localStorage.length; i++) {
           const key = localStorage.key(i);
-          if (key && key.startsWith('menu:')) {
+          if (key && key.startsWith('menu-v2:')) {
             keys.push(key);
           }
         }
@@ -813,7 +813,7 @@ test.describe('Comprehensive Workflow Tests', () => {
         const keys: string[] = [];
         for (let i = 0; i < localStorage.length; i++) {
           const key = localStorage.key(i);
-          if (key && key.startsWith('menu:')) {
+          if (key && key.startsWith('menu-v2:')) {
             keys.push(key);
           }
         }
@@ -837,7 +837,7 @@ test.describe('Comprehensive Workflow Tests', () => {
         const keys: string[] = [];
         for (let i = 0; i < localStorage.length; i++) {
           const key = localStorage.key(i);
-          if (key && key.startsWith('menu:')) {
+          if (key && key.startsWith('menu-v2:')) {
             keys.push(key);
           }
         }
@@ -868,7 +868,7 @@ test.describe('Comprehensive Workflow Tests', () => {
         const keys: string[] = [];
         for (let i = 0; i < localStorage.length; i++) {
           const key = localStorage.key(i);
-          if (key && key.startsWith('menu:')) keys.push(key);
+          if (key && key.startsWith('menu-v2:')) keys.push(key);
         }
         return keys;
       });

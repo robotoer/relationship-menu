@@ -17,6 +17,8 @@ const DOCS: RelationshipMenuDocument[] = TITLES.flatMap((title) =>
   VERSIONS.map((v) => ({ title, encoded: `v${v}` }))
 );
 const key = (d: RelationshipMenuDocument) => `${d.title}/${d.encoded}`;
+/** The editor's menu id (SY-20): one stored entry, whatever the title. */
+const MENU_ID = "menu-under-test";
 
 // ---- actions -------------------------------------------------------------------
 type Action =
@@ -62,7 +64,7 @@ type Trace = {
   savedBefore: (RelationshipMenuDocument | null)[];
   latest: RelationshipMenuDocument;
   statusAfterQuiet: SaveState | null;
-  /** App-like storage (SV-5): title -> encoded, and the events that changed it. */
+  /** App-like storage (SV-5, SY-21): the menu's id-keyed entry -> saved title/content. */
   store: Map<string, string>;
   violations: string[];
 };
@@ -73,8 +75,8 @@ const flushPromises = async () => {
 
 /**
  * Runs the actions against the real hook. When `appLike` is set the save callback
- * behaves like App.tsx: write under the title (a failed write throws before
- * anything else), then delete the previous title's entry.
+ * behaves like App.tsx: write the menu's one id-keyed entry (a failed write throws
+ * before anything else). Renames are ordinary saves; nothing is deleted.
  */
 const run = async (actions: Action[], appLike = false): Promise<Trace> => {
   const calls: Call[] = [];
@@ -83,7 +85,6 @@ const run = async (actions: Action[], appLike = false): Promise<Trace> => {
   const store = new Map<string, string>();
   const violations: string[] = [];
   let lastSuccess: RelationshipMenuDocument | null = null;
-  let owned: string | null = null;
 
   const inFlight = () => calls.filter((c) => !c.settled);
   const startCall = (doc: RelationshipMenuDocument) =>
@@ -111,14 +112,10 @@ const run = async (actions: Action[], appLike = false): Promise<Trace> => {
       throw new Error("save failed");
     }
     if (appLike) {
-      store.set(doc.title, doc.encoded);
-      const previous = owned;
-      owned = doc.title;
-      if (previous !== null && previous !== doc.title) {
-        // SV-5: removing the old entry must follow a successful write of the new one.
-        if (store.get(doc.title) !== doc.encoded) violations.push(`deleted ${previous} before writing ${doc.title}`);
-        store.delete(previous);
-      }
+      // SY-21: the menu is one entry under its id, whatever its title.
+      const had = store.size;
+      store.set(MENU_ID, key(doc));
+      if (store.size < had) violations.push(`entry removed while saving ${key(doc)}`);
     }
     lastSuccess = doc;
   });
@@ -267,17 +264,17 @@ describe("useAutosave properties (spec §5)", () => {
     );
   });
 
-  it("SV-5: the old title is removed only after a successful save under the new title", async () => {
+  it("SV-5: renaming keeps the menu in one entry, and a failed save changes nothing", async () => {
     await fc.assert(
       fc.asyncProperty(scenarioArb, async (actions) => {
         const t = await run(actions, true);
-        // TLA+ SV5_DeleteOnlyAfterSave / SV5_FailedSaveKeepsOld
+        // TLA+ SV5_NeverRemoved / SV5_FailedSaveKeepsOld
         expect(t.violations).toEqual([]);
         const succeeded = t.calls.filter((c) => c.ok);
         const lastOk = succeeded.length ? succeeded[succeeded.length - 1].doc : null;
         if (lastOk) {
-          // Exactly one entry: the last successfully saved title (renames moved it).
-          expect([...t.store.entries()]).toEqual([[lastOk.title, lastOk.encoded]]);
+          // Exactly one entry, holding the last successful save (title and content).
+          expect([...t.store.entries()]).toEqual([[MENU_ID, key(lastOk)]]);
         } else {
           expect(t.store.size).toBe(0);
         }

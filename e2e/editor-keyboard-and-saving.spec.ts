@@ -16,14 +16,10 @@ const savedMenus = (page: Page) =>
     .evaluate(() => {
       const out: Record<string, string> = {};
       for (const key of Object.keys(localStorage)) {
-        if (!key.startsWith("menu:")) continue;
-        const value = localStorage.getItem(key)!;
-        try {
-          const doc = JSON.parse(value);
-          out[doc.title] = doc.encoded;
-        } catch {
-          out[key.slice(5)] = value;
-        }
+        // Menus are stored by id (SY-20): menu-v2:<id> → { title, encoded, ... }.
+        if (!key.startsWith("menu-v2:")) continue;
+        const doc = JSON.parse(localStorage.getItem(key)!);
+        out[doc.title] = doc.encoded;
       }
       return out;
     })

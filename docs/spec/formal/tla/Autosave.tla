@@ -1,19 +1,19 @@
 ------------------------------ MODULE Autosave ------------------------------
 (***************************************************************************)
 (* Model of the editor autosave (src/autosave.ts, useAutosave) together    *)
-(* with the save callback in src/App.tsx (save under the new title, then   *)
-(* delete the old title's entry only after that save succeeded).           *)
+(* with the save callback in src/App.tsx.  Menus are stored by id (spec    *)
+(* SY-20, SY-21): the editor's menu is one entry, and renaming it is an    *)
+(* ordinary save of that entry.  Nothing is ever deleted by saving.        *)
 (*                                                                         *)
 (* A document is a pair <<title, version>>.  The user edits it (any other  *)
-(* pair, so reverting to an earlier version is included), each edit        *)
-(* replaces the single pending document and (re)arms the 400 ms debounce   *)
-(* timer.  Time is abstracted: the timer may fire at any moment while a    *)
-(* document is pending, and an edit before it fires resets it.  Firing the *)
-(* timer, or leaving the page (pagehide / unmount), "flushes": the pending *)
-(* document is appended to the promise queue.  The queue runs one job at a *)
-(* time; a job equal to the last saved document is skipped, otherwise the  *)
-(* save starts, and its write may succeed or fail; after a successful      *)
-(* write under a new title the old title's entry is deleted.               *)
+(* pair, so renames and reverting to an earlier version are included);     *)
+(* each edit replaces the single pending document and (re)arms the 400 ms  *)
+(* debounce timer.  Time is abstracted: the timer may fire at any moment   *)
+(* while a document is pending, and an edit before it fires resets it.     *)
+(* Firing the timer, or leaving the page (pagehide / unmount), "flushes":  *)
+(* the pending document is appended to the promise queue.  The queue runs  *)
+(* one job at a time; a job equal to the last saved document is skipped,   *)
+(* otherwise the save starts, and its write may succeed or fail.           *)
 (*                                                                         *)
 (* History variables (started, finished, superseded, storedSeq) exist only *)
 (* to state the properties; every edit gets a sequence number.             *)
@@ -25,11 +25,9 @@ CONSTANTS
     N,              \* contents are versions 1..N
     MaxEdits,       \* bound on the number of edits, so editing eventually stops
     InitTitle,      \* title of the document the editor opens with
-    NoTitle,        \* model value: "no title" / "no document"
-    DeleteCanFail   \* whether storage.deleteDocument may throw
+    NoTitle         \* model value: "no title" / "no document"
 
 ASSUME InitTitle \in Titles /\ N \in Nat \ {0} /\ MaxEdits \in Nat
-ASSUME DeleteCanFail \in BOOLEAN
 
 Docs  == Titles \X (1..N)
 NoDoc == <<NoTitle, 0>>
@@ -42,8 +40,7 @@ VARIABLES
     queue,           \* jobs appended to the promise queue, not yet run
     active,          \* the running save (a set, so "at most one" is checkable)
     lastSaved,       \* lastSaved.current (compared by value, like the JSON key)
-    owned,           \* ownedTitle.current in App.tsx
-    store,           \* storage: title -> stored version (0 = no entry)
+    store,           \* storage: this menu's id-keyed entry (NoDoc = not saved yet)
     status,          \* SaveState
     left,            \* the user left the page (component unmounted)
     lastFailed,      \* the most recently finished save failed
@@ -53,18 +50,16 @@ VARIABLES
     storedSeq        \* history: edit seq of the last successful write
 
 vars == <<doc, docSeq, edits, pending, pendSeq, queue, active, lastSaved,
-          owned, store, status, left, lastFailed, started, finished,
-          superseded, storedSeq>>
+          store, status, left, lastFailed, started, finished, superseded,
+          storedSeq>>
 
 TypeOK ==
     /\ doc \in Docs /\ docSeq \in 0..MaxEdits /\ edits \in 0..MaxEdits
     /\ pending \in Docs \cup {NoDoc} /\ pendSeq \in 0..MaxEdits
     /\ queue \in Seq(Job)
-    /\ active \subseteq [d : Docs, s : 0..MaxEdits, phase : {"write", "delete"},
-                         prev : Titles \cup {NoTitle}]
+    /\ active \subseteq [d : Docs, s : 0..MaxEdits]
     /\ lastSaved \in Docs \cup {NoDoc}
-    /\ owned \in Titles \cup {NoTitle}
-    /\ store \in [Titles -> 0..N]
+    /\ store \in Docs \cup {NoDoc}
     /\ status \in {"idle", "pending", "saving", "saved", "error"}
     /\ left \in BOOLEAN /\ lastFailed \in BOOLEAN
     /\ superseded \subseteq 0..MaxEdits /\ storedSeq \in 0..MaxEdits
@@ -73,8 +68,8 @@ Init ==
     /\ doc = <<InitTitle, 1>> /\ docSeq = 0 /\ edits = 0
     /\ pending = doc /\ pendSeq = 0          \* the mount effect arms the timer
     /\ queue = <<>> /\ active = {}
-    /\ lastSaved = NoDoc /\ owned = NoTitle
-    /\ store = [t \in Titles |-> 0]
+    /\ lastSaved = NoDoc
+    /\ store = NoDoc
     /\ status = "pending" /\ left = FALSE /\ lastFailed = FALSE
     /\ started = <<>> /\ finished = <<>> /\ superseded = {} /\ storedSeq = 0
 
@@ -91,7 +86,7 @@ Edit(d) ==
     /\ superseded' = IF pending # NoDoc THEN superseded \cup {pendSeq}
                                         ELSE superseded
     /\ status' = "pending"
-    /\ UNCHANGED <<queue, active, lastSaved, owned, store, left, lastFailed,
+    /\ UNCHANGED <<queue, active, lastSaved, store, left, lastFailed,
                    started, finished, storedSeq>>
 
 \* flush(): move the pending document onto the queue.
@@ -105,7 +100,7 @@ FlushVars ==
 TimerFire ==
     /\ Macrotask /\ pending # NoDoc
     /\ FlushVars
-    /\ UNCHANGED <<doc, docSeq, edits, pendSeq, active, lastSaved, owned, store,
+    /\ UNCHANGED <<doc, docSeq, edits, pendSeq, active, lastSaved, store,
                    status, left, lastFailed, started, finished, superseded,
                    storedSeq>>
 
@@ -113,7 +108,7 @@ TimerFire ==
 Leave ==
     /\ Macrotask /\ ~left /\ left' = TRUE
     /\ FlushVars
-    /\ UNCHANGED <<doc, docSeq, edits, pendSeq, active, lastSaved, owned, store,
+    /\ UNCHANGED <<doc, docSeq, edits, pendSeq, active, lastSaved, store,
                    status, lastFailed, started, finished, superseded, storedSeq>>
 
 \* ---- the serialized queue -------------------------------------------------
@@ -124,68 +119,37 @@ StartJob ==
          /\ IF j.d = lastSaved
               THEN /\ status' = IF pending = NoDoc THEN "saved" ELSE status  \* skip: nothing to write
                    /\ UNCHANGED <<active, started>>
-              ELSE /\ active' = {[d |-> j.d, s |-> j.s, phase |-> "write",
-                                  prev |-> NoTitle]}
+              ELSE /\ active' = {[d |-> j.d, s |-> j.s]}
                    /\ started' = Append(started, j.s)
                    /\ status' = "saving"
-    /\ UNCHANGED <<doc, docSeq, edits, pending, pendSeq, lastSaved, owned, store,
+    /\ UNCHANGED <<doc, docSeq, edits, pending, pendSeq, lastSaved, store,
                    left, lastFailed, finished, superseded, storedSeq>>
 
-\* The whole save callback resolved.
-Succeed(a) ==
-    /\ active' = {} /\ lastSaved' = a.d /\ lastFailed' = FALSE
-    /\ finished' = Append(finished, a.s)
-    /\ status' = IF pending = NoDoc THEN "saved" ELSE status
-
-\* The save callback threw.
-Fail(a) ==
-    /\ active' = {} /\ lastFailed' = TRUE
-    /\ finished' = Append(finished, a.s)
-    /\ status' = "error"
-    /\ lastSaved' = NoDoc   \* storage may hold part of this save: forget the last saved version
-
-\* storage.saveDocuments returned ids; then App decides whether to delete.
+\* storage.saveDocuments wrote the menu's entry (title and content together).
 WriteOk ==
     \E a \in active :
-      /\ a.phase = "write"
-      /\ store' = [store EXCEPT ![a.d[1]] = a.d[2]]
+      /\ store' = a.d
       /\ storedSeq' = a.s
-      /\ owned' = a.d[1]
-      /\ IF owned # NoTitle /\ owned # a.d[1]
-           THEN /\ active' = {[a EXCEPT !.phase = "delete", !.prev = owned]}
-                /\ UNCHANGED <<lastSaved, lastFailed, finished, status>>
-           ELSE Succeed(a)
+      /\ active' = {} /\ lastSaved' = a.d /\ lastFailed' = FALSE
+      /\ finished' = Append(finished, a.s)
+      /\ status' = IF pending = NoDoc THEN "saved" ELSE status
       /\ UNCHANGED <<doc, docSeq, edits, pending, pendSeq, queue, left, started,
                      superseded>>
 
-\* storage.saveDocuments returned no ids: App throws before touching anything.
+\* storage.saveDocuments returned no ids: App throws; nothing was written.
 WriteFail ==
     \E a \in active :
-      /\ a.phase = "write"
-      /\ Fail(a)
-      /\ UNCHANGED <<doc, docSeq, edits, pending, pendSeq, queue, owned, store,
-                     left, started, superseded, storedSeq>>
-
-\* Rename step: delete the old title's entry.
-DeleteOk ==
-    \E a \in active :
-      /\ a.phase = "delete"
-      /\ store' = [store EXCEPT ![a.prev] = 0]
-      /\ Succeed(a)
-      /\ UNCHANGED <<doc, docSeq, edits, pending, pendSeq, queue, owned, left,
+      /\ active' = {} /\ lastFailed' = TRUE
+      /\ finished' = Append(finished, a.s)
+      /\ status' = "error"
+      /\ lastSaved' = NoDoc   \* forget the last saved version: always write next time
+      /\ UNCHANGED <<doc, docSeq, edits, pending, pendSeq, queue, store, left,
                      started, superseded, storedSeq>>
-
-DeleteFail ==
-    \E a \in active :
-      /\ DeleteCanFail /\ a.phase = "delete"
-      /\ Fail(a)
-      /\ UNCHANGED <<doc, docSeq, edits, pending, pendSeq, queue, owned, store,
-                     left, started, superseded, storedSeq>>
 
 Next ==
     \/ \E d \in Docs : Edit(d)
     \/ TimerFire \/ Leave
-    \/ StartJob \/ WriteOk \/ WriteFail \/ DeleteOk \/ DeleteFail
+    \/ StartJob \/ WriteOk \/ WriteFail
 
 \* The user is not forced to edit or leave; timers fire, the queue runs and
 \* storage calls return.
@@ -193,7 +157,6 @@ Fairness ==
     /\ WF_vars(TimerFire)
     /\ WF_vars(StartJob)
     /\ WF_vars(WriteOk \/ WriteFail)
-    /\ WF_vars(DeleteOk \/ DeleteFail)
 
 Spec == Init /\ [][Next]_vars /\ Fairness
 
@@ -224,15 +187,11 @@ SV3_SupersededNeverSaved == Range(started) \cap superseded = {}
 \* starts for the document that is already saved).
 SV3_NoRedundantWrite == \A a \in active : a.d # lastSaved
 
-\* SV-5: an entry is removed only in the rename step, for the save's previous
-\* title, after the new title was written successfully by that same save.
-SV5_DeleteOnlyAfterSave ==
-    [][\A t \in Titles :
-         (store[t] # 0 /\ store'[t] = 0) =>
-            \E a \in active : /\ a.phase = "delete" /\ a.prev = t
-                              /\ a.d[1] # t /\ store[a.d[1]] = a.d[2]]_vars
+\* SV-5 (with SY-21): once saved, the menu's entry is never removed, by a
+\* rename or anything else; it only ever changes to a newer save.
+SV5_NeverRemoved == [][store # NoDoc => store' # NoDoc]_vars
 
-\* SV-5: a failed save never removes (or changes) any entry.
+\* SV-5: a failed save leaves the stored entry as it was.
 SV5_FailedSaveKeepsOld == [][WriteFail => store' = store]_vars
 
 \* SV-1: leaving the page flushes the pending document immediately.
@@ -246,11 +205,11 @@ SV1_LeaveFlushes ==
 \* status is "error".
 Settled ==
     /\ pending = NoDoc /\ queue = <<>> /\ active = {}
-    /\ \/ status = "saved" /\ lastSaved = doc /\ store[doc[1]] = doc[2]
+    /\ \/ status = "saved" /\ lastSaved = doc /\ store = doc
        \/ status = "error" /\ lastFailed
 SV1_EventuallySaved == <>[]Settled
 
 \* Not one of the rules: "saved" is shown only when nothing is pending.
-\* Checked by AutosaveStatus.cfg; TLC finds a violation (see README).
+\* Checked by AutosaveStatus.cfg.
 StatusSavedMeansNothingPending == status = "saved" => pending = NoDoc
 =============================================================================
