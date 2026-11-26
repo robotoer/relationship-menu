@@ -80,7 +80,7 @@ The additional data is 65 bytes. It is authenticated but not sent:
 
 So a record that's moved to another account or menu, served as another version, or has its `deleted` flag flipped fails to decrypt.
 
-The padded plaintext is a 4-byte unsigned big-endian length *n*, then *n* bytes of UTF-8 JSON, then zeros. It's padded to the next multiple of 1024 bytes, and is at least 1024. The JSON is `{"v":1, "id", "title", "encoded", "person"?, "createdAt"?, "updatedAt"?, "editId", "deleted"?}`, in that order. A tombstone has `"deleted": true`, an empty title and an empty `encoded`.
+The padded plaintext is a 4-byte unsigned big-endian length *n*, then *n* bytes of UTF-8 JSON, then zeros. It's padded to the next multiple of 1024 bytes, and is at least 1024. The JSON is `{"v":1, "id", "title", "encoded", "person"?, "createdAt"?, "updatedAt"?, "editId", "deviceId"?, "deleted"?}`, in that order. `updatedAt` is the edit time and `deviceId` is the writing device's id: a conflict goes to the later edit time, then the device id (SY-35). A tombstone has `"deleted": true`, an empty title and an empty `encoded`.
 
 So every record is a whole number of KiB plus 28 bytes: 1,052 bytes for a tombstone or a small menu. The largest padded plaintext is 63 KiB for a menu and 3 KiB for a tombstone, so records stay within the 64 KiB and 4 KiB limits.
 

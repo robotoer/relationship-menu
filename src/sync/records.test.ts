@@ -47,6 +47,7 @@ const markerRecord = (): MenuRecord => ({
   createdAt: 1795564800000,
   updatedAt: 1795568400000,
   editId: "ZWRpdC1pZC10ZXN0MDAwMQ",
+  deviceId: "ZGV2aWNlLWlkLXRlc3QwMQ",
 });
 
 const stored = (ciphertext: Uint8Array, over: Partial<{ id: string; version: number; deleted: boolean }> = {}) => ({
@@ -109,6 +110,7 @@ const recordArb: fc.Arbitrary<MenuRecord> = fc.record(
     createdAt: fc.integer({ min: 0, max: 4e12 }),
     updatedAt: fc.integer({ min: 0, max: 4e12 }),
     editId: fc.string({ minLength: 1, maxLength: 40 }),
+    deviceId: fc.string({ minLength: 1, maxLength: 40 }),
   },
   { requiredKeys: ["id", "title", "encoded", "editId"] }
 );
@@ -222,6 +224,10 @@ describe("SY-15: records are AES-256-GCM, bound to their account, menu, version 
     await expectUnreadable(decryptRecord(keys, stored(await sealByHand(json({ ...good, id: OTHER_MENU_ID })))));
     await expectUnreadable(decryptRecord(keys, stored(await sealByHand(json({ ...good, title: 5 })))));
     await expectUnreadable(decryptRecord(keys, stored(await sealByHand(json({ ...good, editId: "" })))));
+    await expectUnreadable(decryptRecord(keys, stored(await sealByHand(json({ ...good, deviceId: "" })))));
+    await expectUnreadable(decryptRecord(keys, stored(await sealByHand(json({ ...good, deviceId: 7 })))));
+    // And the writing side never produces an empty one.
+    await expect(encryptRecord(keys, 1, { ...markerRecord(), deviceId: "" })).rejects.toThrow();
     await expectUnreadable(decryptRecord(keys, stored(await sealByHand(json({ ...good, createdAt: "today" })))));
     await expectUnreadable(decryptRecord(keys, stored(await sealByHand(json({ ...good, person: { name: 1 } })))));
     await expectUnreadable(decryptRecord(keys, stored(await sealByHand(json({ ...good, deleted: false })))));
@@ -265,11 +271,11 @@ describe("SY-16: the plaintext is the whole menu, padded to a multiple of 1 KiB"
     expect(padded.includes(latin1(utf8(record.encoded)))).toBe(true);
   });
 
-  test("the plaintext is { v, id, title, encoded, person, createdAt, updatedAt, editId }, in that order", async () => {
+  test("the plaintext is { v, id, title, encoded, person, createdAt, updatedAt, editId, deviceId }, in that order", async () => {
     const padded = await openByHand(await encryptRecord(keys, 2, markerRecord()), keys.accountId, MENU_ID, 2, false);
     const plain = unpad(padded)!;
     const parsed = JSON.parse(fromUtf8(plain));
-    expect(Object.keys(parsed)).toEqual(["v", "id", "title", "encoded", "person", "createdAt", "updatedAt", "editId"]);
+    expect(Object.keys(parsed)).toEqual(["v", "id", "title", "encoded", "person", "createdAt", "updatedAt", "editId", "deviceId"]);
     expect(parsed.v).toBe(1);
   });
 
@@ -318,6 +324,13 @@ describe("SY-19: a deletion is an encrypted tombstone", () => {
     expect(ciphertext.length).toBe(1052);
     expect(ciphertext.length).toBeLessThanOrEqual(4 * 1024);
     expect(await decryptRecord(keys, stored(ciphertext, { version: 4, deleted: true }))).toEqual(dead);
+  });
+
+  test("a tombstone can name the device that deleted the menu", async () => {
+    const dead = tombstone(MENU_ID, "e", 1795572000000, "ZGV2aWNlLWlkLXRlc3QwMQ");
+    expect(Object.keys(dead)).toEqual(["id", "title", "encoded", "updatedAt", "editId", "deviceId", "deleted"]);
+    const ciphertext = await encryptRecord(keys, 2, dead);
+    expect(await decryptRecord(keys, stored(ciphertext, { version: 2, deleted: true }))).toEqual(dead);
   });
 
   test("the server can't turn a menu into a deletion, or a deletion back into a menu", async () => {
