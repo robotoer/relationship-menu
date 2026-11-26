@@ -222,3 +222,65 @@ describe("MenuPage editing", () => {
     });
   });
 });
+
+describe("Reorder mode (ED-7, ED-23)", () => {
+  const initial: RelationshipMenu = {
+    Touch: [
+      { id: "a", item: "Kissing", value: "must-have" },
+      { id: "b", item: "Cuddling" },
+      { id: "c", item: "Holding hands" },
+    ],
+    Future: [{ id: "d", item: "Kids" }],
+    Home: [{ id: "e", item: "Pets" }],
+  };
+  const order = () => {
+    const m = menuState() as RelationshipMenu;
+    return Object.fromEntries(Object.entries(m).map(([g, items]) => [g, items.map((i) => i.item)]));
+  };
+
+  it("shows ▲▼ on every item and group, instead of their other actions and the new rows", async () => {
+    render(<Editor initial={initial} />);
+    expect(screen.queryByRole("button", { name: 'Move "Kissing" up' })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "↕ Reorder" }));
+    expect(screen.getByRole("button", { name: "✓ Done reordering" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getAllByRole("button", { name: /^Move ".*" (up|down)$/ })).toHaveLength(10);
+    expect(screen.getAllByRole("button", { name: /^Move group ".*" (up|down)$/ })).toHaveLength(6);
+    // At the ends the button is there but disabled, so rows don't shift.
+    expect(screen.getByRole("button", { name: 'Move "Kissing" up' })).toBeDisabled();
+    expect(screen.getByRole("button", { name: 'Move group "Home" down' })).toBeDisabled();
+    // Delete, notes, make-into-group and the empty "new" rows are out of the way.
+    expect(screen.queryByRole("button", { name: /^Delete/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /note/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "New item" })).not.toBeInTheDocument();
+    expect([...groupInputs()].map((i) => i.value)).toEqual(["Touch", "Future", "Home"]);
+  });
+
+  it("moves items within their group and groups among themselves, keeping focus on the button", async () => {
+    render(<Editor initial={initial} />);
+    await userEvent.click(screen.getByRole("button", { name: "↕ Reorder" }));
+    await userEvent.click(screen.getByRole("button", { name: 'Move "Kissing" down' }));
+    expect(order().Touch).toEqual(["Cuddling", "Kissing", "Holding hands"]);
+    expect(screen.getByRole("button", { name: 'Move "Kissing" down' })).toHaveFocus();
+    await userEvent.click(screen.getByRole("button", { name: 'Move "Kissing" down' }));
+    expect(order().Touch).toEqual(["Cuddling", "Holding hands", "Kissing"]);
+    // At the bottom: focus moves to ▲, the one that still works.
+    expect(screen.getByRole("button", { name: 'Move "Kissing" up' })).toHaveFocus();
+
+    await userEvent.click(screen.getByRole("button", { name: 'Move group "Home" up' }));
+    expect(Object.keys(order())).toEqual(["Touch", "Home", "Future"]);
+    expect(screen.getByRole("button", { name: 'Move group "Home" up' })).toHaveFocus();
+    await userEvent.click(screen.getByRole("button", { name: 'Move group "Home" up' }));
+    expect(Object.keys(order())).toEqual(["Home", "Touch", "Future"]);
+    expect(screen.getByRole("button", { name: 'Move group "Home" down' })).toHaveFocus();
+
+    // Nothing was lost (ED-11), answers kept.
+    expect(order()).toEqual({ Home: ["Pets"], Touch: ["Cuddling", "Holding hands", "Kissing"], Future: ["Kids"] });
+    expect((menuState() as RelationshipMenu).Touch[2]).toMatchObject({ id: "a", value: "must-have" });
+
+    // Each move is one undo step; done puts the usual row actions back.
+    await userEvent.click(screen.getByRole("button", { name: "✓ Done reordering" }));
+    expect(screen.getAllByRole("button", { name: /^Delete item/ }).length).toBeGreaterThan(0);
+    await userEvent.click(screen.getByRole("button", { name: /Undo/ }));
+    expect(Object.keys(order())).toEqual(["Touch", "Home", "Future"]);
+  });
+});

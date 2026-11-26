@@ -1,6 +1,7 @@
 import "./MenuItem.css";
 import { useLayoutEffect, useRef, useState } from "react";
 import { RelationshipMenuItem, RelationshipMenuItemValue } from "../model/menu";
+import { MoveButtons, MoveControls } from "./MoveButtons";
 
 /**
  * The text of a menu item: a one-row textarea that grows to fit, so long items
@@ -98,6 +99,7 @@ export const MenuItem = ({
   onMakeGroup,
   makeGroupBlockedReason,
   rowProps,
+  move,
 }: {
   id?: string;
   item: string;
@@ -111,12 +113,14 @@ export const MenuItem = ({
   /** When set, "make into group" is disabled and this explains why. */
   makeGroupBlockedReason?: string;
   rowProps?: RowProps;
+  /** Reorder mode (ED-23): ▲▼ instead of the row's other actions. */
+  move?: MoveControls;
 }) => {
   const { className: rowClassName, ...restRowProps } = rowProps || {};
   const [noteOpen, setNoteOpen] = useState(false);
   // Focus the note field only when the user just opened it (not on first render).
   const [focusNote, setFocusNote] = useState(false);
-  const showNote = !!onDelete && (noteOpen || !!note);
+  const showNote = !move && !!onDelete && (noteOpen || !!note);
   const label = item || "this item";
   return (
     <div
@@ -150,7 +154,8 @@ export const MenuItem = ({
           onChange={(e) => onChange({ item: e.target.value })}
         />
       </label>
-      {onDelete && (
+      {move && <MoveButtons name={item ? `"${item}"` : "this item"} controls={move} />}
+      {!move && onDelete && (
         <button
           type="button"
           className={note ? "menu-item-note-toggle icon-button has-note" : "menu-item-note-toggle icon-button"}
@@ -169,7 +174,7 @@ export const MenuItem = ({
           ✎
         </button>
       )}
-      {onMakeGroup && (
+      {!move && onMakeGroup && (
         <button
           type="button"
           className="menu-item-make-group icon-button"
@@ -181,7 +186,7 @@ export const MenuItem = ({
           ⤴
         </button>
       )}
-      {onDelete && (
+      {!move && onDelete && (
         <button
           type="button"
           className="menu-item-delete icon-button"

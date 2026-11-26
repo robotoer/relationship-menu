@@ -127,6 +127,7 @@ classDiagram
 | ED-20 | Typing into the "new group" or "new item" box turns that box into the new entry; focus stays where you are typing, however fast you type. | Test (unit + e2e) |
 | ED-21 | A group name already used by another group shows "A group with this name already exists" and is not applied until it's unique. | Test |
 | ED-22 | Choosing "---" in an answer picker clears the answer. | Test |
+| ED-23 | **Reorder mode:** "↕ Reorder" shows ▲▼ on every item and group, in place of their other buttons and the empty "new" rows. They make exactly the moves of ED-7 (one undo step each; Shift+J / Shift+K do the same from the keyboard). At either end a button is shown disabled. After a move, focus stays on the same button of the moved row, or the other one at an end, so it can be pressed again. Works with touch on a 320px phone. | Test (unit + e2e) |
 
 ---
 
