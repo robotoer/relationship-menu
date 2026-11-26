@@ -369,7 +369,7 @@ flowchart LR
 | --- | --- | --- |
 | NV-1 | Every page works when opened directly by its address (the Worker serves the app for unknown paths, HO-1). | Test (`server/test-node/routing.test.ts`) |
 | NV-2 | Opening `/menu` from a link, the navbar or Back/Forward starts a fresh editor for that address. | Test |
-| NV-3 | An empty editor offers the six templates and a blank menu. | Test (e2e) |
+| NV-3 | An empty editor offers the seven templates and a blank menu. | Test (e2e) |
 | NV-4 | **Support page** (`/support`): everything in the app stays free; supporting is optional and never gates a feature. It's linked from the navbar, quietly after a link is shared, under comparison results, and on the landing page. Until checkout exists, choosing an amount says plainly that nothing was charged. | Test (unit + e2e) |
 
 The old address (relationship-menu.vercel.app) serves only a hand-off page, and `/import` receives the menus it brings: see [sync.md §12](sync.md#12-hosting-domain-and-name), rules HO-1…HO-10.
