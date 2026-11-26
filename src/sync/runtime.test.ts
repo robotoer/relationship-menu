@@ -13,8 +13,13 @@ import { SyncError } from "./context";
 import { pairingKeyFromFragment } from "./pairing";
 import { SyncCodeError } from "./sync-code";
 
-/** Node's, which fake timers leave alone (the app's types don't include Node's). */
-const setImmediate = (globalThis as unknown as { setImmediate: (callback: () => void) => void }).setImmediate;
+/**
+ * A real pause, taken before fake timers are installed. WebCrypto finishes on
+ * Node's thread pool in real time, so each round must let real time pass, not
+ * just yield (slower CI machines need it).
+ */
+const realSetTimeout = globalThis.setTimeout;
+const realPause = (ms = 3) => new Promise<void>((resolve) => realSetTimeout(resolve, ms));
 
 class MemoryStore implements KeyValueStore {
   private map = new Map<string, string>();
@@ -89,11 +94,13 @@ const makeDevice = (server: FakeServer, kv = new MemoryStore(), lead?: (task: ()
 
 type Device = ReturnType<typeof makeDevice>;
 
-/** Lets timers and WebCrypto (which settles on the event loop, not as a timer) run. */
+/** Lets the runtime's (fake) timers and WebCrypto (real time) run. */
 const settle = async (rounds = 25, step = 2_500) => {
   for (let i = 0; i < rounds; i++) {
     await vi.advanceTimersByTimeAsync(step);
-    for (let j = 0; j < 5; j++) await new Promise<void>((r) => setImmediate(() => r()));
+    await realPause();
+    await vi.advanceTimersByTimeAsync(0);
+    await realPause();
   }
 };
 
@@ -471,8 +478,11 @@ describe("SY-27, SY-31: offline and back", () => {
     await settle();
     a.save(menu(ID(1), "Quick edit"));
     a.setVisible(false);
-    await vi.advanceTimersByTimeAsync(10);
-    for (let j = 0; j < 20; j++) await new Promise<void>((r) => setImmediate(() => r()));
+    // Well before the usual 2 s push delay.
+    for (let j = 0; j < 20; j++) {
+      await vi.advanceTimersByTimeAsync(1);
+      await realPause();
+    }
     expect(server.liveMenuIds(accountId)).toEqual([ID(1)]);
   });
 });
