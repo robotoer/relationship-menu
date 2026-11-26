@@ -1,12 +1,14 @@
 /**
- * High-level insights about a comparison (spec §7, CP-20..CP-25): where people line
- * up, where they differ most, and how each person answered. Pure functions over the
- * output of compareMenus(), so they can be tested without rendering.
+ * High-level insights about a comparison (spec §7, CP-22, CP-24, CP-25, CP-30..CP-33):
+ * where people need to talk, where they're aligned, and what matters most to each
+ * person. Pure functions over the output of compareMenus(), so they can be tested
+ * without rendering.
  */
 
 import { ComparedMenuItem, ComparedMenuItemValue, MenuComparison } from "./model/compare";
-import { CompareFilter, countByFilter, itemCategories } from "./compare-filters";
+import { itemCategories } from "./compare-filters";
 import { RelationshipMenuItemValue } from "./model/menu";
+import { BUCKETS, Bucket, Zone, bucketOf, hasNotes, zoneOf } from "./compare-focus";
 
 /** Answers in order from "no" to "yes", used to measure how far apart answers are. */
 export const ANSWER_RANK: Record<RelationshipMenuItemValue, number> = {
@@ -65,6 +67,9 @@ export const matchesQuery = (item: GroupedItem, query: string): boolean => {
 export type GroupSummary = {
   group: string;
   total: number;
+  /** How many of the group's items are in each zone; they add up to `total`. */
+  zones: Record<Zone, number>;
+  /** The verified filters' counts for this group (used by a conversation's area insights, CV-4). */
   agree: number;
   bothWant: number;
   conflict: number;
@@ -82,52 +87,110 @@ export type PersonSummary = {
   offLimits: number;
   unanswered: number;
   notOnMenu: number;
+  /**
+   * This person's Must haves that not everyone else wants: someone answered Maybe or
+   * Off limits, didn't answer, or doesn't have it on their menu. In focus order.
+   */
+  mustNotShared: GroupedItem[];
+  /** This person's Off limits that someone else wants. In focus order. */
+  limitsWanted: GroupedItem[];
 };
 
 export type Insights = {
-  counts: Record<CompareFilter, number>;
-  /** Items everyone answered. */
-  fullyAnswered: number;
-  /** Agree ÷ fully answered (0..1), or null when nothing was fully answered. */
-  alignment: number | null;
+  total: number;
+  /** Items in each bucket; they add up to `total` (CP-30). */
+  buckets: Record<Bucket, number>;
+  /** Items in each zone; they add up to `total`. */
+  zones: Record<Zone, number>;
+  /** Items someone wrote a note on. */
+  withNotes: number;
+  /** Every conflict, difference and open item, most important first (CP-32). */
+  focus: GroupedItem[];
+  /** Items everyone wants, those with more Must haves first. */
+  sharedWants: GroupedItem[];
+  /** Items everyone marked Off limits. */
+  sharedLimits: GroupedItem[];
   byGroup: GroupSummary[];
   /** One entry per compared menu, in column order. */
   people: PersonSummary[];
-  /** The largest differences (conflicts first), at most `topLimit`. */
-  topDifferences: GroupedItem[];
 };
 
-const ratio = (part: number, whole: number) => (whole > 0 ? part / whole : null);
+const FOCUS_RANK: Partial<Record<Bucket, number>> = { conflict: 3, talk: 2, open: 1 };
 
-/** Summarises a comparison of `menuCount` menus. */
-export const compareInsights = (
-  comparison: MenuComparison,
-  menuCount: number,
-  topLimit = 5
-): Insights => {
+/**
+ * Most important first: conflicts, then other differences, then items not everyone
+ * answered; within each, the largest gap first, then items with notes (someone has
+ * something to say), then menu order.
+ */
+export const byFocus = (items: GroupedItem[]): GroupedItem[] =>
+  items
+    .map((item, index) => ({
+      item,
+      index,
+      rank: FOCUS_RANK[bucketOf(item.values)] ?? 0,
+      gap: answerGap(item.values) ?? 0,
+      notes: hasNotes(item) ? 1 : 0,
+    }))
+    .sort((a, b) => b.rank - a.rank || b.gap - a.gap || b.notes - a.notes || a.index - b.index)
+    .map(({ item }) => item);
+
+const zero = <K extends string>(keys: readonly K[]) =>
+  Object.fromEntries(keys.map((k) => [k, 0])) as Record<K, number>;
+const BUCKET_IDS = Object.keys(BUCKETS) as Bucket[];
+const ZONE_IDS: Zone[] = ["conflict", "talk", "open", "quick", "aligned"];
+
+const wants = (v: ComparedMenuItemValue) => v === "must-have" || v === "like-to-have";
+
+/** Summarises a comparison of `menuCount` menus (spec CP-30..CP-33). */
+export const compareInsights = (comparison: MenuComparison, menuCount: number): Insights => {
   const items = flattenComparison(comparison);
-  const counts = countByFilter(comparison);
-  const isFull = (item: GroupedItem) => item.values.every(isAnswer) && item.values.length > 0;
-  const fullyAnswered = items.filter(isFull).length;
+  const buckets = zero(BUCKET_IDS);
+  const zones = zero(ZONE_IDS);
+  for (const item of items) {
+    const bucket = bucketOf(item.values);
+    buckets[bucket]++;
+    zones[BUCKETS[bucket].zone]++;
+  }
 
   const byGroup = Object.entries(comparison).map(([group, groupItems]): GroupSummary => {
+    const counts = zero(ZONE_IDS);
+    for (const item of groupItems) counts[zoneOf(item.values)]++;
     const cats = groupItems.map((item) => itemCategories(item.values));
-    const full = groupItems.filter((item) => item.values.every(isAnswer) && item.values.length > 0).length;
+    const full = groupItems.filter((item) => item.values.length > 0 && item.values.every(isAnswer)).length;
     const agree = cats.filter((c) => c.has("agree")).length;
     return {
       group,
       total: groupItems.length,
+      zones: counts,
       agree,
       bothWant: cats.filter((c) => c.has("both-want")).length,
       conflict: cats.filter((c) => c.has("conflict")).length,
       differ: cats.filter((c) => c.has("differ")).length,
       open: cats.filter((c) => c.has("unanswered") || c.has("missing")).length,
-      alignment: ratio(agree, full),
+      alignment: full > 0 ? agree / full : null,
     };
   });
 
+  const focus = byFocus(items.filter((item) => FOCUS_RANK[bucketOf(item.values)] !== undefined));
+  const mustCount = (item: GroupedItem) => item.values.filter((v) => v === "must-have").length;
+  const sharedWants = items
+    .map((item, index) => ({ item, index }))
+    .filter(({ item }) => bucketOf(item.values) === "shared-want")
+    .sort((a, b) => mustCount(b.item) - mustCount(a.item) || a.index - b.index)
+    .map(({ item }) => item);
+  const sharedLimits = items.filter((item) => bucketOf(item.values) === "shared-no");
+
   const people: PersonSummary[] = Array.from({ length: menuCount }, (_, m) => {
-    const person: PersonSummary = { mustHave: 0, likeToHave: 0, maybe: 0, offLimits: 0, unanswered: 0, notOnMenu: 0 };
+    const person: PersonSummary = {
+      mustHave: 0,
+      likeToHave: 0,
+      maybe: 0,
+      offLimits: 0,
+      unanswered: 0,
+      notOnMenu: 0,
+      mustNotShared: [],
+      limitsWanted: [],
+    };
     for (const item of items) {
       const v = item.values[m];
       if (v === null) person.notOnMenu++;
@@ -136,20 +199,24 @@ export const compareInsights = (
       else if (v === "like-to-have") person.likeToHave++;
       else if (v === "maybe") person.maybe++;
       else person.offLimits++;
+      const others = item.values.filter((_, i) => i !== m);
+      if (v === "must-have" && others.some((o) => !wants(o))) person.mustNotShared.push(item);
+      if (v === "off-limits" && others.some(wants)) person.limitsWanted.push(item);
     }
+    person.mustNotShared = byFocus(person.mustNotShared);
+    person.limitsWanted = byFocus(person.limitsWanted);
     return person;
   });
 
-  const topDifferences = byDifference(items)
-    .filter((item) => (answerGap(item.values) ?? 0) > 0)
-    .slice(0, topLimit);
-
   return {
-    counts,
-    fullyAnswered,
-    alignment: ratio(counts.agree, fullyAnswered),
+    total: items.length,
+    buckets,
+    zones,
+    withNotes: items.filter(hasNotes).length,
+    focus,
+    sharedWants,
+    sharedLimits,
     byGroup,
     people,
-    topDifferences,
   };
 };

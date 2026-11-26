@@ -4,37 +4,32 @@
   align-items: flex-end;
   gap: 0.5rem;
   width: 100%;
-  padding: 0.25rem 0.5rem 0.5rem;
-  border-bottom: var(--px) solid var(--c-ink);
+  padding: 0 0.25rem 0.35rem calc(0.5rem + var(--px));
+  border-bottom: 2px solid var(--c-ink);
 }
 
-/* Column names, read bottom-to-top, one per 32px column. */
+/* Column names, written across, one per answer column. */
 .legend-title-outer {
   flex: none;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  width: 32px;
-  max-height: 6rem;
+  width: var(--cell, 2.5rem);
+  min-width: 0;
 }
 
 .legend-title {
-  writing-mode: vertical-rl;
-  transform: rotate(180deg);
-  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-height: 6rem;
-  font-family: var(--font-pixel);
-  font-size: 0.55rem;
-  line-height: 1;
+  white-space: nowrap;
+  text-align: center;
+  font-size: 1rem;
+  font-weight: bold;
+  line-height: 1.1;
 }
 
 .legend-titles-mobile {
   display: none;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 640px) {
   .legend-title-outer {
     display: none;
   }

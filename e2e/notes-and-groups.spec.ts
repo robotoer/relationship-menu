@@ -55,8 +55,10 @@ test.describe("Item notes (DM-6, LK-9, PR-3)", () => {
     const notes = page.getByRole("list", { name: "Notes on Kissing" });
     await expect(notes).toContainText("Ana: not in public");
     await expect(notes).not.toContainText("Ben");
-    // Notes don't change the verdict: both want it.
-    await expect(page.getByRole("group", { name: "Show items" }).getByRole("button", { name: /^All want/ })).toContainText("1");
+    // Notes don't change the verdict: both want it, so it's on the same page; it's also "With notes".
+    const filters = page.getByRole("group", { name: "Show items" });
+    await expect(filters.getByRole("button", { name: /^Same page/ })).toContainText("1");
+    await expect(filters.getByRole("button", { name: /^With notes/ })).toContainText("1");
   });
 });
 

@@ -1,13 +1,11 @@
 import "./MenuCompareLegend.css";
 
 /**
- * Component that displays a legend with the colors used to represent different preferences for
- * a specific relationship menu item.
+ * Column headings for the comparison grid: each person's name, written across above
+ * their column (cut short with "…" if it doesn't fit; the full name is its tooltip).
+ * On phones, where columns are narrower, the names are listed in column order instead.
  *
- * @component
- * @param {Object} props - The component props.
- * @param {string[]} props.titles - The titles to be displayed in the legend.
- * @returns {JSX.Element} The rendered MenuCompareLegend component.
+ * @param titles - The titles to be displayed in the legend.
  */
 export const MenuCompareLegend = ({ titles }: { titles: string[] }) => {
   return (
@@ -18,10 +16,8 @@ export const MenuCompareLegend = ({ titles }: { titles: string[] }) => {
         ))}
       </div>
       {titles.map((title, index) => (
-        <div className="legend-title-outer" key={index}>
-          <div className="legend-title">
-            {title}
-          </div>
+        <div className="legend-title-outer" key={index} title={title}>
+          <div className="legend-title">{title}</div>
         </div>
       ))}
     </div>

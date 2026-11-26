@@ -34,6 +34,13 @@
   --pref-off-limits: var(--c-red);
   --pref-none: var(--c-mist);
 
+  /* Where people stand on an item (src/compare-focus.ts): what needs a talk, and what doesn't. */
+  --zone-conflict: var(--c-red);
+  --zone-talk: var(--c-orange);
+  --zone-open: var(--c-mist);
+  --zone-quick: var(--c-yellow);
+  --zone-aligned: var(--c-teal);
+
   --font-pixel: "Press Start 2P", ui-monospace, monospace;
   --font-body: "VT323", ui-monospace, monospace;
 

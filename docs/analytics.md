@@ -37,7 +37,7 @@ Google Analytics is loaded only on `wantsandwonts.com` (until November 2026, `re
 | `link_open_failed` | A link couldn't be opened | `reason`: `unreadable` (cut off) or `not_found` |
 | `library_menu_opened` | A saved menu is reopened from the Library | `item_count`, `percent_answered` (`0`, `25`, `50`, `75`, `100`) |
 | `comparison_shown` | A comparison appears | `menu_count`, `source` (`link` = a compare link, `share_dialog` = pasted into the Share dialog, `button` = the Compare page's button), `item_count`, `conflict_count` |
-| `compare_filter_used` | A compare filter is picked (from the filter bar or an overview tile) | `filter`: `agree`, `both-want`, `conflict`, `differ`, `unanswered`, `missing`, `all` |
+| `compare_filter_used` | A compare filter is picked (from the filter bar or a zone in "Where you stand") | `filter`: `all`, `conflict`, `talk`, `open`, `quick`, `aligned`, `notes`. Before 27 November 2026 the values were `agree`, `both-want`, `conflict`, `differ`, `unanswered`, `missing`, `all` |
 | `compare_searched` | The comparison is searched (never the text) | |
 | `compare_sorted` | The comparison's order is changed | `sort`: `menu`, `difference` |
 | `discussion_started` | "Start" or "Continue" in a guided discussion | `topic_count`, `menu_count`, `resumed` |

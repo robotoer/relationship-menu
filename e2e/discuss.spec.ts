@@ -42,17 +42,23 @@ const gtagCalls = (page: Page) =>
   );
 
 test.describe("Compare overview and guided discussion", () => {
-  test("the overview summarises the comparison, and its tiles filter the list (CP-20..CP-24)", async ({ page }) => {
+  test("the overview says where to focus, and each zone opens its items (CP-30..CP-34)", async ({ page }) => {
     await page.goto(comparePath);
-    const overview = page.getByRole("region", { name: "At a glance" });
-    await expect(overview).toContainText("You agree on 33% of the 3 items everyone answered, with 1 conflict.");
-    await expect(overview).toContainText("1 item isn't answered by everyone yet.");
-    await expect(overview.getByRole("listitem").filter({ hasText: "Kids" }).first()).toBeVisible();
+    const overview = page.getByRole("region", { name: "Where you stand" });
+    await expect(overview).toContainText(
+      "Ana & Ben: you're on the same page on 1 of 4 items. 2 are worth a real conversation, including 1 conflict. 1 item isn't answered by everyone yet."
+    );
+    const first = overview.locator(".overview-focus-list > li").first();
+    await expect(first).toContainText("Kids");
+    await expect(first).toContainText("Ana: Must Have");
+    await expect(first).toContainText("Ben: Off Limits");
+    await expect(overview).toContainText("Must-haves that aren't a yes for Ben:");
 
-    await overview.getByRole("button", { name: /Conflicts: 1/ }).click();
+    await overview.getByRole("button", { name: /^Conflicts: 1/ }).click();
     const grid = page.locator(".compare-page-grid");
     await expect(grid.locator(".menu-item-compare")).toHaveCount(1);
     await expect(grid).toContainText("Kids");
+    await expect(grid.locator(".zone-tag")).toHaveText("Conflict");
 
     await page.getByRole("button", { name: "Show everything" }).click();
     await page.getByRole("combobox", { name: "Order" }).selectOption("difference");
@@ -97,7 +103,7 @@ test.describe("Compare overview and guided discussion", () => {
     const noOverflow = () =>
       page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth);
     await page.goto(comparePath);
-    await expect(page.getByRole("region", { name: "At a glance" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Where you stand" })).toBeVisible();
     expect(await noOverflow()).toBe(true);
     await page.getByRole("link", { name: /Talk it through/ }).click();
     await page.getByRole("button", { name: "▶ Start" }).click();
