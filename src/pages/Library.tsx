@@ -34,10 +34,13 @@ import { useSync } from "../sync/context";
 export const LibraryPage = ({
   menus,
   onDelete,
+  oldAddress,
 }: {
   /** Saved menus: `id` is the menu id (SY-20); `link` is the slug its tile opens. */
   menus: (RelationshipMenuDocument & { id: string; link: string })[];
   onDelete?: (id: string) => void | Promise<void>;
+  /** The app's old address (HO-7): an empty Library says how to bring menus from there. */
+  oldAddress?: string;
 }) => {
   // Id of the menu whose Delete was clicked and is waiting for confirmation.
   const [confirming, setConfirming] = useState<string | null>(null);
@@ -91,6 +94,13 @@ export const LibraryPage = ({
           Menus you've made or opened are saved in this browser.{" "}
           {menus.length === 0 && "Nothing here yet: start one below."}
         </p>
+        {menus.length === 0 && oldAddress && (
+          <p className="library-moved">
+            Used this app before at{" "}
+            <a href={`${oldAddress}/library`}>{new URL(oldAddress).host}</a>? Open that address
+            once in this browser to bring your menus here.
+          </p>
+        )}
         {menus.length === 0 && <HomeScreenHint className="library-hint" />}
         {menus.length > 0 && (
           <div className="library-controls">

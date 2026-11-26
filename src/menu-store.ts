@@ -13,7 +13,7 @@
  * the same menu instead of making a duplicate.
  */
 
-import { sanitizePerson } from "./compare-slug";
+import { sanitizePerson } from "./person";
 import { MENU_ID_PATTERN } from "./menu-id";
 import { RelationshipMenuDocument } from "./model/menu";
 import { LocalMenuEntry, latestByTitle, parseLocalMenuEntry } from "./legacy-menu-entries";

@@ -13,7 +13,7 @@ Events carry only fixed values: template ids, link kinds, filter ids, counts and
 
 ### Only production reports
 
-Google Analytics is loaded only on `relationship-menu.vercel.app`, and not in automated browsers (`navigator.webdriver`). Localhost, Vercel preview deployments, other copies of the site and the e2e tests (in CI and locally) never send anything: their events only queue up in `window.dataLayer`, which is where `e2e/analytics.spec.ts` reads them, and that test also fails if any request reaches Google. Until November 2026 the e2e runs did report, as one new "user" per test on `localhost`; filter on Hostname = `relationship-menu.vercel.app` when looking at older data. DebugView (step 6 below) therefore only works on the production site, with the `analytics_debug` flag set.
+Google Analytics is loaded only on `wantsandwonts.com` (until November 2026, `relationship-menu.vercel.app`, which now serves only a hand-off page without analytics), and not in automated browsers (`navigator.webdriver`). Localhost, preview URLs, other copies of the site and the e2e tests (in CI and locally) never send anything: their events only queue up in `window.dataLayer`, which is where `e2e/analytics.spec.ts` reads them, and that test also fails if any request reaches Google. Until November 2026 the e2e runs did report, as one new "user" per test on `localhost`; filter on Hostname = `relationship-menu.vercel.app` when looking at older data. DebugView (step 6 below) therefore only works on the production site, with the `analytics_debug` flag set.
 
 ## Events
 
@@ -94,6 +94,6 @@ GA only shows event parameters in reports after they're registered.
 
 5. **Answer "where are all these users coming from?"** In **Reports → Acquisition → Traffic acquisition**, look at *Session source / medium*. Then compare that with `shared_link_opened` in **Reports → Engagement → Events**. A big share of `shared_link_opened` means growth is word of mouth (people sending links). Sudden traffic from one referrer usually means the site was posted somewhere.
 
-6. **Check events as they arrive.** On https://relationship-menu.vercel.app (the only site that reports), in your own browser's console, run `localStorage.analytics_debug = "1"` and reload. Your events then show up live in **Admin → Data display → DebugView**. Remove the flag with `localStorage.removeItem("analytics_debug")`.
+6. **Check events as they arrive.** On https://wantsandwonts.com (the only site that reports), in your own browser's console, run `localStorage.analytics_debug = "1"` and reload. Your events then show up live in **Admin → Data display → DebugView**. Remove the flag with `localStorage.removeItem("analytics_debug")`.
 
 Registered dimensions only fill in from the moment they're created, so do step 1 first.

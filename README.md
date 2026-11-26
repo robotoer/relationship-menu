@@ -1,10 +1,10 @@
-# Relationship Menu
+# Wants & Won'ts
 
-A small web app for making and comparing relationship menus.
+*A relationship menu.* A small web app for making and comparing relationship menus. It used to be called Relationship Menu.
 
 A relationship menu is a list of things a relationship could include: how often you talk, affection, living together, marriage, kids, other partners, and so on. Each person marks every item as Must have, Like to have, Maybe or Off limits, and then you compare answers to see where you line up and what's worth talking about. The idea comes from the non-escalator / relationship anarchy community (see [Inspiration](#inspiration)).
 
-Live at **https://relationship-menu.vercel.app**.
+Live at **https://wantsandwonts.com**. The old address, relationship-menu.vercel.app, forwards every link there and brings each browser's saved menus along the first time it's opened (see [hosting](#hosting)).
 
 ## Using it
 
@@ -17,7 +17,7 @@ Live at **https://relationship-menu.vercel.app**.
 4. **Compare.** Paste two or more menu links into Compare. Items are matched by their text, so the menus don't have to be identical. An overview shows how much you agree, alignment per group, the biggest differences and each person's answers. Filter, search, or sort by biggest difference.
 5. **Talk it through.** A guided conversation goes through the differences one at a time, easiest first: prompts for each, a place for notes, where you landed (agreed, compromise, revisit later…) and next steps. At the end there's a summary to copy, download or print. Notes stay in your browser.
 
-There are no accounts and no server database. Menus are saved in your browser (localStorage), and a link carries the whole menu inside it. Opening someone else's link saves a copy to your Library without overwriting anything of yours.
+There are no accounts and no server database for menus. Menus are saved in your browser (localStorage), and a link carries the whole menu inside it. Opening someone else's link saves a copy to your Library without overwriting anything of yours.
 
 The link format is documented in [`public/llms.txt`](public/llms.txt), which is also served at `/llms.txt` for tools and agents that want to read or build menus.
 
@@ -37,20 +37,27 @@ Other scripts:
 | Command | What it does |
 | --- | --- |
 | `yarn test` | Unit, component and property tests (Vitest + React Testing Library), in watch mode; `yarn test --run` for one run |
-| `yarn test:e2e` | End-to-end tests (Playwright, Chromium). Starts its own dev server on port 3099 |
+| `yarn test:e2e` | End-to-end tests (Playwright, Chromium). Starts its own dev servers: the app on `localhost:3099`, the hand-off page on `127.0.0.1:3098` |
 | `yarn build` | Production build into `build/` |
+| `yarn start:handoff`, `yarn build:handoff` | The old address's hand-off page (`handoff/`, into `build-handoff/`) |
 | `yarn verify` | Formal checks: LemmaScript and Dafny proofs (needs Dafny; see `docs/spec/formal/`) |
 
 Usage analytics (Google Analytics) and exactly what is and isn't sent are described in [`docs/analytics.md`](docs/analytics.md). No menu text, names or link contents ever leave the browser.
 
-CI (GitHub Actions) runs the build, unit tests and the full end-to-end suite on every push. Vercel deploys every branch as a preview and `main` to production.
+CI (GitHub Actions) runs the build, unit tests and the full end-to-end suite on every push.
+
+### Hosting
+
+One Cloudflare Worker, in [`server/`](server/), serves the built app as static files and the supporter sync API under `/v1/`. GitHub Actions tests it on every push, gives each pull request a preview URL, and deploys `main` (see [`server/README.md`](server/README.md)). To run the API locally behind the dev server, run `yarn build` once, then `cd server && yarn dev`: `yarn start` passes `/v1` on to it.
+
+The old address, `relationship-menu.vercel.app`, stays on Vercel and serves only the hand-off page ([`vercel.json`](vercel.json), [`handoff/`](handoff/), [`src/handoff/`](src/handoff/)). Browser storage belongs to one address, so menus saved there can't be read from the new one. The first time a browser opens the old address, the page sends its saved menus to the new address's `/import` in the URL fragment, which never reaches a server, and then opens the same page there. The rules are HO-1…HO-10 in [`docs/spec/sync.md`](docs/spec/sync.md#12-hosting-domain-and-name).
 
 ### Code layout
 
 ```
 src/
   App.tsx              routes, and the state/loading/saving around each page
-  pages/               Landing, Menu (editor), Library, Compare, Discuss, Support
+  pages/               Landing, Menu (editor), Library, Compare, Discuss, Support, Import
   components/          share dialog, keyboard help, menu rows, compare grid, ...
   model/               types for menus, items and comparisons
   menu-editing.ts      pure functions for every edit to a menu (used for undo/redo)
@@ -63,9 +70,12 @@ src/
   discussion.ts        the guided discussion: agenda, prompts, notes, summary
   templates.ts         template menus and ready-made groups
   storage.ts           browser storage (localStorage)
+  handoff/             moving menus from the old address (hand-off page and /import)
   analytics.ts         the typed analytics events (no menu data)
 e2e/                   Playwright tests
 public/                icons, manifest, llms.txt, robots.txt, sitemap.xml
+handoff/               the old address's hand-off page
+server/                the Cloudflare Worker: serves the app, and the sync API
 ```
 
 Most logic lives in small pure modules with their own tests, so a change to menu editing, matching, filtering or link parsing can usually be tested without rendering anything.

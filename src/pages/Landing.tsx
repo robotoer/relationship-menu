@@ -33,11 +33,11 @@ export const LandingPage = ({ savedCount = 0 }: { savedCount?: number }) => {
   return (
     <div className="landing">
       <section className="landing-hero">
-        <p className="landing-kicker">A conversation starter for two (or more)</p>
+        <p className="landing-kicker">A relationship menu for two (or more)</p>
         <h1 className="landing-title">
-          Relationship
+          Wants &amp;
           <br />
-          Menu
+          Won'ts
         </h1>
         <p className="landing-lead">
           Every relationship comes with expectations. Most of them never get said out
@@ -230,7 +230,7 @@ export const LandingPage = ({ savedCount = 0 }: { savedCount?: number }) => {
         <h2 id="support">Free, private, and kept that way by supporters</h2>
         <p>
           No ads and no accounts, and your menus never leave your browser unless you
-          share them. If Relationship Menu helps you, you can{" "}
+          share them. If Wants &amp; Won'ts helps you, you can{" "}
           <Link to="/support" state={{ supportFrom: "landing" }}>
             support the project
           </Link>

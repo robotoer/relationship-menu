@@ -69,7 +69,7 @@ describe("SupportPage", () => {
 
   it("says everything stays free and lists the supporter perks", () => {
     renderAt();
-    expect(screen.getByRole("heading", { level: 1, name: "Support Relationship Menu" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Support Wants & Won'ts" })).toBeInTheDocument();
     expect(screen.getByText(/everything here stays free/)).toBeInTheDocument();
     expect(screen.getByText("Sync across your devices")).toBeInTheDocument();
     expect(screen.getByText("Encrypted backup")).toBeInTheDocument();

@@ -16,7 +16,7 @@
 
 import type { SavedMenu } from "../menu-store";
 import type { Person, RelationshipMenuDocument } from "../model/menu";
-import { uniqueTitle } from "../unique-title";
+import { uniqueTitle } from "../menu-titles";
 import { MenuRecord, tombstone } from "./records";
 
 /** Per-menu sync state, kept in `sync:menu:<id>` (spec §5). */

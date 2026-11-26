@@ -2,5 +2,5 @@
 User-agent: *
 Disallow:
 
-Sitemap: https://relationship-menu.vercel.app/sitemap.xml
-# A plain-text description of this site for AI agents: https://relationship-menu.vercel.app/llms.txt
+Sitemap: https://wantsandwonts.com/sitemap.xml
+# A plain-text description of this site for AI agents: https://wantsandwonts.com/llms.txt

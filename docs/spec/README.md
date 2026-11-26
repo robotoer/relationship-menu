@@ -1,6 +1,6 @@
-# Relationship Menu — Specification
+# Wants & Won'ts — Specification
 
-This is the reference for how Relationship Menu behaves. It is written to be read top to bottom by a person, and every rule has a short ID (like `ED-2`) so that tests and formal proofs can point back to it.
+This is the reference for how Wants & Won'ts (formerly Relationship Menu) behaves. It is written to be read top to bottom by a person, and every rule has a short ID (like `ED-2`) so that tests and formal proofs can point back to it.
 
 - **Read this first:** [1. The idea in one page](#1-the-idea-in-one-page)
 - **Looking for a rule?** Each section starts with a one-paragraph summary, then a table of rules.
@@ -217,7 +217,7 @@ person      = { "name"?, "pronouns"?, "note"? }
 | LK-3 | **Untrusted input:** decoding never throws. Items without text are dropped, unknown answers become "no answer", person fields are trimmed and capped (60 / 30 / 280 characters), and anything malformed gives "not a valid link". | [Property](../../src/__props__/links-keyboard-library.props.test.ts) |
 | LK-4 | Accepted input: a bare slug, a full link, a compare link holding several menus (each becomes its own entry), a slug whose `+` became a space, and links with `#fragment`s. | [Property](../../src/__props__/links-keyboard-library.props.test.ts) |
 | LK-5 | A template link contains no answers and no person part. | [Property](../../src/__props__/links-keyboard-library.props.test.ts) |
-| LK-6 | Opening a link whose title matches a *different* saved menu opens it as a copy named "Title (2)", "Title (3)" … with a notice. Opening your own unchanged menu's link opens that menu. | Test (e2e) |
+| LK-6 | Opening a link whose title matches a *different* saved menu opens it as a copy named "Title (2)", "Title (3)" … with a notice. Opening your own unchanged menu's link opens that menu. | Test (e2e) + [Property](../../src/__props__/import.props.test.ts) (naming, `menu-titles.ts`) |
 | LK-7 | A link that can't be read shows a notice instead of an empty editor. | Test |
 | LK-9 | Item notes survive encoding and decoding. Read from a link, they're trimmed, capped at 280 characters, and dropped if blank or not text. | [Property](../../src/__props__/links-keyboard-library.props.test.ts) |
 | LK-8 | The editor keeps the address bar in sync by *replacing* the history entry, so Back always leaves the editor. | Test (e2e) |
@@ -322,14 +322,19 @@ flowchart LR
   M -->|Share dialog: Compare| C
   M -->|Compare| C
   A["/about"] -.redirects.-> L
+  O["old address<br/>(hand-off page)"] -->|menus| I["/import"]
+  I -.reply.-> O
+  O -->|same path| L & M & C & LB
 ```
 
 | ID | Rule | Checked by |
 | --- | --- | --- |
-| NV-1 | Every page works when opened directly by its address (the host falls back to the app for unknown paths). | Production check |
+| NV-1 | Every page works when opened directly by its address (the Worker serves the app for unknown paths, HO-1). | Test (`server/test-node/routing.test.ts`) |
 | NV-2 | Opening `/menu` from a link, the navbar or Back/Forward starts a fresh editor for that address. | Test |
 | NV-3 | An empty editor offers the six templates and a blank menu. | Test (e2e) |
 | NV-4 | **Support page** (`/support`): everything in the app stays free; supporting is optional and never gates a feature. It's linked from the navbar, quietly after a link is shared, under comparison results, and on the landing page. Until checkout exists, choosing an amount says plainly that nothing was charged. | Test (unit + e2e) |
+
+The old address (relationship-menu.vercel.app) serves only a hand-off page, and `/import` receives the menus it brings: see [sync.md §12](sync.md#12-hosting-domain-and-name), rules HO-1…HO-10.
 
 ---
 
@@ -403,11 +408,13 @@ flowchart LR
 | Discussing | DS-1…DS-8 | Property (DS-2, DS-3) + Test | `discussion.test.ts`, `Discuss.test.tsx`, `e2e/discuss.spec.ts` |
 | Comparing | CP-13 | Test (e2e) | `e2e/` |
 | Pages, privacy, accessibility | NV, PR, AX | Test / Review | see each table |
+| Hosting and the move from the old address | HO-1…HO-10 | Property (import never overwrites; malformed input) + Test (two origins, Worker routing) | [sync.md §12](sync.md#12-hosting-domain-and-name) |
 
 ### Bugs these checks found (all fixed)
 
 | Found by | Bug | Fix |
 | --- | --- | --- |
+| Property HO-5 (import) | Reading a link trimmed a note and then cut it at 280 characters, which could leave spaces at the end that the next read trimmed. The same menu read differently the second time, so a repeated hand-off would have added a copy of an unchanged menu. | Trim again after cutting (`compare-slug.ts`, and `person.ts` for person fields); a new LK-1/LK-3 property checks that reading is stable. |
 | Review (sync plan, Nov 2026) | After IPFS was removed, menus that the IPFS version had kept only in IndexedDB (browser storage held just a date under `menu:<CID>`) showed up in the Library as unreadable entries titled with a CID; their content was no longer read. | Read them back from the old block store with plain IndexedDB, checking each block's hash, and hide pointers that can't be resolved (SV-9, SY-91). |
 | e2e (analytics test) | An edit saved while the IPFS node was busy was lost if the page was closed or left during the save: the browser-storage copy was only written after the IPFS write finished. | Write the browser-storage copy first; later IPFS was removed altogether, so saves are now synchronous (SV-10). |
 | Property CP-1 | A group named `__proto__` vanished from Compare, from opened links and from the library's in-memory list. | Prototype-free objects in `data-comparer.ts`, `compare-slug.ts`, `providers/Storage.tsx`. |
@@ -427,7 +434,7 @@ flowchart LR
 
 ### Gaps: what isn't formally covered, and what would be next
 
-- **App-level storage logic:** migrating older entries (SV-6, SY-90) now lives in a pure module (`menu-store.ts`) with property tests, but copy-on-conflict naming (LK-6) and title conflicts (SV-7) are still inside `App.tsx`, so they only have example tests. Next step: move them into a pure module too.
+- **App-level storage logic:** migrating older entries (SV-6, SY-90) and importing from the old address (HO-5) live in pure modules (`menu-store.ts`, `import-menus.ts`) with property tests, and so does naming copies (`menu-titles.ts`, LK-6). Deciding when a link opens as a copy (LK-6) and title conflicts (SV-7) are still inside `App.tsx`, so they only have example tests. Next step: move them into a pure module too.
 - **Browser storage itself** isn't modelled: the TLA+ model treats a save as one atomic write plus an optional delete, which matches `localStorage`.
 - **Real time** isn't modelled. TLC checks the order of events, not the 400 ms timer. The property tests use fake timers.
 - **The Dafny editing model is a hand-written mirror** of `menu-editing.ts`. The property tests check the same claims on the real code, which catches drift, but they don't prove it. `answer-cells.ts` is verified directly with LemmaScript. Moving more of `menu-editing.ts` to LemmaScript is possible once LemmaScript handles object-keyed maps.

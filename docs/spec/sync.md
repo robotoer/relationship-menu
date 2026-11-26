@@ -383,23 +383,24 @@ New events follow [`src/analytics.ts`](../../src/analytics.ts): typed, with fixe
 flowchart LR
   O["Old link or bookmark<br/>relationship-menu.vercel.app/menu?encoded=…"] --> H{"Hand-off page<br/>(old address)"}
   H -- "menus saved here,<br/>not sent yet" --> I["new domain /import<br/>(menus in the fragment)<br/>saved without overwriting"]
-  I -- "more parts" --> H
-  I -- "done" --> P["the same page and link<br/>on the new domain"]
-  H -- "nothing to send" --> P
+  I -- "saved: reply<br/>(#handoff-reply)" --> H
+  H -- "nothing (more)<br/>to send" --> P["the same page and link<br/>on the new domain"]
 ```
+
+Each step replaces the last in the tab's history, so Back leaves the app as before. Where the code is: [`server/wrangler.toml`](../../server/wrangler.toml) (HO-1), [`vercel.json`](../../vercel.json) and [`handoff/`](../../handoff/) (the old address), [`src/handoff/`](../../src/handoff/) (both sides of the hand-off), and [`src/import-menus.ts`](../../src/import-menus.ts) (HO-5).
 
 | ID | Rule | Checked by |
 | --- | --- | --- |
-| HO-1 | One Worker serves both the built app (static files) and `/v1/*` (the API). Static requests are free, unlimited, and don't count toward the Worker's request limit. Only `/v1/*` runs Worker code. Unknown paths serve the app (NV-1). | Test (e2e) |
-| HO-2 | The app calls the API on its own address. The API sends no CORS headers: other sites can't read its responses, and can't forge requests because every one is signed (SY-6). Locally, the dev server proxies `/v1` to a local Worker. | Test (server) |
-| HO-3 | **Every old link keeps working.** `relationship-menu.vercel.app/<path>?<query>#<fragment>` goes to the same path, query and fragment on the new domain. | Test (e2e, two origins) |
-| HO-4 | **Hand-off.** Opening the old address in a browser that has menus saved there, including legacy and IPFS-only ones (SY-90, SY-91), sends any not yet sent to the new domain's `/import`. They travel in the URL fragment, in parts of at most 32 KB, and the browser then continues to the page it asked for. The fragment never reaches a server. | Test (e2e, two origins) |
-| HO-5 | **Import never overwrites.** A menu identical to one already on the new domain is skipped. One whose title belongs to a different menu is added as a copy ("Title (2)", as in LK-6). The importer clears the fragment from the address bar before doing anything else. | Property + Test |
-| HO-6 | The hand-off deletes nothing on the old address. It remembers a fingerprint of what it sent, and sends again only if something changed there, since an old tab left open can still save. | Test |
-| HO-7 | Until something has been saved or imported on the new domain, its Library says: *"Used this app before at relationship-menu.vercel.app? Open that address once in this browser to bring your menus here."* | Test |
-| HO-8 | The old address serves only the hand-off page: no app, no payments, no analytics. Its canonical link points to the new domain. | Review |
-| HO-9 | Canonical and `og:url` tags, the sitemap, `robots.txt`, `llms.txt` and share links all use the new domain. The link reader accepts links on either address (LK-4). | Property (LK-4) + Review |
-| HO-10 | GitHub Actions tests and builds every push, and deploys `main` to production. Each PR gets a Workers preview URL, using the test database and Stripe test mode. These replace Vercel's previews. | Review |
+| HO-1 | One Worker serves both the built app (static files) and `/v1/*` (the API). Static requests are free, unlimited, and don't count toward the Worker's request limit. Only `/v1/*` runs Worker code. Unknown paths serve the app (NV-1). | Test (`server/test-node/routing.test.ts`: the real `wrangler.toml`, each environment, through Wrangler's asset router; `server/test/assets.test.ts`) |
+| HO-2 | The app calls the API on its own address. The API sends no CORS headers: other sites can't read its responses, and can't forge requests because every one is signed (SY-6). Locally, the dev server proxies `/v1` to a local Worker. | Test (`server/test/privacy.test.ts`, `server/test-node/routing.test.ts`) + Review (`vite.config.mts`) |
+| HO-3 | **Every old link keeps working.** `relationship-menu.vercel.app/<path>?<query>#<fragment>` goes to the same path, query and fragment on the new domain. | Test (`e2e/handoff.spec.ts`, two origins; `src/handoff/send.test.ts`) |
+| HO-4 | **Hand-off.** Opening the old address in a browser that has menus saved there, including legacy and IPFS-only ones (SY-90, SY-91), sends any not yet sent to the new domain's `/import`. They travel in the URL fragment, in parts of at most 32 KB (a single larger menu travels alone). After each part the importer replies to the old address, which sends the next one, and the browser then continues to the page it asked for. The fragment never reaches a server. | Test (`e2e/handoff.spec.ts`, two origins; `src/handoff/send.test.ts`, `format.test.ts`) |
+| HO-5 | **Import never overwrites.** A menu identical to one already on the new domain (same items, answers, notes and person, under the same title or a numbered copy of it) is skipped. One whose title belongs to a different menu is added as a copy ("Title (2)", as in LK-6). Every imported menu is new, with its own id. The importer clears the fragment from the address bar before doing anything else, and treats what it reads as untrusted, like an opened link. | Property (`src/__props__/import.props.test.ts`; `src/handoff/format.test.ts` on malformed input) + Test (`src/handoff/receive.test.ts`, `e2e/handoff.spec.ts`) |
+| HO-6 | The hand-off deletes nothing on the old address. It remembers a fingerprint of each menu the new domain confirmed it saved, and later sends only menus that are new or changed, since an old tab left open can still save. | Test (`src/handoff/send.test.ts`, `e2e/handoff.spec.ts`) |
+| HO-7 | While the Library on the new domain is empty, it says: *"Used this app before at relationship-menu.vercel.app? Open that address once in this browser to bring your menus here."* The address links to the old Library. | Test (`src/pages/Library.test.tsx`, `e2e/handoff.spec.ts`) |
+| HO-8 | The old address serves only the hand-off page: no app, no payments, no analytics. Its canonical link points to the new domain. | Review (`vercel.json`, `handoff/`: its own 9 KB build, without React) |
+| HO-9 | Canonical and `og:url` tags, the sitemap, `robots.txt`, `llms.txt` and share links all use the new domain. The link reader accepts links on either address (LK-4). | Property (LK-4) + Review (`index.html`, `public/`) |
+| HO-10 | GitHub Actions tests and builds every push, and deploys `main` to the test environment, and to production once you turn that on (the repository variable `DEPLOY_PRODUCTION`). Each PR gets a Workers preview URL, using the test database and Stripe test mode. These replace Vercel's previews. | Review (`.github/workflows/server.yml`) |
 
 For about a second, the `/import` address holds the moved menus in browser history, until the importer clears it. Menu links already do this for each menu (LK-8). The hand-off doesn't add new information to history, but it gathers it into one entry.
 
@@ -464,8 +465,8 @@ The GitHub repository and package names are optional, and change only with your 
 | SV-10 | Written to browser storage before the slower IPFS copy. | Written to browser storage before the sync push (SY-30). |
 | PR-1 | No menu content leaves the browser except inside links the user copies. No server-side storage. | …except inside links the user copies, and, for supporters who turn on sync, **encrypted so only their own devices can read it** (SY-80). |
 | NV-4 | Until checkout exists, choosing an amount says nothing was charged. | Choosing an amount goes to Stripe Checkout (SY-61). Copy follows SY-69. |
-| NV-1 | The host (Vercel) falls back to the app for unknown paths. | The same, on the Worker (HO-1). |
-| LK-4 | Accepted input includes a full link. | Links on the old and new addresses are both accepted (HO-9). |
+| NV-1 | The host (Vercel) falls back to the app for unknown paths. | **Done:** the same, on the Worker (HO-1). |
+| LK-4 | Accepted input includes a full link. | **Done:** links on the old and new addresses are both accepted (HO-9). |
 | [README §12](README.md#12-architecture-notes) | IPFS is ~70% of the download. | IPFS is removed (SY-93). |
 
 ---

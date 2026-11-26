@@ -1,0 +1,3 @@
+# Relationship Menu is now Wants & Won'ts
+
+> This address (relationship-menu.vercel.app) has moved to https://wantsandwonts.com. Every page here forwards to the same path on the new address, so old menu and compare links keep working. The description of the app and its link format is at https://wantsandwonts.com/llms.txt.

@@ -14,5 +14,5 @@
     "forceConsistentCasingInFileNames": true,
     "types": ["vitest/globals", "@types/gtag.js"]
   },
-  "include": ["src"]
+  "include": ["src", "handoff"]
 }
