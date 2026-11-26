@@ -90,7 +90,7 @@ export default defineConfig({
   
   // Run your local dev server before starting the tests
   webServer: {
-    command: 'PORT=3099 yarn start',
+    command: 'yarn start --port 3099 --strictPort',
     url: 'http://localhost:3099',
     timeout: 120 * 1000,
     reuseExistingServer: !process.env.CI,

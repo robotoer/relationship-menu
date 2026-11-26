@@ -1,6 +1,6 @@
 # Architecture notes
 
-How the app is put together, what each part costs, and what we'd change. The short version: **keep React, replace Create React App with Vite, and make IPFS optional (or drop it).**
+How the app is put together, and why it's this small.
 
 ## Shape of the app
 
@@ -16,42 +16,45 @@ flowchart TB
   end
   subgraph React ["React components and hooks"]
     APP[App.tsx<br/>routes, load/save]
-    PAGES[pages/: Landing, Menu, Library, Compare]
+    PAGES[pages/: Landing, Menu, Library, Compare, Support]
     COMP[components/: rows, pickers, dialogs, grid]
     AS[autosave.ts<br/>useAutosave hook]
   end
-  subgraph Storage
-    LS[(localStorage)]
-    IPFS[(Helia / IPFS node)]
-  end
+  LS[(localStorage)]
   PAGES --> ME & KB & CS & DC & CF & LI
-  APP --> AS --> LS & IPFS
+  APP --> AS --> LS
 ```
 
 Nearly every rule in the [spec](README.md) lives in the pure modules on the left, which is why they can be tested with property tests and modelled in Dafny without rendering anything. React is the thin layer that shows state and turns DOM events into calls to those functions. `useAutosave` is the one piece of real concurrency, and it has its own TLA+ model.
 
-## Is React making this easier?
+There is no server. A menu is saved in the browser's `localStorage`, and a share link carries the whole menu (compressed JSON) in its query string.
 
-We measured the production bundle (`main.js`, 1.87 MB minified) using its source map:
+## Toolchain
 
-| Part | Share of bundled source |
+| | |
 | --- | --- |
-| IPFS / libp2p and their crypto (`@noble/*`, `multiformats`, `asn1js`, `@libp2p/*`, `cborg`, …) | **~69%** |
-| react-router | ~7% |
-| pako (compression for links) | ~4% |
-| The app's own code | ~3% |
-| react + react-dom | **~3%** |
+| Build and dev server | Vite (`vite.config.mts`), output in `build/` for Vercel |
+| Unit, component and property tests | Vitest + React Testing Library + fast-check |
+| End-to-end | Playwright |
+| Proofs | LemmaScript and Dafny (`yarn verify`), TLA+/TLC (in CI) |
+| Runtime dependencies | React, React DOM, React Router, pako, web-vitals, two pixel fonts, an avatar generator |
 
-So React isn't what makes the app heavy, and it's doing real work. The editor has a lot of interacting state: focus that must survive fast typing (ED-20), undo/redo, a keyboard mode machine, dialogs with focus traps, and autosave. Rewriting that with plain DOM code or a smaller library (Preact, Svelte, Lit) would save about 50 KB and lose the existing component tests, Storybook stories and the team's familiarity. **Verdict: keep React.** If size matters later, `preact/compat` is a drop-in swap that needs no code changes.
+## History: what was removed, and why (2026-11)
 
-What *is* making things harder:
+The app used to run on Create React App, with an in-browser IPFS node (Helia/libp2p) as a second storage layer, and Storybook + Chromatic for component review. Measured before removal:
 
-1. **Create React App is deprecated** (no releases since 2022). It pins Jest 27, which can't load ESM-only packages (we had to stay on fast-check 3 for this reason). It forces `moduleResolution: node`, which broke Storybook 10's types, and it's slow. **Recommendation: move to Vite + Vitest.** The code needs almost no changes. The config, the `%PUBLIC_URL%` placeholders in `index.html` and the `react-scripts` commands are what change.
-2. **IPFS doesn't earn its weight.** The in-browser Helia node is about 70% of the download and takes seconds to start. But menus travel inside links, and nothing pins them to a public gateway, so other people never actually fetch a menu over IPFS. localStorage already does the saving. **Recommendation:** load Helia lazily (dynamic `import()`) behind a setting. Or remove it, keep the `Storage` interface, and leave localStorage as the default. Either change cuts the initial download by about two thirds.
-3. **Groups are stored in a plain object** keyed by name. That's why group names need special care (`__proto__`, ED-12), and why groups named only with digits always sort first (KL-1 in the [verification map](README.md#11-verification-map)). An ordered array, `[{ name, items }]`, would remove both problems. It changes the link format, so it needs a version marker and a reader for old links. It's worth doing together with any future change to items (such as sub-items).
+| | Before | After |
+| --- | --- | --- |
+| Known vulnerable packages (`yarn npm audit`) | 106 advisories (1 critical, 36 high) | **0** |
+| Installed packages | ~1,600 | **164** |
+| App JavaScript | 1.87 MB (525 KB gzipped) | **420 KB (123 KB gzipped)** |
 
-## What we'd keep exactly as it is
+- **IPFS didn't earn its weight.** It was about 70% of the download and took seconds to start, but menus travel inside links and nothing pinned them to a public gateway, so nobody ever fetched a menu over IPFS. `localStorage` already did the saving. Old IPFS-era copies in `localStorage` are still read (SV-9).
+- **Create React App is unmaintained** and brought ~1,100 packages, including nearly all the vulnerable ones. Vite + Vitest needed almost no code changes.
+- **Storybook and Chromatic** added ~260 packages, and the visual review wasn't being used. Component behaviour is covered by unit and e2e tests.
 
-- The **pure-function core** with property tests and formal models next to it.
-- **Links that carry the whole menu.** There's no server, no accounts, nothing to leak.
-- **One table drives both the keyboard handler and the help overlay** (`keyboard.ts` → `SHORTCUTS`), so the help can't drift from the behaviour (KB-4).
+React itself was always about 3% of the download and does real work (focus that survives fast typing, undo/redo, the keyboard mode machine, dialogs, autosave), so it stays.
+
+## Known limitation worth fixing next
+
+**Groups are stored in a plain object** keyed by name. That's why group names need care (`__proto__`, ED-12), and why groups named only with digits always sort first (KL-1 in the [verification map](README.md#11-verification-map)). An ordered array, `[{ name, items }]`, would remove both. It changes the link format, so it needs a version marker and a reader for old links. Best done together with the planned sync work, which gives menus stable ids anyway.

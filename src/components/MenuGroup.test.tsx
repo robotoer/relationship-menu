@@ -17,7 +17,7 @@ describe("MenuGroup", () => {
   });
 
   it("should render a delete button when onDelete is provided", () => {
-    const onDelete = jest.fn();
+    const onDelete = vi.fn();
     render(
       <MenuGroup title={<h2>Physical</h2>} onDelete={onDelete} />
     );
@@ -34,7 +34,7 @@ describe("MenuGroup", () => {
   });
 
   it("should call onDelete when the delete button is clicked", () => {
-    const onDelete = jest.fn();
+    const onDelete = vi.fn();
     render(
       <MenuGroup title={<h2>Physical</h2>} onDelete={onDelete} />
     );
@@ -43,7 +43,7 @@ describe("MenuGroup", () => {
   });
 
   it("should use custom deleteAriaLabel when provided", () => {
-    const onDelete = jest.fn();
+    const onDelete = vi.fn();
     render(
       <MenuGroup
         title={<h2>Physical</h2>}
@@ -58,7 +58,7 @@ describe("MenuGroup", () => {
 
   it("should use default 'Delete group' aria label when deleteAriaLabel is not provided", () => {
     render(
-      <MenuGroup title={<h2>Physical</h2>} onDelete={jest.fn()} />
+      <MenuGroup title={<h2>Physical</h2>} onDelete={vi.fn()} />
     );
     const button = screen.getByRole("button");
     expect(button).toHaveAttribute("aria-label", "Delete group");

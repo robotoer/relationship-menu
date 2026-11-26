@@ -143,11 +143,9 @@ async function createAdditionalMenu(
 /**
  * Comprehensive E2E Tests for the Library Feature
  *
- * The app uses IPFS (Helia) as its primary storage backend, with localStorage
- * as an immediate fallback. The StorageProvider loads documents from localStorage
- * on startup so menus are available in the Library immediately, even before
- * the IPFS node finishes initializing. All multi-menu tests stay within the
- * same React session (client-side navigation only) for consistency.
+ * Menus are saved in the browser's localStorage, and the Library lists them on
+ * startup. Multi-menu tests stay within the same React session (client-side
+ * navigation only) for consistency.
  */
 test.describe("Library Feature", () => {
   // ─── Basic Display ────────────────────────────────────────────────────

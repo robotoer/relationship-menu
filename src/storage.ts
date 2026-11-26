@@ -5,44 +5,21 @@ import { sanitizePerson } from "./compare-slug";
  * Represents a storage interface for managing RelationshipMenuDocuments.
  */
 export type Storage = {
-  ready(): boolean;
-
-  /**
-   * Retrieves RelationshipMenuDocuments from the storage.
-   * @param id - Optional ID of the document to retrieve. If not provided, retrieves all documents.
-   * @returns A Promise that resolves to an object containing the retrieved documents, where the keys are the document IDs.
-   */
-  getDocuments(
-    id?: string
-  ): Promise<{ [id: string]: RelationshipMenuDocument }>;
-
-  /**
-   * Saves RelationshipMenuDocuments to the storage.
-   * @param docs - The RelationshipMenuDocuments to save.
-   * @returns A Promise that resolves to an array of IDs of the saved documents.
-   */
+  /** Menus by title; with an `id` (a title), only that one (if it exists). */
+  getDocuments(id?: string): Promise<{ [id: string]: RelationshipMenuDocument }>;
+  /** Saves menus; resolves to their ids (titles), or an empty list if saving failed. */
   saveDocuments(...docs: RelationshipMenuDocument[]): Promise<string[]>;
-
-  /**
-   * Deletes all RelationshipMenuDocument entries matching the given title from the storage.
-   * This may remove multiple entries when the same title exists under different keys
-   * (e.g., a raw localStorage entry and one or more CID-keyed IPFS entries).
-   * @param title - The title of the document(s) to delete.
-   * @returns A Promise that resolves when all matching entries are deleted.
-   */
+  /** Removes every stored copy of the menu with this title. */
   deleteDocument(title: string): Promise<void>;
-
-  /**
-   * Clears all RelationshipMenuDocuments from the storage.
-   * @returns A Promise that resolves when the storage is cleared.
-   */
-  clear(): Promise<void>;
 };
 
 /**
- * A menu document stored under a `menu:` key in localStorage. Two formats exist:
- * - IPFS storage: key `menu:<CID>`, value JSON `{ title, encoded, savedAt? }`.
- * - Plain local storage: key `menu:<title>`, value is the encoded menu itself.
+ * A menu document stored under a `menu:` key in localStorage. Formats, all still read:
+ * - Current: key `menu:<title>`, value JSON `{ title, encoded, savedAt, ... }`.
+ * - Older IPFS-era copies: key `menu:<CID>` or `menu:pending:<title>`, same JSON.
+ * - Oldest: key `menu:<title>`, value is the encoded menu itself.
+ * When a title has several entries, the most recently saved wins, and the next
+ * save removes the others.
  */
 export type LocalMenuEntry = {
   key: string;
@@ -117,18 +94,6 @@ export const latestByTitle = (entries: LocalMenuEntry[]) => {
   return best;
 };
 
-/**
- * Writes `doc` to localStorage right away under a temporary `menu:pending:<title>`
- * key. Slower backends (IPFS) call this before their own write, so closing the tab
- * mid-save can't lose the edit: the Library reads pending entries like any other,
- * and the backend's final entry replaces it (via removeLocalMenuEntries).
- */
-export const writePendingLocalCopy = (doc: RelationshipMenuDocument) => {
-  const key = `menu:pending:${doc.title}`;
-  localStorage.setItem(key, JSON.stringify({ ...doc, savedAt: Date.now() }));
-  return key;
-};
-
 /** Removes every localStorage entry for `title`, except the one stored under `exceptKey`. */
 export const removeLocalMenuEntries = (title: string, exceptKey?: string) => {
   for (const entry of readLocalMenuEntries()) {
@@ -158,7 +123,7 @@ const localStorageSaveDocuments = async (
     const key = `menu:${doc.title}`;
     // JSON (not the bare encoded menu) so dates and person info are kept.
     localStorage.setItem(key, JSON.stringify({ ...doc, savedAt: Date.now() }));
-    // Drop other copies of this menu (e.g. older IPFS entries) so it isn't listed twice.
+    // Drop other copies of this menu (e.g. IPFS-era entries) so it isn't listed twice.
     removeLocalMenuEntries(doc.title, key);
     ids.push(doc.title);
   }
@@ -169,20 +134,14 @@ export const localStorageDeleteDocument = async (title: string) => {
   removeLocalMenuEntries(title);
 };
 
-const localStorageClear = async () => {
-  localStorage.clear();
-};
-
 /**
  * Creates a local storage object.
  * @returns The local storage object.
  */
 export const createLocalStorage = (): Storage => {
   return {
-    ready: () => true,
     getDocuments: localStorageGetDocuments,
     saveDocuments: localStorageSaveDocuments,
     deleteDocument: localStorageDeleteDocument,
-    clear: localStorageClear,
   };
 };

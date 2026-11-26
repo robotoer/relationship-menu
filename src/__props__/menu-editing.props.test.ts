@@ -252,7 +252,10 @@ describe("applyMenuChange properties (mirrors MenuEditing.dfy)", () => {
           orderable(m, g);
           const r = applyMenuChange(m, { kind: "insert-group", group: g, items: texts }, gen);
           const existing = own(m, g) ? m[g] : [];
-          if (fold(g) === "") return expect(r).toBe(m); // blank names are ignored
+          if (fold(g) === "") {
+            expect(r).toBe(m); // blank names are ignored
+            return;
+          }
           const have = new Set(existing.map((x) => fold(x.item)));
           const expected = texts.filter((t) => {
             const f = fold(t);
@@ -260,7 +263,10 @@ describe("applyMenuChange properties (mirrors MenuEditing.dfy)", () => {
             have.add(f); // repeats within `texts` are skipped too
             return true;
           });
-          if (own(m, g) && expected.length === 0) return expect(r).toBe(m); // ED-10
+          if (own(m, g) && expected.length === 0) {
+            expect(r).toBe(m); // ED-10
+            return;
+          }
           expect(keys(r)).toEqual(own(m, g) ? keys(m) : [...keys(m), g]);
           for (const k of keys(m)) if (k !== g) expect(r[k]).toBe(m[k]);
           existing.forEach((x, q) => expect(r[g][q]).toBe(x));

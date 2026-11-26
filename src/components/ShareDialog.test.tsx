@@ -9,7 +9,7 @@ const CompareSpy = () => {
 };
 
 const renderDialog = (props: Partial<Parameters<typeof ShareDialog>[0]> = {}) => {
-  const onClose = jest.fn();
+  const onClose = vi.fn();
   render(
     <MemoryRouter initialEntries={["/menu"]}>
       <Routes>
@@ -63,7 +63,7 @@ describe("ShareDialog", () => {
   });
 
   it("copies an invite message containing the template link", async () => {
-    const writeText = jest.fn().mockResolvedValue(undefined);
+    const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
     renderDialog();
     await userEvent.click(screen.getByRole("button", { name: "Copy invite message" }));
@@ -72,7 +72,7 @@ describe("ShareDialog", () => {
   });
 
   it("mentions supporting the project only after something was shared", async () => {
-    const writeText = jest.fn().mockResolvedValue(undefined);
+    const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
     renderDialog();
     expect(screen.queryByRole("link", { name: "Support the project" })).not.toBeInTheDocument();

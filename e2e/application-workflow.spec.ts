@@ -1,9 +1,5 @@
 import { test, expect, Page } from '@playwright/test';
-import {
-  getShareValues,
-  setupLogCapture,
-  getP2PLogs
-} from './helpers';
+import { getShareValues } from './helpers';
 
 /**
  * Helper function to add a group to the menu
@@ -34,7 +30,7 @@ async function addItem(page: Page, itemName: string) {
  * These tests verify the complete application functionality including:
  * - Creating menus
  * - Editing menu items and groups
- * - Saving menus to IPFS
+ * - Saving menus to browser storage
  * - Loading menus from storage
  * - Navigating between pages
  */
@@ -42,7 +38,6 @@ async function addItem(page: Page, itemName: string) {
 test.describe('Application Workflow', () => {
 
   test('User can create a new menu with title and items', async ({ page }) => {
-    await setupLogCapture(page);
     await page.goto('/library');
     
     // Wait for page to load
@@ -128,43 +123,24 @@ test.describe('Application Workflow', () => {
     console.log('✅ Menu created successfully with all items');
   });
 
-  test('Menu is automatically saved to IPFS', async ({ page }) => {
-    await setupLogCapture(page);
+  test('Menu is automatically saved to browser storage', async ({ page }) => {
     await page.goto('/library');
-    await page.waitForTimeout(2000);
-
-    console.log('🧪 Testing automatic menu saving...');
-
-    // Create a menu
     await page.click('text=Create New Menu');
     await page.waitForURL('**/menu**');
 
     const menuTitle = 'Auto-Save Test Menu';
     await page.fill('input.menu-title', menuTitle);
-
-    // Add a group and item
     await page.fill('input.new-group-title', 'Desserts');
     await page.press('input.new-group-title', 'Enter');
-    
-    await page.waitForTimeout(2000); // Wait for group to be created
+    await expect(page.locator('.save-status')).toHaveText(/Saved/);
 
-    // Check console logs for save confirmation
-    const logs = await getP2PLogs(page);
-    const hasSaveLog = logs.some(log => log.includes('Saving menu'));
-    
-    if (hasSaveLog) {
-      console.log('✅ Menu save operation detected in logs');
-    }
-
-    // Check that URL contains encoded data
-    const url = page.url();
-    expect(url).toContain('encoded=');
-    
-    console.log('✅ Menu is automatically saved (URL contains encoded data)');
+    // The URL carries the menu, and browser storage holds a copy under its title.
+    expect(page.url()).toContain('encoded=');
+    const stored = await page.evaluate((title) => localStorage.getItem(`menu:${title}`), menuTitle);
+    expect(JSON.parse(stored!).title).toBe(menuTitle);
   });
 
   test('User can navigate to library and see saved menus', async ({ page }) => {
-    await setupLogCapture(page);
     await page.goto('/library');
     await page.waitForTimeout(2000);
 
@@ -201,7 +177,6 @@ test.describe('Application Workflow', () => {
   });
 
   test('User can load a saved menu by clicking on it', async ({ page }) => {
-    await setupLogCapture(page);
     await page.goto('/library');
     await page.waitForTimeout(2000);
 
@@ -243,7 +218,6 @@ test.describe('Application Workflow', () => {
   });
 
   test('User can edit menu items and changes persist', async ({ page }) => {
-    await setupLogCapture(page);
     await page.goto('/library');
     await page.waitForTimeout(2000);
 
@@ -278,7 +252,6 @@ test.describe('Application Workflow', () => {
   });
 
   test('Share section displays correct share links', async ({ page }) => {
-    await setupLogCapture(page);
     await page.goto('/library');
     await page.waitForTimeout(2000);
 
@@ -301,7 +274,6 @@ test.describe('Application Workflow', () => {
   });
 
   test('Multiple groups can be created and managed', async ({ page }) => {
-    await setupLogCapture(page);
     await page.goto('/library');
     await page.waitForTimeout(2000);
 
@@ -330,7 +302,6 @@ test.describe('Application Workflow', () => {
   });
 
   test('Application state persists across page reloads', async ({ page }) => {
-    await setupLogCapture(page);
     await page.goto('/library');
     await page.waitForTimeout(2000);
 
@@ -367,7 +338,6 @@ test.describe('Application Workflow', () => {
   });
 
   test('Empty menu shows appropriate UI state', async ({ page }) => {
-    await setupLogCapture(page);
     await page.goto('/library');
     await page.waitForTimeout(2000);
 
@@ -388,7 +358,6 @@ test.describe('Application Workflow', () => {
   });
 
   test('Compare page is accessible', async ({ page }) => {
-    await setupLogCapture(page);
     await page.goto('/library');
     await page.waitForTimeout(2000);
 
@@ -407,7 +376,6 @@ test.describe('Application Workflow', () => {
   });
 
   test('About link redirects to the landing page', async ({ page }) => {
-    await setupLogCapture(page);
     await page.goto('/about');
     await page.waitForURL((url) => url.pathname === '/');
 

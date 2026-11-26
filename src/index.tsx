@@ -7,14 +7,11 @@ import { App } from "./App";
 import reportWebVitals from "./reportWebVitals";
 import { BrowserRouter } from "react-router-dom";
 import { StorageProvider } from "./providers/Storage";
-import { createIpfsStorage } from "./ipfs";
+import { createLocalStorage } from "./storage";
 import { trackError, trackUncaughtErrors, trackWebVital } from "./analytics";
 
 // Analytics: uncaught errors (their kind only) and Core Web Vitals.
 trackUncaughtErrors();
-
-// Create storage promise at module scope to prevent multiple Helia nodes
-const storagePromise = createIpfsStorage();
 
 const root = ReactDOM.createRoot(document.getElementById("root") as HTMLElement, {
   // A render error with no error boundary blanks the page: report it as a "react"
@@ -29,7 +26,7 @@ const root = ReactDOM.createRoot(document.getElementById("root") as HTMLElement,
 root.render(
   <React.StrictMode>
     <BrowserRouter>
-      <StorageProvider storage={storagePromise}>
+      <StorageProvider storage={createLocalStorage()}>
         <App />
       </StorageProvider>
     </BrowserRouter>

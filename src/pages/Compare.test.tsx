@@ -12,12 +12,12 @@ describe("ComparePage", () => {
     encoded: ["encoded1", "encoded2"],
     comparison: {},
     showComparison: false,
-    onChangeCompared: jest.fn(),
-    onCompare: jest.fn(),
+    onChangeCompared: vi.fn(),
+    onCompare: vi.fn(),
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it("should render the compare section with inputs", () => {
@@ -81,7 +81,7 @@ describe("ComparePage", () => {
   });
 
   it("should call onCompare when Compare button is clicked", () => {
-    const onCompare = jest.fn();
+    const onCompare = vi.fn();
     render(<ComparePage {...defaultProps} onCompare={onCompare} />);
     fireEvent.click(screen.getByText("Compare"));
     expect(onCompare).toHaveBeenCalledTimes(1);

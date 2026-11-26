@@ -19,7 +19,7 @@
 | (not modelled) | ED-10, ED-12 | "ED-10: …", "ED-12: …" and the "regressions found by these properties" block |
 
 Run: `dafny verify docs/spec/formal/dafny/MenuEditing.dfy` (Dafny 4.11; expect "47 verified, 0 errors") and
-`CI=true npx react-scripts test --watchAll=false src/__props__/menu-editing`.
+`yarn test --run src/__props__/menu-editing`.
 
 Deliberately left out: item notes (they ride along with the item and never affect any edit), item `id`s and `generateId` (DM-3), JS object identity (ED-10: "same object" for no-ops), prototypes and `__proto__`-style keys (ED-12), offsets other than ±1, and the JS rule that array-index keys such as `"0"` are always listed first. The model assumes keys keep insertion order, which is false for those names. The fast-check tests cover the JS-only points.
 

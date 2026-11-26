@@ -102,22 +102,6 @@ test.describe("Keyboard controls", () => {
 });
 
 test.describe("Saving", () => {
-  test("an edit is kept even if the page is left while IPFS is still saving it", async ({ page }) => {
-    // Saves go through IPFS (slow) once the node is up; before that they're local.
-    const ipfsStarted = page.waitForEvent("console", {
-      predicate: (m) => m.text().includes("IPFS node started"),
-      timeout: 60000,
-    });
-    await page.goto(menuPath("Quick exit", { G: [{ item: "Alpha" }, { item: "Beta" }] }));
-    await ipfsStarted;
-    await page.locator(".menu-item select").nth(1).selectOption("off-limits");
-    // Leave in the middle of the save.
-    await expect(page.locator(".save-status")).toHaveText(/Saving/);
-    await page.goto("/library");
-    await page.getByRole("link", { name: /View/ }).or(page.locator(".menu-tile a")).first().click();
-    await expect(page.locator(".menu-item select").nth(1)).toHaveValue("off-limits");
-  });
-
   test("a title-only edit is saved and the old title is removed", async ({ page }) => {
     await page.goto(menuPath("Before", { G: [{ item: "Alpha" }] }));
     await expect(page.locator(".save-status")).toHaveText(/Saved/);

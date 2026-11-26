@@ -1,3 +1,4 @@
+import * as storage from "./storage";
 import { createLocalStorage } from "./storage";
 import { RelationshipMenuDocument } from "./model/menu";
 
@@ -21,17 +22,15 @@ describe("LocalStorage", () => {
     expect(documents["Test Document"]).toEqual(doc);
   });
 
-  test("should clear all documents", async () => {
-    const doc: RelationshipMenuDocument = {
-      title: "Test Document",
-      encoded: "encoded-content",
-    };
-
-    await storage.saveDocuments(doc);
-    await storage.clear();
+  test("deleteDocument removes that menu and keeps the others", async () => {
+    await storage.saveDocuments(
+      { title: "Keep", encoded: "a" },
+      { title: "Remove", encoded: "b" }
+    );
+    await storage.deleteDocument("Remove");
     const documents = await storage.getDocuments();
 
-    expect(Object.keys(documents).length).toBe(0);
+    expect(Object.keys(documents)).toEqual(["Keep"]);
   });
 
   test("should retrieve documents by id", async () => {
@@ -182,8 +181,7 @@ describe("LocalStorage", () => {
 });
 
 describe("localStorage menu entries", () => {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const s = require("./storage");
+  const s = storage;
 
   beforeEach(() => localStorage.clear());
 
@@ -205,18 +203,14 @@ describe("localStorage menu entries", () => {
     });
   });
 
-  it("a pending copy written before a slow save is listed, and replaced by the final entry", () => {
-    localStorage.setItem("menu:cidOld", JSON.stringify({ title: "A", encoded: "old", savedAt: 1 }));
-    const pending = s.writePendingLocalCopy({ title: "A", encoded: "new" });
-    expect(pending).toBe("menu:pending:A");
-    // If the page closed now, the Library would still show the new version.
-    expect(s.latestByTitle(s.readLocalMenuEntries()).A.doc.encoded).toBe("new");
-    // The backend's final entry then replaces both older copies.
-    localStorage.setItem("menu:cidNew", JSON.stringify({ title: "A", encoded: "new", savedAt: Date.now() + 1 }));
-    s.removeLocalMenuEntries("A", "menu:cidNew");
-    expect(localStorage.getItem(pending)).toBeNull();
-    expect(localStorage.getItem("menu:cidOld")).toBeNull();
-    expect(s.latestByTitle(s.readLocalMenuEntries()).A.doc.encoded).toBe("new");
+  it("IPFS-era copies (CID and pending keys) still load, and the next save tidies them up", async () => {
+    localStorage.setItem("menu:bafyOld", JSON.stringify({ title: "A", encoded: "old", savedAt: 1 }));
+    localStorage.setItem("menu:pending:A", JSON.stringify({ title: "A", encoded: "newer", savedAt: 2 }));
+    expect((await s.createLocalStorage().getDocuments()).A.encoded).toBe("newer");
+    await s.createLocalStorage().saveDocuments({ title: "A", encoded: "latest" });
+    expect(localStorage.getItem("menu:bafyOld")).toBeNull();
+    expect(localStorage.getItem("menu:pending:A")).toBeNull();
+    expect((await s.createLocalStorage().getDocuments()).A.encoded).toBe("latest");
   });
 
   it("removeLocalMenuEntries keeps the excepted key and other titles", () => {
@@ -233,8 +227,7 @@ describe("localStorage menu entries", () => {
 });
 
 describe("menus with titles that match built-in object properties", () => {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const s = require("./storage");
+  const s = storage;
   beforeEach(() => localStorage.clear());
 
   it("lists menus titled constructor or toString", async () => {

@@ -1,5 +1,5 @@
 import { test, expect, Page } from '@playwright/test';
-import { setupLogCapture, getShareValues } from './helpers';
+import { getShareValues } from './helpers';
 
 /**
  * Helper: add a group by filling the last new-group-title input.
@@ -109,7 +109,6 @@ test.describe('Comprehensive Workflow Tests', () => {
   test.describe('Menu Creation & Editing', () => {
 
     test('Create menu with all four preference values', async ({ page }) => {
-      await setupLogCapture(page);
       await navigateToNewMenu(page);
 
       await page.fill('input.menu-title', 'Preference Test Menu');
@@ -150,7 +149,6 @@ test.describe('Comprehensive Workflow Tests', () => {
     });
 
     test('Edit existing item text', async ({ page }) => {
-      await setupLogCapture(page);
       await navigateToNewMenu(page);
 
       await page.fill('input.menu-title', 'Edit Item Test');
@@ -177,7 +175,6 @@ test.describe('Comprehensive Workflow Tests', () => {
     });
 
     test('Change item preference value', async ({ page }) => {
-      await setupLogCapture(page);
       await navigateToNewMenu(page);
 
       await page.fill('input.menu-title', 'Change Preference Test');
@@ -210,7 +207,6 @@ test.describe('Comprehensive Workflow Tests', () => {
     });
 
     test('Rename a group', async ({ page }) => {
-      await setupLogCapture(page);
       await navigateToNewMenu(page);
 
       await page.fill('input.menu-title', 'Rename Group Test');
@@ -239,7 +235,6 @@ test.describe('Comprehensive Workflow Tests', () => {
     });
 
     test('Add items across multiple groups', async ({ page }) => {
-      await setupLogCapture(page);
       await navigateToNewMenu(page);
 
       await page.fill('input.menu-title', 'Multi-Group Items');
@@ -281,7 +276,6 @@ test.describe('Comprehensive Workflow Tests', () => {
   test.describe('Data Persistence & URL State', () => {
 
     test('URL encoding round-trip preserves all data', async ({ page }) => {
-      await setupLogCapture(page);
 
       const encoded = await createFullMenu(page, 'Round Trip Menu', 'Intimacy', [
         { name: 'Cuddling', value: 'must-have' },
@@ -308,7 +302,6 @@ test.describe('Comprehensive Workflow Tests', () => {
     });
 
     test('Menu title changes update URL', async ({ page }) => {
-      await setupLogCapture(page);
       await navigateToNewMenu(page);
 
       await page.fill('input.menu-title', 'Title V1');
@@ -329,7 +322,6 @@ test.describe('Comprehensive Workflow Tests', () => {
     });
 
     test('Empty groups do not break encoding', async ({ page }) => {
-      await setupLogCapture(page);
       await navigateToNewMenu(page);
 
       await page.fill('input.menu-title', 'Empty Group Test');
@@ -349,7 +341,6 @@ test.describe('Comprehensive Workflow Tests', () => {
     });
 
     test('State persists across page reload', async ({ page }) => {
-      await setupLogCapture(page);
 
       await createFullMenu(page, 'Reload Test', 'Reload Group', [
         { name: 'Reload Item', value: 'must-have' },
@@ -388,7 +379,6 @@ test.describe('Comprehensive Workflow Tests', () => {
   test.describe('Share Section', () => {
 
     test('Share links contain correct data', async ({ page }) => {
-      await setupLogCapture(page);
 
       await createFullMenu(page, 'Share Test', 'Sharing Group', [
         { name: 'Sharing Item', value: 'like-to-have' },
@@ -422,7 +412,6 @@ test.describe('Comprehensive Workflow Tests', () => {
     });
 
     test('Template shares strip preferences', async ({ page }) => {
-      await setupLogCapture(page);
 
       await createFullMenu(page, 'Template Strip Test', 'Prefs', [
         { name: 'Item A', value: 'must-have' },
@@ -448,7 +437,6 @@ test.describe('Comprehensive Workflow Tests', () => {
     });
 
     test('Copy buttons exist in the share dialog', async ({ page }) => {
-      await setupLogCapture(page);
       await navigateToNewMenu(page);
 
       await page.fill('input.menu-title', 'Copy Button Test');
@@ -476,7 +464,6 @@ test.describe('Comprehensive Workflow Tests', () => {
   test.describe('Library', () => {
 
     test('Library shows saved menus', async ({ page }) => {
-      await setupLogCapture(page);
 
       // Create a menu first
       await createFullMenu(page, 'Library Menu 1', 'Group A', [
@@ -495,7 +482,6 @@ test.describe('Comprehensive Workflow Tests', () => {
     });
 
     test('Menu tile View links navigate to menu editor', async ({ page }) => {
-      await setupLogCapture(page);
 
       await createFullMenu(page, 'View Link Test', 'Group', [
         { name: 'Item' },
@@ -519,7 +505,6 @@ test.describe('Comprehensive Workflow Tests', () => {
     });
 
     test('Create New Menu button navigates correctly', async ({ page }) => {
-      await setupLogCapture(page);
       await page.goto('/library');
       await expect(page.locator('.create-menu')).toBeVisible({ timeout: 30000 });
 
@@ -543,7 +528,6 @@ test.describe('Comprehensive Workflow Tests', () => {
   test.describe('Compare Page', () => {
 
     test('Compare page loads and displays compare inputs', async ({ page }) => {
-      await setupLogCapture(page);
       await page.goto('/compare');
       await page.waitForTimeout(2000);
 
@@ -554,7 +538,6 @@ test.describe('Comprehensive Workflow Tests', () => {
     });
 
     test('Compare page loads with encoded menu params', async ({ page }) => {
-      await setupLogCapture(page);
 
       // Create a menu and get its encoded value
       await navigateToNewMenu(page);
@@ -580,7 +563,6 @@ test.describe('Comprehensive Workflow Tests', () => {
     });
 
     test('Compare input allows adding menus via paste', async ({ page }) => {
-      await setupLogCapture(page);
 
       // Create a menu and get its slug
       await navigateToNewMenu(page);
@@ -608,7 +590,6 @@ test.describe('Comprehensive Workflow Tests', () => {
     });
 
     test('Compare shows correct preference differences', async ({ page }) => {
-      await setupLogCapture(page);
 
       // Create first menu and get its slug
       const encoded1 = await createFullMenu(page, 'User A', 'Commitment', [
@@ -660,7 +641,6 @@ test.describe('Comprehensive Workflow Tests', () => {
   test.describe('Navigation', () => {
 
     test('Navbar links navigate to correct pages', async ({ page }) => {
-      await setupLogCapture(page);
       await page.goto('/library');
       await expect(page.locator('.create-menu')).toBeVisible({ timeout: 30000 });
 
@@ -680,7 +660,6 @@ test.describe('Comprehensive Workflow Tests', () => {
     });
 
     test('About redirects to the landing page, which explains the app', async ({ page }) => {
-      await setupLogCapture(page);
       await page.goto('/about');
       await page.waitForURL((url) => url.pathname === '/');
 
@@ -692,7 +671,6 @@ test.describe('Comprehensive Workflow Tests', () => {
     });
 
     test('Menu page Compare link navigates to compare with current menu', async ({ page }) => {
-      await setupLogCapture(page);
       await navigateToNewMenu(page);
 
       await page.fill('input.menu-title', 'Compare Link Test');
@@ -716,7 +694,6 @@ test.describe('Comprehensive Workflow Tests', () => {
   test.describe('Edge Cases', () => {
 
     test('Very long menu title does not break the app', async ({ page }) => {
-      await setupLogCapture(page);
       await navigateToNewMenu(page);
 
       const longTitle = 'A'.repeat(200);
@@ -732,7 +709,6 @@ test.describe('Comprehensive Workflow Tests', () => {
     });
 
     test('Special characters in group and item names', async ({ page }) => {
-      await setupLogCapture(page);
       await navigateToNewMenu(page);
 
       await page.fill('input.menu-title', 'Special Chars Test');
@@ -758,7 +734,6 @@ test.describe('Comprehensive Workflow Tests', () => {
     });
 
     test('Rapid group creation', async ({ page }) => {
-      await setupLogCapture(page);
       await navigateToNewMenu(page);
 
       await page.fill('input.menu-title', 'Rapid Groups');
@@ -779,7 +754,6 @@ test.describe('Comprehensive Workflow Tests', () => {
     });
 
     test('Menu with no title still encodes correctly', async ({ page }) => {
-      await setupLogCapture(page);
       await navigateToNewMenu(page);
 
       // Don't set a title, just add a group and item
@@ -795,7 +769,6 @@ test.describe('Comprehensive Workflow Tests', () => {
     });
 
     test('Navigating directly to /menu shows empty editor', async ({ page }) => {
-      await setupLogCapture(page);
       await page.goto('/menu');
       await page.waitForTimeout(2000);
 
@@ -809,7 +782,6 @@ test.describe('Comprehensive Workflow Tests', () => {
     });
 
     test('Invalid encoded URL param does not crash', async ({ page }) => {
-      await setupLogCapture(page);
 
       // Navigate with invalid encoded data
       await page.goto('/menu?encoded=this-is-not-valid-data');
@@ -825,7 +797,6 @@ test.describe('Comprehensive Workflow Tests', () => {
   test.describe('Data Layer Integration', () => {
 
     test('Menu changes are saved to localStorage', async ({ page }) => {
-      await setupLogCapture(page);
       await navigateToNewMenu(page);
 
       const title = 'LocalStorage Save Test';
@@ -854,7 +825,6 @@ test.describe('Comprehensive Workflow Tests', () => {
     });
 
     test('Multiple menus can coexist in storage', async ({ page }) => {
-      await setupLogCapture(page);
 
       // Create first menu
       await createFullMenu(page, 'Storage Menu A', 'Group A', [{ name: 'Item A' }]);
@@ -878,7 +848,6 @@ test.describe('Comprehensive Workflow Tests', () => {
     });
 
     test('URL encoded data matches menu state', async ({ page }) => {
-      await setupLogCapture(page);
 
       const encoded = await createFullMenu(page, 'Encoding Match', 'Match Group', [
         { name: 'Match Item', value: 'must-have' },

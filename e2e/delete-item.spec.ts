@@ -1,5 +1,4 @@
 import { test, expect, Page } from '@playwright/test';
-import { setupLogCapture } from './helpers';
 
 /**
  * Helper function to add a group to the menu
@@ -26,7 +25,6 @@ async function addItem(page: Page, itemName: string) {
 test.describe('Delete Menu Item', () => {
 
   test('User can delete an item from a group using the delete button', async ({ page }) => {
-    await setupLogCapture(page);
     await page.goto('/library');
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(5000);
@@ -74,7 +72,6 @@ test.describe('Delete Menu Item', () => {
   });
 
   test('Remaining items are still editable after deletion', async ({ page }) => {
-    await setupLogCapture(page);
     await page.goto('/library');
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(5000);

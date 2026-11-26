@@ -7,8 +7,8 @@ describe("CompareSection", () => {
       <CompareSection
         titles={["Alice", "Bob"]}
         menus={["encoded1", "encoded2"]}
-        onChange={jest.fn()}
-        onCompare={jest.fn()}
+        onChange={vi.fn()}
+        onCompare={vi.fn()}
         canCompare={true}
       />
     );
@@ -23,8 +23,8 @@ describe("CompareSection", () => {
       <CompareSection
         titles={["Alice"]}
         menus={["encoded1"]}
-        onChange={jest.fn()}
-        onCompare={jest.fn()}
+        onChange={vi.fn()}
+        onCompare={vi.fn()}
         canCompare={false}
       />
     );
@@ -36,8 +36,8 @@ describe("CompareSection", () => {
       <CompareSection
         titles={[]}
         menus={[]}
-        onChange={jest.fn()}
-        onCompare={jest.fn()}
+        onChange={vi.fn()}
+        onCompare={vi.fn()}
         canCompare={false}
       />
     );
@@ -49,8 +49,8 @@ describe("CompareSection", () => {
       <CompareSection
         titles={[]}
         menus={[]}
-        onChange={jest.fn()}
-        onCompare={jest.fn()}
+        onChange={vi.fn()}
+        onCompare={vi.fn()}
         canCompare={false}
       />
     );
@@ -62,8 +62,8 @@ describe("CompareSection", () => {
       <CompareSection
         titles={["A", "B"]}
         menus={["e1", "e2"]}
-        onChange={jest.fn()}
-        onCompare={jest.fn()}
+        onChange={vi.fn()}
+        onCompare={vi.fn()}
         canCompare={true}
       />
     );
@@ -71,12 +71,12 @@ describe("CompareSection", () => {
   });
 
   it("should call onCompare when Compare button is clicked", () => {
-    const onCompare = jest.fn();
+    const onCompare = vi.fn();
     render(
       <CompareSection
         titles={["A", "B"]}
         menus={["e1", "e2"]}
-        onChange={jest.fn()}
+        onChange={vi.fn()}
         onCompare={onCompare}
         canCompare={true}
       />
@@ -86,13 +86,13 @@ describe("CompareSection", () => {
   });
 
   it("should call onChange to update existing menu when input changes", () => {
-    const onChange = jest.fn();
+    const onChange = vi.fn();
     render(
       <CompareSection
         titles={["Alice"]}
         menus={["encoded1"]}
         onChange={onChange}
-        onCompare={jest.fn()}
+        onCompare={vi.fn()}
         canCompare={false}
       />
     );
@@ -102,13 +102,13 @@ describe("CompareSection", () => {
   });
 
   it("should call onChange to add a new menu when the empty input gets a value", () => {
-    const onChange = jest.fn();
+    const onChange = vi.fn();
     render(
       <CompareSection
         titles={["Alice"]}
         menus={["encoded1"]}
         onChange={onChange}
-        onCompare={jest.fn()}
+        onCompare={vi.fn()}
         canCompare={false}
       />
     );
@@ -120,13 +120,13 @@ describe("CompareSection", () => {
   });
 
   it("should call onChange to remove a menu when its input is cleared", () => {
-    const onChange = jest.fn();
+    const onChange = vi.fn();
     render(
       <CompareSection
         titles={["Alice", "Bob"]}
         menus={["encoded1", "encoded2"]}
         onChange={onChange}
-        onCompare={jest.fn()}
+        onCompare={vi.fn()}
         canCompare={true}
       />
     );
@@ -140,8 +140,8 @@ describe("CompareSection", () => {
       <CompareSection
         titles={[]}
         menus={["encoded1"]}
-        onChange={jest.fn()}
-        onCompare={jest.fn()}
+        onChange={vi.fn()}
+        onCompare={vi.fn()}
         canCompare={false}
       />
     );
@@ -153,8 +153,8 @@ describe("CompareSection", () => {
       <CompareSection
         titles={[]}
         menus={[]}
-        onChange={jest.fn()}
-        onCompare={jest.fn()}
+        onChange={vi.fn()}
+        onCompare={vi.fn()}
         canCompare={false}
       />
     );
@@ -164,8 +164,8 @@ describe("CompareSection", () => {
       <CompareSection
         titles={[]}
         menus={["a"]}
-        onChange={jest.fn()}
-        onCompare={jest.fn()}
+        onChange={vi.fn()}
+        onCompare={vi.fn()}
         canCompare={false}
       />
     );
@@ -183,8 +183,8 @@ describe("CompareSection", () => {
         titles={["Alice", ""]}
         menus={["good", "bad"]}
         errors={[undefined, "Not a valid menu slug or share link"]}
-        onChange={jest.fn()}
-        onCompare={jest.fn()}
+        onChange={vi.fn()}
+        onCompare={vi.fn()}
         canCompare={false}
       />
     );
@@ -200,8 +200,8 @@ describe("CompareSection", () => {
       <CompareSection
         titles={["Alice"]}
         menus={["encoded1"]}
-        onChange={jest.fn()}
-        onCompare={jest.fn()}
+        onChange={vi.fn()}
+        onCompare={vi.fn()}
         canCompare={false}
       />
     );

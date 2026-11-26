@@ -1,3 +1,4 @@
+import type { MockInstance } from "vitest";
 /**
  * Model-based property tests for the autosave queue (spec §5, rules SV-1, SV-2,
  * SV-3, SV-5). They drive the REAL useAutosave hook with random sequences of
@@ -101,7 +102,7 @@ const run = async (actions: Action[], appLike = false): Promise<Trace> => {
       calls.push(call);
     });
 
-  const save = jest.fn(async (doc: RelationshipMenuDocument) => {
+  const save = vi.fn(async (doc: RelationshipMenuDocument) => {
     const ok = await startCall(doc);
     if (!ok) {
       // After a failure the hook can't know what storage holds (SV-1 fix found by TLC),
@@ -167,7 +168,7 @@ const run = async (actions: Action[], appLike = false): Promise<Trace> => {
         pending = null;
       }
       await act(async () => {
-        jest.advanceTimersByTime(a.ms);
+        vi.advanceTimersByTime(a.ms);
         await flushPromises();
       });
     } else if (a.kind === "settle") {
@@ -184,7 +185,7 @@ const run = async (actions: Action[], appLike = false): Promise<Trace> => {
     if (pending) flushes.push(pending.doc);
     pending = null;
     await act(async () => {
-      jest.advanceTimersByTime(AUTOSAVE_DELAY_MS);
+      vi.advanceTimersByTime(AUTOSAVE_DELAY_MS);
       await flushPromises();
     });
   }
@@ -197,14 +198,14 @@ const run = async (actions: Action[], appLike = false): Promise<Trace> => {
 };
 
 describe("useAutosave properties (spec §5)", () => {
-  let errorSpy: jest.SpyInstance;
+  let errorSpy: MockInstance;
   beforeEach(() => {
-    jest.useFakeTimers();
-    errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    vi.useFakeTimers();
+    errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
   });
   afterEach(() => {
     errorSpy.mockRestore();
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
 
   const NUM_RUNS = 100;

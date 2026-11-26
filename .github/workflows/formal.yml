@@ -19,8 +19,6 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
-      - name: Install dependencies
-        run: yarn install --immutable
       - name: Install Dafny 4.11
         run: |
           curl -sSL -o dafny.zip https://github.com/dafny-lang/dafny/releases/download/v4.11.0/dafny-4.11.0-x64-ubuntu-22.04.zip
@@ -29,7 +27,7 @@ jobs:
       - name: Verify TypeScript with LemmaScript (CP-10, CP-11)
         run: |
           while read -r file; do
-            [ -n "$file" ] && npx lsc check --backend=dafny "$file"
+            [ -n "$file" ] && npx -y -p lemmascript@0.6.12 lsc check --backend=dafny "$file"
           done < LemmaScript-files.txt
       - name: Verify the menu-editing model (DM-1, ED-1..ED-11)
         run: dafny verify docs/spec/formal/dafny/MenuEditing.dfy
