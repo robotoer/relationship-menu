@@ -62,3 +62,13 @@ jobs:
             echo "::endgroup::"
             grep -q "No error has been found" "$RUNNER_TEMP/$cfg.out"
           done
+      - name: Model-check push notifications (NT-23, NT-24, NT-56)
+        working-directory: docs/spec/formal/tla
+        timeout-minutes: 30
+        run: |
+          for cfg in Notify NotifyThree NotifyLiveness; do
+            echo "::group::$cfg"
+            java -XX:+UseParallelGC -cp "$RUNNER_TEMP/tla2tools.jar" tlc2.TLC -workers auto -config "$cfg.cfg" Notify.tla | tee "$RUNNER_TEMP/$cfg.out"
+            echo "::endgroup::"
+            grep -q "No error has been found" "$RUNNER_TEMP/$cfg.out"
+          done
