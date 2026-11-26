@@ -43,7 +43,15 @@ describe("Import page", () => {
 
   it("HO-5: says so when the menus can't be saved, and continues without them on request", async () => {
     arrive(encodeHandoffRequest({ id: ID, menus: [{ title: "Us", encoded: encodeData({ G: [{ item: "Walks" }] }) }] }));
-    const full: Storage = { getDocuments: async () => ({}), saveDocuments: async () => [], deleteDocument: async () => {} };
+    const full: Storage = {
+      getDocuments: async () => ({}),
+      saveDocuments: async () => [],
+      saveMenu: async () => {
+        throw new Error("full");
+      },
+      deleteDocument: async () => {},
+      subscribe: () => () => {},
+    };
     const onLeave = vi.fn();
     renderImport(full, onLeave);
     expect(await screen.findByRole("heading", { name: "Your menus couldn't be brought over" })).toBeInTheDocument();

@@ -119,7 +119,11 @@ describe("HO-5: import never overwrites", () => {
     const failing: Storage = {
       getDocuments: async () => ({}),
       saveDocuments: async () => [],
+      saveMenu: async () => {
+        throw new Error("full");
+      },
       deleteDocument: async () => {},
+      subscribe: () => () => {},
     };
     const outcome = await importHandoff(failing, request([{ title: "Us", encoded: walks }]), OLD);
     expect(outcome.kind).toBe("failed");
