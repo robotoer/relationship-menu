@@ -175,7 +175,8 @@ describe("SupportPage", () => {
       expect(alert).toHaveTextContent(words);
       expect(alert).toHaveTextContent("Nothing was charged.");
       expect(alert).not.toHaveTextContent("boom");
-      expect(alert).toHaveFocus();
+      // Focus moves to the message in an effect after it appears.
+      await waitFor(() => expect(alert).toHaveFocus());
       expect(sent("checkout_started")).toEqual([]);
       expect(sessionStorage.getItem(CHECKOUT_PLAN_KEY)).toBeNull();
       expect(openStripe).not.toHaveBeenCalled();
