@@ -52,3 +52,13 @@ jobs:
             echo "::endgroup::"
             grep -q "No error has been found" "$RUNNER_TEMP/$cfg.out"
           done
+      - name: Model-check sync (SY-18, SY-35..SY-39)
+        working-directory: docs/spec/formal/tla
+        timeout-minutes: 20
+        run: |
+          for cfg in Sync SyncLiveness SyncOneWriter; do
+            echo "::group::$cfg"
+            java -XX:+UseParallelGC -cp "$RUNNER_TEMP/tla2tools.jar" tlc2.TLC -workers auto -config "$cfg.cfg" Sync.tla | tee "$RUNNER_TEMP/$cfg.out"
+            echo "::endgroup::"
+            grep -q "No error has been found" "$RUNNER_TEMP/$cfg.out"
+          done
