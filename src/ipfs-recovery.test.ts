@@ -143,6 +143,22 @@ describe("SY-91: recovering IPFS-only menus", () => {
     expect(open).not.toHaveBeenCalled();
   });
 
+  test("goes on recovering the others when one menu can't be written (e.g. storage full)", async () => {
+    await seedBlockStore(idb, VECTORS.map(({ doc, key }) => ({ key, bytes: bytesOf(doc) })));
+    for (const { cid } of VECTORS) localStorage.setItem(`menu:${cid}`, DATE);
+    const tooBig = `menu:${VECTORS[0]!.cid}`;
+    const realSetItem = Storage.prototype.setItem;
+    const setItem = vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key, value) {
+      if (key === tooBig) throw new DOMException("full", "QuotaExceededError");
+      return realSetItem.call(this, key, value);
+    });
+    expect(await recoverIpfsMenus(idb)).toBe(1);
+    setItem.mockRestore();
+    // The one that didn't fit keeps its pointer; the other was recovered.
+    expect(localStorage.getItem(tooBig)).toBe(DATE);
+    expect(JSON.parse(localStorage.getItem(`menu:${VECTORS[1]!.cid}`)!).title).toBe(VECTORS[1]!.doc.title);
+  });
+
   test("is safe to run again: a recovered entry is no longer a pointer", async () => {
     const { doc, cid, key } = VECTORS[0]!;
     await seedBlockStore(idb, [{ key, bytes: bytesOf(doc) }]);
