@@ -250,4 +250,31 @@ describe("ComparePage", () => {
       grid().getByText(/Squares, left to right: Alice, Bob/),
     ).toBeInTheDocument();
   });
+
+  it("a shortened list says how many more there are and opens them (Show more)", () => {
+    const shared = Array.from({ length: 11 }, (_, i) => ({
+      item: `Shared ${i + 1}`,
+      values: ["must-have", "must-have"] as any,
+    }));
+    render(
+      <ComparePage
+        {...defaultProps}
+        comparison={{ G: shared }}
+        showComparison={true}
+      />,
+    );
+    const overview = within(
+      screen.getByRole("region", { name: "Where you stand" }),
+    );
+    expect(overview.queryByText("Shared 11")).not.toBeInTheDocument();
+    const more = overview.getByRole("button", { name: "Show 3 more" });
+    expect(more).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(more);
+    expect(overview.getByText("Shared 11")).toBeInTheDocument();
+    expect(
+      overview.getByRole("button", { name: "Show fewer" }),
+    ).toHaveAttribute("aria-expanded", "true");
+    fireEvent.click(overview.getByRole("button", { name: "Show fewer" }));
+    expect(overview.queryByText("Shared 11")).not.toBeInTheDocument();
+  });
 });

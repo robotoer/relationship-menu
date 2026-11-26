@@ -415,6 +415,7 @@ The old address (relationship-menu.vercel.app) serves only a hand-off page, and 
 | AX-4 | No page scrolls sideways at any width from 320 px (small phone) up, including tablets in both orientations. | Test (e2e) |
 | AX-5 | Animations stop when the system asks for reduced motion. | Review |
 | AX-6 | On phones (≤ 520 px), each item's text gets the full row width, with its answer picker and buttons underneath at least 44 px tall. Long item text wraps onto more lines instead of being cut off, at any width. Navigation links and the share dialog's "Advanced" toggle are also 44 px tall. | Test (e2e) for the editor rows; Review for the rest |
+| AX-7 | Anything clickable looks clickable. Every expandable section shows a triangle that turns when it opens, and underlines on hover. A shortened list ends in a "Show N more" button (and "Show fewer" once open), never in plain "+N more" text. Text-style buttons are underlined or outlined in their text colour. | Test (`Compare.test.tsx`), Review |
 
 ---
 
