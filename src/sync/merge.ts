@@ -17,6 +17,7 @@
 import type { SavedMenu } from "../menu-store";
 import type { Person, RelationshipMenuDocument } from "../model/menu";
 import { uniqueTitle } from "../unique-title";
+import { MenuRecord, tombstone } from "./records";
 
 /** Per-menu sync state, kept in `sync:menu:<id>` (spec §5). */
 export type MenuSyncState = {
@@ -44,22 +45,15 @@ export type SyncStates = { [id: string]: MenuSyncState };
 /** This device's menus and their sync states. */
 export type Local = { menus: Menus; sync: SyncStates };
 
-/** A menu document as it travels in a record (its id is the record's id). */
+/** A menu document without its id: what is compared and kept. */
 export type MenuContent = Omit<RelationshipMenuDocument, "id">;
 
 /**
- * What a record says once decrypted and checked (SY-15, SY-16). `deviceId` is
- * the writer's device id, SY-35's tie-break after the edit time; records that
- * don't carry it fall back to the edit id.
+ * One server record, after `decryptRecord` (records.ts) tried to read it. A
+ * tombstone is a `MenuRecord` with `deleted: true` (SY-19).
  */
-export type RecordBody =
-  | { deleted: false; editId: string; deviceId?: string; doc: MenuContent }
-  /** An encrypted tombstone (SY-19). */
-  | { deleted: true; editId: string; deviceId?: string };
-
-/** One server record, after the records layer tried to decrypt it. */
 export type RemoteRecord =
-  | { id: string; version: number; readable: true; body: RecordBody }
+  | { id: string; version: number; readable: true; record: MenuRecord }
   /**
    * Failed to decrypt or check (SY-17). `claimsDeleted` is the server's bare
    * `deleted` flag, which counts for nothing (SY-19).
@@ -67,8 +61,6 @@ export type RemoteRecord =
   | { id: string; version: number; readable: false; claimsDeleted?: boolean };
 
 export type MergeContext = {
-  /** This device's id (`sync:device`), the tie-break after edit time (SY-35). */
-  deviceId: string;
   /** A fresh random menu id (SY-20), for conflict copies. */
   newMenuId: () => string;
   /** A fresh random edit id. */
@@ -89,10 +81,16 @@ export type MergeResult = Local & {
   unreadable: number;
 };
 
-/** A request to make for one dirty menu. `revision` is the local revision it carries. */
+/**
+ * A request to make for one dirty menu: `record` to encrypt (records.ts) as
+ * `recordVersion(push)`. `revision` is the local revision it carries.
+ */
 export type Push =
-  | { kind: "put"; id: string; ifMatch: number | null; revision: number; body: RecordBody & { deleted: false } }
-  | { kind: "delete"; id: string; ifMatch: number; revision: number; body: RecordBody & { deleted: true } };
+  | { kind: "put"; id: string; ifMatch: number | null; revision: number; record: MenuRecord }
+  | { kind: "delete"; id: string; ifMatch: number; revision: number; record: MenuRecord };
+
+/** The version the server gives this write if it accepts it: 1 for a new menu, otherwise If-Match + 1. */
+export const recordVersion = (push: Push) => (push.ifMatch === null ? 1 : push.ifMatch + 1);
 
 // ---- helpers ---------------------------------------------------------------------
 
@@ -108,8 +106,17 @@ const samePerson = (a: Person | undefined, b: Person | undefined) =>
 export const sameContent = (a: MenuContent, b: MenuContent) =>
   a.title === b.title && a.encoded === b.encoded && samePerson(a.person, b.person);
 
-/** The document part of a stored menu, as a record carries it. */
+/** The document part of a stored menu. */
 export const contentOf = ({ id: _id, ...content }: SavedMenu): MenuContent => content;
+
+/** The document a live record carries. */
+export const docOf = ({ title, encoded, person, createdAt, updatedAt }: MenuRecord): MenuContent => ({
+  title,
+  encoded,
+  ...(person === undefined ? {} : { person }),
+  ...(createdAt === undefined ? {} : { createdAt }),
+  ...(updatedAt === undefined ? {} : { updatedAt }),
+});
 
 /** "Title (from another device)", or "… (2)" and so on if that is taken (SY-35). */
 export const conflictTitle = (title: string, taken: Set<string>) => {
@@ -121,20 +128,13 @@ export const conflictTitle = (title: string, taken: Set<string>) => {
 const editTime = (doc: MenuContent) => doc.updatedAt ?? 0;
 
 /**
- * Whether this device's dirty copy is the newer edit: later save time, then the
- * higher device id, then (same device, e.g. after turning sync off and on) the
- * higher edit id, so every device decides the same way.
+ * Whether this device's dirty copy is the newer edit: the later save time, then
+ * the higher edit id. SY-35 breaks ties by device id, but records (SY-16)
+ * don't carry one; edit ids are random, so every device still decides the same.
  */
-const localIsNewer = (
-  local: MenuContent,
-  localEdit: string,
-  remote: { doc: MenuContent; editId: string; deviceId?: string },
-  ctx: MergeContext
-) => {
-  const [a, b] = [editTime(local), editTime(remote.doc)];
-  if (a !== b) return a > b;
-  if (remote.deviceId !== undefined && ctx.deviceId !== remote.deviceId) return ctx.deviceId > remote.deviceId;
-  return localEdit > remote.editId;
+const localIsNewer = (local: MenuContent, localEdit: string, remote: MenuContent, remoteEdit: string) => {
+  const [a, b] = [editTime(local), editTime(remote)];
+  return a !== b ? a > b : localEdit > remoteEdit;
 };
 
 /** A working copy of `Local` that the functions below change and then return. */
@@ -250,8 +250,8 @@ class Draft {
       return;
     }
 
-    const body = record.body;
-    const remote = body.deleted ? null : body.doc;
+    const body = record.record;
+    const remote = body.deleted ? null : docOf(body);
     const mine = this.menus[id];
 
     // Nothing here, or a clean copy: add it, fast-forward (SY-34), delete it, or
@@ -295,7 +295,7 @@ class Draft {
 
     // SY-35: both changed. The newer edit keeps the menu id; the other is kept as
     // a new menu. Both are pushed.
-    if (localIsNewer(contentOf(mine), state.editId, { ...body, doc: remote }, this.ctx)) {
+    if (localIsNewer(contentOf(mine), state.editId, remote, body.editId)) {
       this.sync[id] = { ...state, baseVersion: version, seenVersion: version };
       this.keepAsCopy(id, remote);
     } else {
@@ -414,7 +414,7 @@ export const applyLocalDelete = (local: Local, id: string, ctx: MergeContext): L
  * rejected), and so does a deletion of a menu the server may never have had: the
  * next pull settles it (`dropUnsentDeletes`).
  */
-export const pushesFor = (local: Local, deviceId: string): Push[] => {
+export const pushesFor = (local: Local): Push[] => {
   const pushes: Push[] = [];
   for (const id of Object.keys(local.sync).sort()) {
     const s = local.sync[id];
@@ -426,7 +426,7 @@ export const pushesFor = (local: Local, deviceId: string): Push[] => {
         id,
         ifMatch: s.baseVersion > 0 ? s.baseVersion : null,
         revision: s.revision,
-        body: { deleted: false, editId: s.editId, deviceId, doc: contentOf(menu) },
+        record: { id, ...contentOf(menu), editId: s.editId },
       });
     } else if (s.baseVersion > 0) {
       pushes.push({
@@ -434,7 +434,7 @@ export const pushesFor = (local: Local, deviceId: string): Push[] => {
         id,
         ifMatch: s.baseVersion,
         revision: s.revision,
-        body: { deleted: true, editId: s.editId, deviceId },
+        record: tombstone(id, s.editId),
       });
     }
   }

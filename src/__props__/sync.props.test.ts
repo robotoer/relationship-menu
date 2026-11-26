@@ -34,23 +34,24 @@ import {
   MenuSyncState,
   MergeContext,
   Push,
-  RecordBody,
   RemoteRecord,
   applyLocalSave,
   contentOf,
+  docOf,
   mergeRecords,
   sameContent,
 } from "../sync/merge";
+import { MenuRecord, tombstone } from "../sync/records";
 
 const pad = (s: string) => s.padEnd(22, "0");
 const counter = (prefix: string) => {
   let n = 0;
   return () => pad(`${prefix}${++n}`);
 };
-const contextFor = (deviceId: string): MergeContext => ({
-  deviceId,
-  newMenuId: counter(`${deviceId}c`),
-  newEditId: counter(`${deviceId}e`),
+/** Ids for one device, prefixed with its name so runs are repeatable. */
+const contextFor = (device: string): MergeContext => ({
+  newMenuId: counter(`${device}c`),
+  newEditId: counter(`${device}e`),
 });
 
 // =====================================================================================
@@ -85,21 +86,21 @@ const localArb: fc.Arbitrary<Local> = fc
     return local;
   });
 
-const bodyArb: fc.Arbitrary<RecordBody> = fc.oneof(
-  fc.record({
-    deleted: fc.constant(false as const),
+/** A record as `decryptRecord` returns it: a menu, or a tombstone (records.ts). */
+const readableArb: fc.Arbitrary<RemoteRecord> = fc
+  .record({
+    id: fc.constantFrom(...IDS),
+    version: fc.integer({ min: 1, max: 6 }),
+    deleted: fc.boolean(),
     editId: fc.constantFrom(...EDIT_IDS, "r1", "r2"),
-    deviceId: fc.constantFrom("devA", "devB"),
     doc: contentArb,
-  }),
-  fc.record({ deleted: fc.constant(true as const), editId: fc.constantFrom(...EDIT_IDS, "r1"), deviceId: fc.constantFrom("devA", "devB") })
-);
-const readableArb: fc.Arbitrary<RemoteRecord> = fc.record({
-  id: fc.constantFrom(...IDS),
-  version: fc.integer({ min: 1, max: 6 }),
-  readable: fc.constant(true as const),
-  body: bodyArb,
-});
+  })
+  .map(({ id, version, deleted, editId, doc }) => ({
+    id,
+    version,
+    readable: true as const,
+    record: deleted ? tombstone(id, editId) : { id, ...doc, editId },
+  }));
 const unreadableArb: fc.Arbitrary<RemoteRecord> = fc.record({
   id: fc.constantFrom(...IDS),
   version: fc.integer({ min: 1, max: 6 }),
@@ -160,9 +161,9 @@ describe("sync merge properties (spec §6)", () => {
         for (const r of records) {
           const before = adopted(local).sync[r.id] as MenuSyncState | undefined;
           if (!r.readable || r.version <= (before?.seenVersion ?? 0) || before?.dirty) continue;
-          expect(result.sync[r.id]).toMatchObject({ baseVersion: r.version, seenVersion: r.version, dirty: false, editId: r.body.editId });
-          if (r.body.deleted) expect(result.menus[r.id]).toBeUndefined();
-          else expect(contentOf(result.menus[r.id])).toEqual(r.body.doc);
+          expect(result.sync[r.id]).toMatchObject({ baseVersion: r.version, seenVersion: r.version, dirty: false, editId: r.record.editId });
+          if (r.record.deleted) expect(result.menus[r.id]).toBeUndefined();
+          else expect(contentOf(result.menus[r.id])).toEqual(docOf(r.record));
           expect(result.copies.filter((c) => c.from === r.id)).toEqual([]);
         }
       }),
@@ -185,7 +186,7 @@ describe("sync merge properties (spec §6)", () => {
           const mine = before.menus[r.id];
           if (!r.readable || r.version <= (s?.seenVersion ?? 0) || !s?.dirty) continue;
           const copies = result.copies.filter((c) => c.from === r.id);
-          if (r.body.editId === s.editId) {
+          if (r.record.editId === s.editId) {
             // SY-37: our own write (its reply was lost): no copy, and our version stays.
             expect(copies).toEqual([]);
             if (mine) expect(survives(r.id, contentOf(mine))).toBe(true);
@@ -194,10 +195,10 @@ describe("sync merge properties (spec §6)", () => {
           if (mine) {
             // Ours survives: under its id, or as a copy (SY-35); over a deletion, it stays and is pushed (SY-36).
             expect(survives(r.id, contentOf(mine))).toBe(true);
-            if (r.body.deleted) expect(result.sync[r.id]).toMatchObject({ dirty: true, baseVersion: r.version });
+            if (r.record.deleted) expect(result.sync[r.id]).toMatchObject({ dirty: true, baseVersion: r.version });
           }
           // The other device's change survives too, unless it was a deletion.
-          if (!r.body.deleted) expect(survives(r.id, r.body.doc)).toBe(true);
+          if (!r.record.deleted) expect(survives(r.id, docOf(r.record))).toBe(true);
           expect(copies.length).toBeLessThanOrEqual(1);
           for (const c of copies) expect(result.sync[c.id]).toMatchObject({ baseVersion: 0, dirty: true });
         }
@@ -246,7 +247,7 @@ describe("sync merge properties (spec §6)", () => {
 // 2. An in-memory server that behaves like server/src/menus.ts.
 // =====================================================================================
 
-type Row = { id: string; version: number; seq: number; deleted: boolean; body: RecordBody };
+type Row = { id: string; version: number; seq: number; deleted: boolean; record: MenuRecord };
 
 /**
  * An in-memory server/src/menus.ts: versions, seq, pages, 412 with the current
@@ -265,8 +266,8 @@ class FakeServer {
   /** Small pages, so pulls take several (the real server sends 100). */
   pageSize = 2;
 
-  private record(row: Row): RemoteRecord {
-    return { id: row.id, version: row.version, readable: true, body: structuredClone(row.body) };
+  private toRemote(row: Row): RemoteRecord {
+    return { id: row.id, version: row.version, readable: true, record: structuredClone(row.record) };
   }
 
   /** GET /v1/menus?since=[&full=1] */
@@ -277,7 +278,7 @@ class FakeServer {
     const page = rows.slice(0, this.pageSize);
     return {
       kind: "pulled",
-      records: page.map((r) => this.record(r)),
+      records: page.map((r) => this.toRemote(r)),
       next: page.length > 0 ? page[page.length - 1].seq : since,
       more: rows.length > this.pageSize,
       resync: false,
@@ -288,14 +289,14 @@ class FakeServer {
   /** PUT or DELETE /v1/menus/:id, conditional on the version (SY-42). */
   write(push: Push): Reply {
     const row = this.rows.get(push.id);
-    const body = structuredClone(push.body);
+    const record = structuredClone(push.record);
     if (push.kind === "put" && push.ifMatch === null) {
-      if (row) return { kind: "rejected", current: this.record(row) };
-      this.rows.set(push.id, { id: push.id, version: 1, seq: ++this.seq, deleted: false, body });
+      if (row) return { kind: "rejected", current: this.toRemote(row) };
+      this.rows.set(push.id, { id: push.id, version: 1, seq: ++this.seq, deleted: false, record });
       return { kind: "accepted", version: 1, seq: this.seq };
     }
-    if (!row || row.version !== push.ifMatch) return { kind: "rejected", current: row ? this.record(row) : null };
-    const next = { id: push.id, version: row.version + 1, seq: ++this.seq, deleted: push.kind === "delete", body };
+    if (!row || row.version !== push.ifMatch) return { kind: "rejected", current: row ? this.toRemote(row) : null };
+    const next = { id: push.id, version: row.version + 1, seq: ++this.seq, deleted: push.kind === "delete", record };
     this.rows.set(push.id, next);
     return { kind: "accepted", version: next.version, seq: next.seq };
   }
@@ -488,9 +489,9 @@ class Simulation {
     if (done.events.moved.length > 0) this.note("moved to a fresh id");
     if (request && request.kind !== "pull") {
       const s = before.sync[request.id];
-      if (reply.kind === "rejected" && reply.current?.readable && reply.current.body.editId === s?.editId) this.note("own write recognised (SY-37)");
-      if (reply.kind === "rejected" && reply.current?.readable && reply.current.body.deleted && before.menus[request.id]) this.note("edit beats delete: pushed over a tombstone");
-      if (reply.kind === "rejected" && reply.current?.readable && !reply.current.body.deleted && !before.menus[request.id]) this.note("edit beats delete: deletion here undone");
+      if (reply.kind === "rejected" && reply.current?.readable && reply.current.record.editId === s?.editId) this.note("own write recognised (SY-37)");
+      if (reply.kind === "rejected" && reply.current?.readable && reply.current.record.deleted && before.menus[request.id]) this.note("edit beats delete: pushed over a tombstone");
+      if (reply.kind === "rejected" && reply.current?.readable && !reply.current.record.deleted && !before.menus[request.id]) this.note("edit beats delete: deletion here undone");
     }
     if (Object.keys(before.sync).some((id) => !(id in done.engine.local.sync))) this.note("unsent deletion settled");
     // The editor follows a menu that moved to a fresh id (SY-32), keeping what it loaded.
@@ -501,7 +502,7 @@ class Simulation {
 
   private send(d: Device) {
     if (d.wire || d.inbox) return;
-    const next = nextRequest(d.engine, this.now, d.name);
+    const next = nextRequest(d.engine, this.now);
     if (!("request" in next)) return;
     this.checkRequest(d, next.request);
     d.engine = next.engine;
@@ -587,7 +588,7 @@ class Simulation {
         this.take(d);
         d.engine = wantPull(d.engine);
         for (let i = 0; i < 1_000; i++) {
-          const next = nextRequest(d.engine, this.now, d.name);
+          const next = nextRequest(d.engine, this.now);
           if ("request" in next) {
             this.checkRequest(d, next.request);
             d.engine = next.engine;
@@ -597,7 +598,7 @@ class Simulation {
             this.checkInvariants();
             continue;
           }
-          const busy = pendingPushes(d.engine, d.name).length > 0 || d.engine.pulling || d.engine.pullWanted;
+          const busy = pendingPushes(d.engine).length > 0 || d.engine.pulling || d.engine.pullWanted;
           if (busy && next.wait !== null) {
             this.now += Math.max(1, next.wait);
             continue;
@@ -614,7 +615,7 @@ class Simulation {
   private held(devices: Device[], server: boolean) {
     const tags = new Set<string>();
     for (const d of devices) for (const m of Object.values(d.engine.local.menus)) for (const t of tagsOf(m)) tags.add(t);
-    if (server) for (const r of this.server.rows.values()) if (!r.body.deleted) for (const t of tagsOf(r.body.doc)) tags.add(t);
+    if (server) for (const r of this.server.rows.values()) if (!r.deleted) for (const t of tagsOf(r.record)) tags.add(t);
     return tags;
   }
 
@@ -641,7 +642,7 @@ class Simulation {
     const canon = (doc: MenuContent) =>
       JSON.stringify([doc.title, doc.encoded, doc.person ?? null, doc.createdAt ?? null, doc.updatedAt ?? null]);
     const serverMenus = new Map<string, string>();
-    for (const r of this.server.rows.values()) if (!r.body.deleted) serverMenus.set(r.id, canon(r.body.doc));
+    for (const r of this.server.rows.values()) if (!r.deleted) serverMenus.set(r.id, canon(docOf(r.record)));
     for (const d of this.devices) {
       const mine = d.engine.local.menus;
       const ids = Object.keys(mine).sort();
@@ -736,31 +737,31 @@ describe("sync between two devices (spec §6, SY-38, SY-39)", () => {
         let engine = createEngine({ menus: {}, sync: {} }, 0, 0, ctx);
         let now = 0;
         // First the pull on load.
-        let next = nextRequest(engine, now, "devA");
+        let next = nextRequest(engine, now);
         expect("request" in next && next.request).toEqual({ kind: "pull", since: 0, full: true });
         engine = next.engine;
-        expect(nextRequest(engine, now, "devA")).toEqual({ engine, wait: null }); // one at a time
+        expect(nextRequest(engine, now)).toEqual({ engine, wait: null }); // one at a time
         engine = receive(engine, { kind: "pulled", records: [], next: 0, more: false, resync: false }, now, ctx).engine;
         // A save: nothing is pushed before PUSH_DELAY_MS.
         const id = pad("menu");
         engine = saveLocally(engine, { id, title: "T", encoded: "x", updatedAt: now }, null, now, ctx).engine;
-        next = nextRequest(engine, now, "devA");
+        next = nextRequest(engine, now);
         expect(next).toMatchObject({ wait: PUSH_DELAY_MS });
         now += PUSH_DELAY_MS;
         let failures = 0;
         for (const ok of outcomes) {
-          next = nextRequest(engine, now, "devA");
+          next = nextRequest(engine, now);
           if (!("request" in next)) {
             // Waiting out the backoff.
             expect(next.wait).toBe(retryDelayMs(failures));
             now += next.wait!;
-            next = nextRequest(engine, now, "devA");
+            next = nextRequest(engine, now);
           }
           if ("request" in next && next.request.kind === "pull") {
             // The 5-minute pull came due first; it succeeds, so the backoff starts over.
             engine = receive(next.engine, { kind: "pulled", records: [], next: 0, more: false, resync: false }, now, ctx).engine;
             failures = 0;
-            next = nextRequest(engine, now, "devA");
+            next = nextRequest(engine, now);
           }
           expect("request" in next && next.request).toMatchObject({ kind: "put", id, ifMatch: null });
           engine = next.engine;

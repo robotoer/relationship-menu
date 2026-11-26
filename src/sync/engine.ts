@@ -45,7 +45,8 @@ export const retryDelayMs = (failures: number) =>
 /**
  * One request. A pull is `GET /v1/menus?since=`. A push is a `put` (PUT with
  * `If-Match: "<ifMatch>"`, or `If-None-Match: *` when `ifMatch` is null) or a
- * `delete` (DELETE with `If-Match`), whose body the transport encrypts.
+ * `delete` (DELETE with `If-Match`), whose `record` the transport encrypts
+ * (`encryptRecord` in records.ts, for `recordVersion(push)`).
  *
  * `full` marks the pages of a full listing: a pull that started from 0 (the
  * first one, or after `resync`). Without it, the server answers `resync` again
@@ -171,8 +172,7 @@ export const wantPull = (engine: Engine): Engine => ({ ...engine, pullWanted: tr
 export const resumePushes = (engine: Engine): Engine => ({ ...engine, paused: null });
 
 /** Pushes still to make. */
-export const pendingPushes = (engine: Engine, deviceId: string): Push[] =>
-  engine.paused === null ? pushesFor(engine.local, deviceId) : [];
+export const pendingPushes = (engine: Engine): Push[] => (engine.paused === null ? pushesFor(engine.local) : []);
 
 export type Next = { engine: Engine; request: Request } | { engine: Engine; wait: number | null };
 
@@ -182,7 +182,7 @@ export type Next = { engine: Engine; request: Request } | { engine: Engine; wait
  * be something to do. A pull that has more pages comes first, then a wanted or
  * due pull, then the pushes in id order.
  */
-export const nextRequest = (engine: Engine, now: number, deviceId: string): Next => {
+export const nextRequest = (engine: Engine, now: number): Next => {
   if (engine.inFlight) return { engine, wait: null };
   if (now < engine.retryAt) return { engine, wait: engine.retryAt - now };
   const send = (request: Request, changes: Partial<Engine> = {}): Next => ({
@@ -197,7 +197,7 @@ export const nextRequest = (engine: Engine, now: number, deviceId: string): Next
     const listing = engine.listing ?? (engine.cursor === 0 ? newListing() : null);
     return send(pull(listing), { pullWanted: false, pulling: true, listing });
   }
-  const pushes = pendingPushes(engine, deviceId);
+  const pushes = pendingPushes(engine);
   if (pushes.length > 0 && now >= engine.pushAt) return send(pushes[0]);
   const until = Math.min(engine.nextPullAt, pushes.length > 0 ? engine.pushAt : Infinity);
   return { engine, wait: Math.max(0, until - now) };
@@ -298,7 +298,7 @@ export const syncStep = async (
   now: () => number,
   ctx: MergeContext
 ): Promise<{ events: SyncEvents; wait: number | null }> => {
-  const next = nextRequest(get(), now(), ctx.deviceId);
+  const next = nextRequest(get(), now());
   set(next.engine);
   if (!("request" in next)) return { events: noEvents(), wait: next.wait };
   let reply: Reply;

@@ -12,12 +12,17 @@ import {
   dropUnsentDeletes,
   mergeRecords,
   pushesFor,
+  recordVersion,
 } from "./merge";
+import { fromHex } from "./bytes";
+import { deriveKeys } from "./keys";
+import { decryptRecord, encryptRecord, tombstone } from "./records";
+import { VECTOR_ACCOUNT } from "./test-vectors";
 
 const ID = "menu00000000000000000a";
 const ctx = (): MergeContext => {
   let n = 0;
-  return { deviceId: "devA", newMenuId: () => `copy${++n}`.padEnd(22, "0"), newEditId: () => `edit${++n}` };
+  return { newMenuId: () => `copy${++n}`.padEnd(22, "0"), newEditId: () => `edit${++n}` };
 };
 const doc = (encoded: string, title = "Us", updatedAt = 1) => ({ title, encoded, updatedAt });
 const state = (s: Partial<MenuSyncState>): MenuSyncState => ({ baseVersion: 3, seenVersion: 3, dirty: false, editId: "mine", revision: 5, ...s });
@@ -25,11 +30,11 @@ const live = (version: number, encoded: string, editId = "theirs", updatedAt = 2
   id: ID,
   version,
   readable: true,
-  body: { deleted: false, editId, deviceId: "devB", doc: doc(encoded, "Us", updatedAt) },
+  record: { id: ID, ...doc(encoded, "Us", updatedAt), editId },
 });
-const tombstone = (version: number, editId = "theirs"): RemoteRecord => ({ id: ID, version, readable: true, body: { deleted: true, editId, deviceId: "devB" } });
+const deletion = (version: number, editId = "theirs"): RemoteRecord => ({ id: ID, version, readable: true, record: tombstone(ID, editId) });
 const nextReq = (engine: Engine) => {
-  const next = nextRequest(engine, 0, "devA");
+  const next = nextRequest(engine, 0);
   if (!("request" in next)) throw new Error("expected a request");
   return next.engine;
 };
@@ -46,7 +51,7 @@ describe("the merge table (spec §6)", () => {
   });
 
   it("nothing here, tombstone: nothing, but the version is remembered", () => {
-    const r = mergeRecords(local(null, null), [tombstone(4)], ctx());
+    const r = mergeRecords(local(null, null), [deletion(4)], ctx());
     expect(r.menus[ID]).toBeUndefined();
     expect(r.sync[ID]).toMatchObject({ seenVersion: 4, dirty: false });
   });
@@ -59,7 +64,7 @@ describe("the merge table (spec §6)", () => {
   });
 
   it("clean copy, tombstone: deleted here", () => {
-    const r = mergeRecords(local("old", {}), [tombstone(4)], ctx());
+    const r = mergeRecords(local("old", {}), [deletion(4)], ctx());
     expect(r.menus[ID]).toBeUndefined();
     expect(r.sync[ID]).toMatchObject({ baseVersion: 4, dirty: false });
   });
@@ -83,19 +88,19 @@ describe("the merge table (spec §6)", () => {
     expect(r.copies).toHaveLength(1);
     const copy = r.menus[r.copies[0].id];
     expect(copy).toMatchObject({ title: "Us (from another device)", encoded: "mine" });
-    expect(pushesFor(r, "devA").map((p) => [p.id, p.kind, p.ifMatch])).toEqual([[copy.id, "put", null]]);
+    expect(pushesFor(r).map((p) => [p.id, p.kind, p.ifMatch])).toEqual([[copy.id, "put", null]]);
   });
 
   it("SY-35: dirty, live remote with an older edit: ours keeps the id, the remote becomes a copy; both are pushed", () => {
     const r = mergeRecords(local("mine", { dirty: true }), [live(4, "theirs", "theirs", 0)], ctx());
     expect(r.menus[ID].encoded).toBe("mine");
     expect(r.menus[r.copies[0].id]).toMatchObject({ title: "Us (from another device)", encoded: "theirs" });
-    expect(pushesFor(r, "devA").map((p) => [p.id, p.ifMatch]).sort()).toEqual([[r.copies[0].id, null], [ID, 4]].sort());
+    expect(pushesFor(r).map((p) => [p.id, p.ifMatch]).sort()).toEqual([[r.copies[0].id, null], [ID, 4]].sort());
   });
 
-  it("SY-35: the same edit time: the higher device id wins", () => {
+  it("SY-35: the same edit time: the higher edit id wins (records carry no device id)", () => {
     const r = mergeRecords(local("mine", { dirty: true }), [live(4, "theirs", "theirs", 1)], ctx());
-    // "devA" < "devB": theirs wins.
+    // "mine" < "theirs": theirs wins.
     expect(r.menus[ID].encoded).toBe("theirs");
   });
 
@@ -108,9 +113,9 @@ describe("the merge table (spec §6)", () => {
   });
 
   it("SY-36: dirty, tombstone: edit beats delete, ours is pushed over the tombstone", () => {
-    const r = mergeRecords(local("mine", { dirty: true }), [tombstone(4)], ctx());
+    const r = mergeRecords(local("mine", { dirty: true }), [deletion(4)], ctx());
     expect(r.menus[ID].encoded).toBe("mine");
-    expect(pushesFor(r, "devA")).toMatchObject([{ kind: "put", id: ID, ifMatch: 4 }]);
+    expect(pushesFor(r)).toMatchObject([{ kind: "put", id: ID, ifMatch: 4 }]);
   });
 
   it("SY-36: deleted here (not pushed), live remote changed elsewhere: edit beats delete, take the remote", () => {
@@ -120,9 +125,9 @@ describe("the merge table (spec §6)", () => {
   });
 
   it("deleted here, tombstone: done", () => {
-    const r = mergeRecords(local(null, { dirty: true }), [tombstone(4)], ctx());
+    const r = mergeRecords(local(null, { dirty: true }), [deletion(4)], ctx());
     expect(r.sync[ID]).toMatchObject({ baseVersion: 4, dirty: false });
-    expect(pushesFor(r, "devA")).toEqual([]);
+    expect(pushesFor(r)).toEqual([]);
   });
 
   it("SY-18: an older version than one already seen is ignored", () => {
@@ -150,7 +155,7 @@ describe("a new menu's first push with no answer", () => {
     let engine: Engine = createEngine({ menus: {}, sync: {} }, 0, 0, c);
     engine = receive(nextReq(engine), { kind: "pulled", records: [], next: 0, more: false, resync: false }, 0, c).engine;
     engine = saveLocally(engine, { id: ID, ...doc("new") }, null, 0, c).engine;
-    const sent = nextRequest(engine, PUSH_DELAY_MS, "devA");
+    const sent = nextRequest(engine, PUSH_DELAY_MS);
     if (!("request" in sent) || sent.request.kind !== "put") throw new Error("expected a push");
     const done = receive(sent.engine, { kind: "failed" }, PUSH_DELAY_MS, c);
     const [{ from, to }] = done.events.moved;
@@ -158,11 +163,32 @@ describe("a new menu's first push with no answer", () => {
     expect(done.engine.local.menus[to].encoded).toBe("new");
     expect(done.engine.local.menus[ID]).toBeUndefined();
     // The push had landed: the pull finds it under our edit id, and it is deleted.
-    const landed: RemoteRecord = { id: ID, version: 1, readable: true, body: sent.request.body };
+    expect(recordVersion(sent.request)).toBe(1);
+    const landed: RemoteRecord = { id: ID, version: 1, readable: true, record: sent.request.record };
     const pulled = mergeRecords(done.engine.local, [landed], c);
-    expect(pushesFor(pulled, "devA").map((p) => [p.kind, p.id, p.ifMatch]).sort()).toEqual([["delete", ID, 1], ["put", to, null]].sort());
+    expect(pushesFor(pulled).map((p) => [p.kind, p.id, p.ifMatch]).sort()).toEqual([["delete", ID, 1], ["put", to, null]].sort());
     // It hadn't: a pull that has caught up drops the old id.
     expect(dropUnsentDeletes(done.engine.local).sync[ID]).toBeUndefined();
+  });
+});
+
+describe("with the records layer (records.ts)", () => {
+  it("SY-15, SY-16, SY-19: a push's record and tombstone round-trip through encryption and merge on the other device", async () => {
+    const keys = await deriveKeys(fromHex(VECTOR_ACCOUNT.secret));
+    const id = "AAECAwQFBgcICQoLDA0ODw";
+    const mine: Local = { menus: { [id]: { id, title: "Us", encoded: "x", person: { name: "Sam" }, updatedAt: 5 } }, sync: {} };
+    const [put] = pushesFor(mergeRecords(mine, [], ctx()));
+    const sealed = await encryptRecord(keys, recordVersion(put), put.record);
+    const read = await decryptRecord(keys, { id, version: recordVersion(put), deleted: false, ciphertext: sealed });
+    const other = mergeRecords({ menus: {}, sync: {} }, [{ id, version: 1, readable: true, record: read }], ctx());
+    expect(other.menus[id]).toEqual(mine.menus[id]);
+
+    const gone = { ...other, menus: {}, sync: { [id]: { ...other.sync[id], dirty: true, editId: "del1" } } };
+    const [del] = pushesFor(gone);
+    expect(del).toMatchObject({ kind: "delete", ifMatch: 1 });
+    const sealedDel = await encryptRecord(keys, recordVersion(del), del.record);
+    const readDel = await decryptRecord(keys, { id, version: 2, deleted: true, ciphertext: sealedDel });
+    expect(mergeRecords(other, [{ id, version: 2, readable: true, record: readDel }], ctx()).menus[id]).toBeUndefined();
   });
 });
 
