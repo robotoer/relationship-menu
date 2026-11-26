@@ -73,7 +73,7 @@ test.describe("Analytics (PR-2)", () => {
       `/compare?encoded=${encodeURIComponent(slug(`${SECRET} title`, MENU, PERSON))}&encoded=${encodeURIComponent(other)}`
     );
     await expect(page.locator(".menu-item-compare").first()).toBeVisible();
-    await page.getByRole("button", { name: /^Conflicts/ }).click();
+    await page.getByRole("group", { name: "Show items" }).getByRole("button", { name: /^Conflicts/ }).click();
 
     await collect();
     // Search the Library, and reopen the menu from it.

@@ -56,7 +56,7 @@ test.describe("Item notes (DM-6, LK-9, PR-3)", () => {
     await expect(notes).toContainText("Ana: not in public");
     await expect(notes).not.toContainText("Ben");
     // Notes don't change the verdict: both want it.
-    await expect(page.getByRole("button", { name: /^All want/ })).toContainText("1");
+    await expect(page.getByRole("group", { name: "Show items" }).getByRole("button", { name: /^All want/ })).toContainText("1");
   });
 });
 
