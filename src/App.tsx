@@ -16,6 +16,7 @@ import { ComparePage } from "./pages/Compare";
 import {
   Person,
   RelationshipMenu,
+  RelationshipMenuDocument,
 } from "./model/menu";
 import { MenuPage } from "./pages/Menu";
 import { decodeData, encodeData } from "./data-encoder";
@@ -38,7 +39,12 @@ import { SupportPage } from "./pages/Support";
 import { platform } from "./platform";
 import { TalkRoute } from "./pages/Talk";
 import { SaveComparison } from "./components/SaveComparison";
+import { createCoachClient } from "./coach";
+import { sameMenuContent } from "./storage";
+import { isSupporter, useSync } from "./sync/context";
+import { useSyncRuntime } from "./providers/Sync";
 import { countByFilter } from "./compare-filters";
+import { uniqueTitle } from "./unique-title";
 import {
   DecodedCompareSlug,
   decodeCompareSlug,
@@ -110,6 +116,13 @@ const WrappedLibraryPage = () => {
   return <LibraryPage menus={documents} onDelete={deleteDocument} />;
 };
 
+/** The document the editor saves for this title, menu and person. */
+const editorDoc = (title: string, menu: RelationshipMenu, person: Person): RelationshipMenuDocument => ({
+  title,
+  encoded: encodeData(stripMenuIds(menu)),
+  ...(sanitizePerson(person) ? { person: sanitizePerson(person) } : {}),
+});
+
 /** Whether a stored encoded menu has the same groups, items and answers as `menu`. */
 const sameMenu = (encoded: string, menu: RelationshipMenu): boolean => {
   try {
@@ -124,14 +137,6 @@ const sameMenu = (encoded: string, menu: RelationshipMenu): boolean => {
 
 /** The titles of saved menus. */
 const savedTitles = (saved: { [id: string]: SavedDocument }) => new Set(Object.values(saved).map((d) => d.title));
-
-/** "Title (2)", "Title (3)", ... — the first that isn't already a saved menu's title. */
-const uniqueTitle = (title: string, taken: Set<string>) => {
-  for (let n = 2; ; n++) {
-    const candidate = `${title || "Untitled"} (${n})`;
-    if (!taken.has(candidate)) return candidate;
-  }
-};
 
 /**
  * A wrapped version of the MenuPage component that handles state management and data encoding/decoding.
@@ -227,6 +232,12 @@ const WrappedMenuPage = () => {
   // The id this editor's menu is saved under (SY-20): set when a saved menu is opened,
   // or made up on its first save. Renaming keeps it, so a rename is an ordinary save.
   const menuId = useRef<string | null>(null);
+  // With sync on, the stored menu's revision this editor last loaded or saved (SY-24):
+  // a save from an older one keeps the synced version too (SY-35).
+  const revision = useRef<number | null>(null);
+  // What this editor last loaded or saved (the stored menu as of `revision`): the
+  // editor has unsaved edits whenever it shows something else (SY-33).
+  const committed = useRef<RelationshipMenuDocument | null>(null);
   // Get path paremeters from react-router-dom:
   const [params, setParams] = useSearchParams();
 
@@ -309,6 +320,8 @@ const WrappedMenuPage = () => {
       } else {
         setNotice(null);
         menuId.current = existing?.id ?? null;
+        revision.current = existing?.revision ?? null;
+        committed.current = existing ?? null;
         createdAt.current = existing?.createdAt ?? null;
       }
       const items = Object.values(opened.menu).flat();
@@ -347,29 +360,69 @@ const WrappedMenuPage = () => {
     Object.values(documents).some((d) => d.title === title && d.id !== menuId.current);
   const docToSave = useMemo(
     () =>
-      !loaded || titleTaken || (title === "" && Object.keys(menu).length === 0)
-        ? null
-        : {
-            title,
-            encoded: encodeData(stripMenuIds(menu)),
-            ...(sanitizePerson(person) ? { person: sanitizePerson(person) } : {}),
-          },
+      !loaded || titleTaken || (title === "" && Object.keys(menu).length === 0) ? null : editorDoc(title, menu, person),
     [title, menu, person, titleTaken, loaded]
   );
+  // What storage holds after a synced change was shown in the editor (SY-33), so
+  // autosave knows it needn't save that, but must save a change back to the old one.
+  const [syncedDoc, setSyncedDoc] = useState<RelationshipMenuDocument | null>(null);
   const saveState = useAutosave(docToSave, async (doc) => {
     // Saved under the menu's id, whatever its title: a rename is just a save (SY-21).
     // The storage provider reports failures by returning no ids.
     const now = Date.now();
     createdAt.current ??= now;
     const id = (menuId.current ??= newMenuId());
-    const ids = await storage.saveDocuments({
-      ...doc,
-      id,
-      createdAt: createdAt.current,
-      updatedAt: now,
-    });
-    if (ids.length === 0) throw new Error("Saving the menu failed");
-  });
+    revision.current = await storage.saveMenu(
+      { ...doc, id, createdAt: createdAt.current, updatedAt: now },
+      revision.current
+    );
+    committed.current = doc;
+  }, syncedDoc);
+
+  // A menu that sync moved to a new id (its first upload's answer was lost) carries on there.
+  useEffect(
+    () =>
+      storage.subscribe(({ moved }) => {
+        for (const { from, to } of moved) if (menuId.current === from) menuId.current = to;
+      }),
+    [storage]
+  );
+
+  // SY-33: a synced change to the open menu, with no unsaved edits here, replaces it
+  // in place. With unsaved edits, the next save keeps both versions (SY-35).
+  const openDoc = menuId.current !== null ? documents[menuId.current] : undefined;
+  useEffect(() => {
+    if (!loaded || !openDoc || openDoc.revision === undefined) return;
+    // Null: opened before sync was on here; any revision is news.
+    if (revision.current !== null && openDoc.revision <= revision.current) return;
+    const shown = editorDoc(title, menuRef.current, person);
+    if (sameMenuContent(openDoc, shown)) {
+      // Already showing it (say, sync was just turned on): just note the revision.
+      revision.current = openDoc.revision;
+      committed.current = openDoc;
+      return;
+    }
+    // Unsaved edits: waiting or being saved, a failed save, or edits that can't be
+    // saved yet (a title another menu has). Whatever autosave's status says.
+    const unsaved =
+      saveState === "pending" ||
+      saveState === "saving" ||
+      saveState === "error" ||
+      committed.current === null ||
+      !sameMenuContent(committed.current, shown);
+    if (unsaved) return;
+    const decoded = decodeCompareSlug(encodeMenuSlug(openDoc.title, openDoc.encoded, openDoc.person));
+    if (!decoded) return;
+    revision.current = openDoc.revision;
+    committed.current = openDoc;
+    const synced = ensureItemIds(decoded.menu);
+    setTitle(decoded.title);
+    setMenu(synced);
+    setPerson(decoded.person ?? {});
+    setSyncedDoc(editorDoc(decoded.title, synced, decoded.person ?? {}));
+    setNotice("Updated on another device.");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openDoc, saveState, loaded, title, menu, person]);
 
   // Analytics: how far people get answering a menu. Milestones already reached when
   // the editor opened (e.g. reopening a finished menu) aren't counted again.
@@ -636,6 +689,22 @@ const menuParams = (entries: string[]) => {
 };
 
 /**
+ * Conversations and "Talk it through" (spec §7b, §7c), with the AI coach for
+ * supporters (docs/spec/coach.md): it signs its requests with sync's keys.
+ */
+const WrappedTalkRoute = () => {
+  const { state } = useSync();
+  const runtime = useSyncRuntime();
+  // Recomputed whenever sync's state changes, which includes the moment the runtime
+  // has its keys (the status can be known from storage before then).
+  const coach = useMemo(() => {
+    const authorize = isSupporter(state) ? runtime?.authorizer() : null;
+    return authorize ? createCoachClient({ origin: "", authorize }) : undefined;
+  }, [state, runtime]);
+  return <TalkRoute coach={coach} />;
+};
+
+/**
  * Main application component.
  *
  * Contains the main nav bar and routes to the various pages.
@@ -687,8 +756,8 @@ export const App = () => {
         <Route path="/library" element={libraryPage} />
         <Route path="/menu" element={menuPage} />
         <Route path="/compare" element={comparePage} />
-        <Route path="/discuss" element={<TalkRoute />} />
-        <Route path="/talk" element={<TalkRoute />} />
+        <Route path="/discuss" element={<WrappedTalkRoute />} />
+        <Route path="/talk" element={<WrappedTalkRoute />} />
         {platform().support && <Route path="/support" element={<SupportPage />} />}
         <Route path="/about" element={<Navigate to="/" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />

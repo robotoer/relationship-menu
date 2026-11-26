@@ -8,6 +8,7 @@ import { vi } from "vitest";
 import { PROTOCOL, canonicalRequest } from "../src/auth";
 import { concat, sha256, toBase64Url, toHex, utf8 } from "../src/bytes";
 import { handleRequest } from "../src/index";
+import type { Env } from "../src/env";
 
 export { env };
 
@@ -39,12 +40,13 @@ export class Device {
   async fetch(
     method: string,
     pathAndQuery: string,
-    options: { body?: Uint8Array | string | object; headers?: Record<string, string>; ts?: number } = {}
+    options: { body?: Uint8Array | string | object; headers?: Record<string, string>; ts?: number; env?: Env } = {}
   ): Promise<Response> {
     const body = toBody(options.body);
     const headers = new Headers(options.headers);
     headers.set("authorization", await this.authorization(method, pathAndQuery, body, options.ts));
-    return call(new Request(`https://sync.test${pathAndQuery}`, { method, headers, body: body.length ? body : undefined }));
+    const request = new Request(`https://sync.test${pathAndQuery}`, { method, headers, body: body.length ? body : undefined });
+    return options.env ? handleRequest(request, options.env) : call(request);
   }
 }
 

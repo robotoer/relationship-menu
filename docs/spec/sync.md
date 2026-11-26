@@ -101,15 +101,15 @@ flowchart TB
 
 | ID | Rule | Checked by |
 | --- | --- | --- |
-| SY-1 | Turning on sync on a first device creates a sync code: 256 bits from `crypto.getRandomValues`, shown as 24 words from the BIP-39 English list. The last word carries a checksum. The word list loads only on the sync screens, so it adds nothing to the main download. | Test (`src/sync/sync-code.test.ts`: the official word list by its SHA-256, the official 256-bit BIP-39 vectors, the list loaded only by `import()`) |
+| SY-1 | Turning on sync on a first device creates a sync code: 256 bits from `crypto.getRandomValues`, shown as 24 words from the BIP-39 English list. The last word carries a checksum. The word list loads only on the sync screens, so it adds nothing to the main download. | Test (`src/sync/sync-code.test.ts`: the official word list by its SHA-256, the official 256-bit BIP-39 vectors, the list loaded only by `import()`); turning sync on: `src/sync/runtime.test.ts` |
 | SY-2 | Keys come from the code through HKDF-SHA-256, with a fixed salt and one `info` label per key: an Ed25519 signing key and an AES-256-GCM key. `accountId` is the first 128 bits of SHA-256 over the public key, in base64url. The code, the private key and the encryption key never leave the device. | Test (`src/sync/keys.test.ts`: RFC 5869 and RFC 8032 vectors through our wrappers, and frozen vectors in `src/sync/test-vectors.ts`; a changed derivation would lock people out, so the vectors never change) |
 | SY-3 | "Show my sync code" in sync settings shows the words again. They're hidden until asked for, and hidden again on leaving the page. | Test |
 | SY-4 | Before the code is first shown, and again in settings, the app says plainly: *"These 24 words are the only key to your synced menus. We can't see them and can't recover them. If you lose every device and these words, your synced menus are gone. Keep them in a password manager or on paper."* | Test |
 | SY-5 | Typing the code ignores case and extra spaces and autocompletes from the first four letters. A code with a bad checksum gets "One of the words is wrong," without saying which. | Property (`src/sync/sync-code.test.ts`: round trip, typo detection) |
-| SY-6 | **Signed requests.** Every API call, except the webhook, health and pairing reads, carries `Authorization: MenuSync v1 account=…, key=…, ts=…, sig=…`. The signature is Ed25519 over `"menu-sync/v1", method, path with query, ts, base64url(SHA-256(body))`, one per line. The server accepts `ts` within ±5 minutes of its clock, requires SHA-256(key) to match the account id, and stores no credential. | Test (server: bad signature, wrong key for account, clock skew, body swapped; `server/test/client-vectors.test.ts`: the app's own headers from `src/sync/sign.ts` pass `authenticate()`) |
+| SY-6 | **Signed requests.** Every API call, except the webhook, health and pairing reads, carries `Authorization: MenuSync v1 account=…, key=…, ts=…, sig=…`. The signature is Ed25519 over `"menu-sync/v1", method, path with query, ts, base64url(SHA-256(body))`, one per line. The server accepts `ts` within ±5 minutes of its clock, requires SHA-256(key) to match the account id, and stores no credential. | Test (server: bad signature, wrong key for account, clock skew, body swapped; `server/test/client-vectors.test.ts`: the app's own headers from `src/sync/sign.ts` pass `authenticate()`); every app request is signed and verified: `src/sync/runtime.test.ts` against `src/sync/fake-server.ts` |
 | SY-7 | **Replay.** Every write is conditional on the current version (SY-42), so replaying a write fails with 412. Replaying a read only returns ciphertext. There is no nonce table. | Test (server: replayed PUT and DELETE) |
-| SY-8 | **Replace sync code.** This device makes a new code, uploads every menu under the new account, and calls `/v1/account/rotate`, signed by the old key, with a proof signed by the new key. The server then moves the supporter status (and the Stripe subscription's `account_id` metadata) to the new account and deletes the old account's data. Other devices then show "Your sync code was replaced on another device. Enter the new code to keep syncing." Their local menus are untouched. | Test (server + e2e) |
-| SY-9 | **Turn off sync on this device** removes the code and sync state from this device only. Its menus stay on the device and on the server. | Test |
+| SY-8 | **Replace sync code.** This device makes a new code, uploads every menu under the new account, and calls `/v1/account/rotate`, signed by the old key, with a proof signed by the new key. The server then moves the supporter status (and the Stripe subscription's `account_id` metadata) to the new account and deletes the old account's data. Other devices then show "Your sync code was replaced on another device. Enter the new code to keep syncing." Their local menus are untouched. If the server's answer is lost, the new code is kept (`sync:next-code`) until a check of the new account says whether the move happened; until then nothing syncs under either code, so the account can't end up under a code the device forgot. The server commits a move within 60 s of receiving it or not at all, and accepts its signature only within 5 minutes of its time, so "not moved" is believed only 12 minutes after the request was sent. The order is: catch up under the old code, move the status (rotate), then upload every menu under the new code, so the new account fills up only after the move is confirmed. Other tabs pause while it's under way, and turning sync off waits for it. | Test (server; `src/sync/runtime.test.ts`: status moves, menus uploaded again, other devices told; offline, nothing changes) |
+| SY-9 | **Turn off sync on this device** removes the code and sync state from this device only. Its menus stay on the device and on the server. | Test (`src/sync/runtime.test.ts`: every `sync:` key removed, menus kept) |
 
 ---
 
@@ -131,10 +131,10 @@ sequenceDiagram
 
 | ID | Rule | Checked by |
 | --- | --- | --- |
-| SY-10 | "Add a device" shows a QR code and the 24 words. The QR code is a link to `/pair#<key>`. The first device uploads the sync code encrypted with that random key, which exists only in the QR code. The server deletes the blob on its first read, or after 10 minutes. | Test (server + e2e; the pairing key, id and blob: `src/sync/pairing.test.ts`) |
+| SY-10 | "Add a device" shows a QR code and the 24 words. The QR code is a link to `/pair#<key>`. The first device uploads the sync code encrypted with that random key, which exists only in the QR code. The server deletes the blob on its first read, or after 10 minutes. | Test (server + e2e; the pairing key, id and blob: `src/sync/pairing.test.ts`); a device joins through the link: `src/sync/runtime.test.ts` |
 | SY-11 | Opening a pairing link removes the key from the address bar before anything else runs (history replace). The key is in the `#fragment`, so it is never sent to any server, and analytics only see the path (PR-2). | Test (e2e) |
-| SY-12 | A used or expired pairing link says so and offers to type the words instead. A link that was "already used" adds: *"If that wasn't you, replace your sync code."* | Test |
-| SY-13 | **Restore / add by words.** Entering the code on a device pulls every menu. Menus already on that device are kept and uploaded, so turning on sync never drops a local menu. | Test (e2e: fresh device restore) |
+| SY-12 | A used or expired pairing link says so and offers to type the words instead. A link that was "already used" adds: *"If that wasn't you, replace your sync code."* | Test; used, expired, unknown and unreadable links: `src/sync/runtime.test.ts` |
+| SY-13 | **Restore / add by words.** Entering the code on a device pulls every menu. Menus already on that device are kept and uploaded, so turning on sync never drops a local menu. | Test (`src/sync/runtime.test.ts`: restore keeps and uploads the device's own menus; e2e with the screens) |
 | SY-14 | A browser without WebCrypto Ed25519 or AES-GCM can't turn on sync, and the Support page says so **before** checkout. Everything else works. | Test (`src/sync/supported.test.ts`: the detection; the Support page message comes with the UI) |
 
 ---
@@ -145,9 +145,9 @@ sequenceDiagram
 | --- | --- | --- |
 | SY-15 | Each record is encrypted with AES-256-GCM. Every write gets a fresh random 96-bit nonce, stored in front of the ciphertext. The additional data is `"menu-sync/v1" ‖ accountId ‖ menuId ‖ version ‖ deleted`. So the server can't move a record to another menu, present an old record as a newer version, or flip the deleted flag without decryption failing. | Test (`src/sync/records.test.ts`: tamper: every byte flip, wrong menuId, wrong version, wrong flag → rejected) |
 | SY-16 | The plaintext is the whole menu document (title, encoded menu, person, created and updated times), plus the menu id, an edit id and a format version. It's padded to a multiple of 1 KiB, so the size doesn't give away how many items a menu has. | Test (`src/sync/records.test.ts`: ciphertext contains no plaintext, in raw, hex or base64 form; sizes are multiples of 1 KiB plus overhead) |
-| SY-17 | A record that fails to decrypt is skipped and counted, and sync settings show "Some synced data couldn't be read." It never replaces or deletes a local menu. | Property |
-| SY-18 | A device never accepts a lower version of a menu than one it has already seen (rollback protection). | Property |
-| SY-19 | A deletion only counts if it is an encrypted tombstone (SY-15 with `deleted = 1`). A bare "deleted" flag from the server never removes a local menu. | Property (merge, planned) + Test (`src/sync/records.test.ts`: tombstones are encrypted and bound to the deleted flag) |
+| SY-17 | A record that fails to decrypt is skipped and counted, and sync settings show "Some synced data couldn't be read." It never replaces or deletes a local menu. | Property (`sync.props`); the settings message: Test, with the UI |
+| SY-18 | A device never accepts a lower version of a menu than one it has already seen (rollback protection). | Proof (`Sync.tla` `SY18_NeverBackwards`) + Property (`sync.props`) |
+| SY-19 | A deletion only counts if it is an encrypted tombstone (SY-15 with `deleted = 1`). A bare "deleted" flag from the server never removes a local menu. | Property (`sync.props`) + Test (`src/sync/records.test.ts`: tombstones are encrypted and bound to the deleted flag) |
 
 ---
 
@@ -160,8 +160,12 @@ sequenceDiagram
 | SY-20 | Every menu has a random 128-bit id. It is assigned on the menu's first save, or the first time this version of the app loads an older menu. Ids never appear in links, like item ids (DM-3). | Test (`src/storage.test.ts`; `e2e/menu-ids.spec.ts` checks the link) |
 | SY-21 | Browser storage keeps one entry per menu id (`menu-v2:<id>`). Renaming keeps the id: it's an ordinary save. Nothing is deleted on rename (replaces the second half of SV-5). Two menus may share a title; the Library opens each by its id. | Proof (`Autosave.tla` `SV5_NeverRemoved`) + Property (`autosave.props`) + Test (`e2e/menu-ids.spec.ts`) |
 | SY-22 | **Server row:** `account_id, menu_id, version, seq, updated_at, deleted, ciphertext`. The nonce is the ciphertext's first 12 bytes, and the ciphertext is at most 64 KiB. Titles exist only inside the ciphertext. `seq` is the account's change counter at the time of the write. | Test (server schema) |
-| SY-23 | **Quotas per account:** 500 live menus, 64 KiB per menu, 4 MiB in total. Tombstones don't count toward these, and the server forgets them after 180 days. Over quota gets HTTP 507, and the app says "Sync storage is full. Your menus are still saved on this device." | Test (server) |
-| SY-24 | Each menu in browser storage has a **local revision** that goes up on every change, local or synced. A save says which revision it started from. A save that started from an older revision than the stored one is a conflict (SY-35), never an overwrite. | Property |
+| SY-23 | **Quotas per account:** 500 live menus, 64 KiB per menu, 4 MiB in total. Tombstones don't count toward these, and the server forgets them after 180 days. Over quota gets HTTP 507, and the app says "Sync storage is full. Your menus are still saved on this device." | Test (server); the app side: SY-26 |
+| SY-24 | Each menu in browser storage has a **local revision** that goes up on every change, local or synced. A save says which revision it started from. A save that started from an older revision than the stored one is a conflict (SY-35), never an overwrite. | Property (`sync.props`, and stale-editor saves in its 2-device simulation); storage: `src/storage-sync.test.ts` |
+| SY-25 | **One tab syncs for the browser.** Every tab records its own saves and deletions in browser storage the moment they happen. One tab at a time, chosen with the Web Locks API, does the network part, and reads the menus and their sync states afresh each round, so a save made in another tab meanwhile is never lost or overwritten. "Sync now" in another tab reaches it as a storage event. Without Web Locks, each tab syncs on its own, which conditional writes (SY-42) keep safe. | Test (`src/sync/runtime.test.ts`: a save in the tab that isn't syncing is pushed by the one that is) |
+| SY-26 | **A menu too large to sync** (over 64 KiB once encrypted, SY-23) is set aside: settings say so, the other menus keep syncing, and it is tried again as soon as it changes. It stays on this device. It is only held back from uploads: a change to it from another device is merged as usual (both kept, SY-35), and deleting it still deletes it on the server. | Test (`src/sync/runtime.test.ts`) |
+| SY-27 | **Offline, nothing is sent**, so a push can't be left half-known. When a new menu's first upload got no answer, it may or may not have landed; the menu then moves to a fresh id (merge.ts `applyUnknownCreate`), and an editor that has it open carries on under the new id. | Test (`src/sync/runtime.test.ts`) |
+| SY-28 | **Saving what's already stored isn't an edit.** It writes nothing and pushes nothing, so showing a synced change in the editor (SY-33) never sends it back. The same menu counts as the same even if it was encoded with an item's fields in another order; the order of groups and of items is part of the menu. | Test (`src/storage-sync.test.ts`) |
 
 Local sync state, per device, in localStorage:
 
@@ -171,6 +175,9 @@ sync:device       random device id (for tie-breaks)
 sync:cursor       highest seq pulled
 sync:menu:<id>    { baseVersion, seenVersion, dirty, editId, revision }
 sync:status       last known supporter status (so the heart doesn't flicker)
+sync:runtime      what the syncing tab last saw: last sync time, notices, unreadable count
+sync:skip         menus set aside as too large to sync (SY-26)
+sync:poke         "sync now" from a tab that isn't the one syncing (SY-25)
 ```
 
 ---
@@ -216,16 +223,16 @@ When a pull brings a remote record newer than what this device has seen:
 
 | ID | Rule | Checked by |
 | --- | --- | --- |
-| SY-30 | **Local first.** A save writes to browser storage first (SV-10, unchanged). Sync never blocks, slows or fails a save. | Test (unit + e2e offline) |
-| SY-31 | **Push.** Changed menus are sent about 2 s after the last save, one request at a time, and retried with backoff (1 s up to 5 min) while offline. When the page is hidden, the queue is flushed with `fetch(…, {keepalive: true})`. Its 64 KB limit is why one menu is capped at 64 KiB. | Property (queue) + Test |
-| SY-32 | **Pull.** Pulls happen on load, when the tab becomes visible, every 5 minutes while it's visible, and after a rejected push. Each pull asks only for changes since the last one (`since=<seq>`), 100 rows per page. If the cursor is older than a tombstone the server has forgotten (SY-23), the reply says `resync`: the device pulls from 0 and treats synced menus that are now missing as deleted. | Test (`server/test/menus.test.ts`, `cron.test.ts`) |
-| SY-33 | A synced change to a menu open in the editor with no unsaved edits replaces it in place, with a quiet "Updated on another device." If the editor has unsaved edits, SY-35 applies when they're saved. | Test (e2e) |
-| SY-34 | **Fast-forward.** A menu that hasn't changed here since its last sync takes the newer synced version. | Property |
-| SY-35 | **Conflict.** If a menu changed on this device and on another since they last synced, the newer edit (by its edit time, then device id) keeps the menu. The other is kept as a new menu titled "Title (from another device)", or "… (2)" and so on if that title is taken, using the copy logic already in `App.tsx`. Nothing is overwritten unseen. | Proof (TLC) + Property |
-| SY-36 | **Edit beats delete.** If one device deleted a menu that another changed without seeing the deletion, the change is kept and the menu comes back. A deletion only applies to the version the deleting device had. | Proof (TLC) + Property |
-| SY-37 | A write the server accepted, but whose reply was lost, is recognised by its edit id and isn't turned into a conflict copy. | Proof (TLC) + Property |
-| SY-38 | **Convergence.** Once edits stop and every device is online and has pulled, every device holds the same menus as the server. | Proof (TLC) + Property (2-device simulation) |
-| SY-39 | **No silent loss.** Every edit ends up in some menu on every device, unless a later edit or a deletion was made by a device that had already seen it. | Proof (TLC) + Property (2-device simulation) |
+| SY-30 | **Local first.** A save writes to browser storage first (SV-10, unchanged); sync never blocks or delays it, and nothing about it waits for the network. With sync on, the menu is written together with its sync state in one all-or-nothing step, so a stored save is never mistaken for one already synced. If browser storage can't hold both (or a conflict copy the save needs, SY-35), the save fails and nothing changes, and the editor keeps the edit to try again. | Test (`src/storage-sync.test.ts`, `src/sync/runtime.test.ts`) |
+| SY-31 | **Push.** Changed menus are sent about 2 s after the last save, one request at a time, and retried with backoff (1 s up to 5 min) while offline. When the page is hidden, the queue is flushed with `fetch(…, {keepalive: true})`. Its 64 KB limit is why one menu is capped at 64 KiB. | Property (`sync.props`: queue, push delay, backoff) + Test (the `keepalive` flush, with the client); the client: `src/sync/runtime.test.ts` (2 s delay, offline then back, `keepalive` when the page is hidden) |
+| SY-32 | **Pull.** Pulls happen on load, when the tab becomes visible, every 5 minutes while it's visible, and after a rejected push. Each pull asks only for changes since the last one (`since=<seq>`), 100 rows per page. If the cursor is older than a tombstone the server has forgotten (SY-23), the reply says `resync`: the device pulls from 0 and treats synced menus that are now missing as deleted. | Test (`server/test/menus.test.ts`, `cron.test.ts`) + Property (`sync.props`: pages, `resync`, full listings); `full=1` and `purged`: `server/test/cron.test.ts` |
+| SY-33 | A synced change to a menu open in the editor with no unsaved edits replaces it in place, with a quiet "Updated on another device." If the editor has unsaved edits, SY-35 applies when they're saved. | Test (e2e); saving what's shown isn't a new edit: SY-28; the editor itself: e2e (Phase 4) |
+| SY-34 | **Fast-forward.** A menu that hasn't changed here since its last sync takes the newer synced version. | Property (`sync.props`) |
+| SY-35 | **Conflict.** If a menu changed on this device and on another since they last synced, the newer edit (by its edit time, then device id) keeps the menu. The other is kept as a new menu titled "Title (from another device)", or "… (2)" and so on if that title is taken, using the copy logic already in `App.tsx`. Nothing is overwritten unseen. | Proof (`Sync.tla` `NoSilentLoss`) + Property (`sync.props`); whole devices: `src/sync/runtime.test.ts`; an editor's stale save: `src/storage-sync.test.ts` |
+| SY-36 | **Edit beats delete.** If one device deleted a menu that another changed without seeing the deletion, the change is kept and the menu comes back. A deletion only applies to the version the deleting device had. | Proof (`Sync.tla` `NoSilentLoss`) + Property (`sync.props`) |
+| SY-37 | A write the server accepted, but whose reply was lost, is recognised by its edit id and isn't turned into a conflict copy. | Proof (`Sync.tla` `SY37_NoCopies`, `SyncOneWriter.cfg`) + Property (`sync.props`) |
+| SY-38 | **Convergence.** Once edits stop and every device is online and has pulled, every device holds the same menus as the server. | Proof (`Sync.tla` `SY38_Converges`, `SyncLiveness.cfg`) + Property (`sync.props`, 2-device simulation) |
+| SY-39 | **No silent loss.** Every edit ends up in some menu on every device, unless a later edit or a deletion was made by a device that had already seen it. | Proof (`Sync.tla` `NoSilentLoss`) + Property (`sync.props`, 2-device simulation) |
 
 ---
 
@@ -302,9 +309,9 @@ stateDiagram-v2
 | SY-63 | The server stores only `account_id ↔ stripe_customer_id`, the subscription id, plan, status and dates. Stripe keeps the email, name and card. | Review + Test (schema) |
 | SY-64 | **Manage subscription** opens the Stripe Customer Portal (cancel, change card, invoices). | Test (e2e, test mode) |
 | SY-65 | **Payment failed** → `past_due`. Sync keeps working while Stripe retries. | Test (server) |
-| SY-66 | **Lapsed means read-only.** Devices can still pull (restore), but pushes get 402. The app explains this, shows the purge date, and says that menus on this device aren't affected. | Test (server + e2e) |
+| SY-66 | **Lapsed means read-only.** Devices can still pull (restore), but pushes get 402. The app explains this, shows the purge date, and says that menus on this device aren't affected. | Test (server; `src/sync/runtime.test.ts`: pulls work, pushes wait, and resume when status returns) |
 | SY-67 | **Purge.** 12 months after lapsing, the daily cron deletes the account's synced menus and its account row. The app warns from 30 days before, in the app only (we have no email address). Lifetime supporters never lapse. | Test (server, fake clock) |
-| SY-68 | **Delete everything.** "Delete my synced data" deletes every synced menu and the account immediately, cancels any subscription so there are no more charges, and turns off sync on this device. Local menus stay. | Test (server + e2e) |
+| SY-68 | **Delete everything.** "Delete my synced data" deletes every synced menu and the account immediately, cancels any subscription so there are no more charges, and turns off sync on this device. Local menus stay. | Test (server; `src/sync/runtime.test.ts`) |
 | SY-69 | **Honest copy.** The Support page says what is live. It only says "Thank you, you're a supporter" once the server reports the status. Before that it says "Waiting for Stripe to confirm…". It never implies a feature was locked before. | Test |
 | SY-70 | **Never gate.** Every existing feature stays free and works without an account. Sync, backup and the heart are the only supporter features. | Test (e2e: the whole existing suite runs with no account) |
 | SY-71 | The supporter heart shows in the navbar on devices whose account is `active`, `past_due` or `lifetime`. | Test |
@@ -325,7 +332,7 @@ New events follow [`src/analytics.ts`](../../src/analytics.ts): typed, with fixe
 
 | ID | Rule | Checked by |
 | --- | --- | --- |
-| SY-75 | Sync and payment events never carry account ids, codes, words, menu ids, Stripe ids or URLs. `e2e/analytics.spec.ts` extends its marker check to cover a checkout (test mode), pairing and sync. | Test (e2e) + types |
+| SY-75 | Sync and payment events never carry account ids, codes, words, menu ids, Stripe ids or URLs. `e2e/analytics.spec.ts` extends its marker check to cover a checkout (test mode), pairing and sync. | Test (e2e) + types; the runtime's own events: `src/sync/runtime.test.ts` |
 
 ---
 
@@ -333,7 +340,7 @@ New events follow [`src/analytics.ts`](../../src/analytics.ts): typed, with fixe
 
 | ID | Rule | Checked by |
 | --- | --- | --- |
-| SY-80 | The server only ever receives ciphertext, ids, versions and sizes. It never receives titles, item or group text, answers, notes or names. | Test (e2e: intercept every request to the Worker and check no marker text appears) |
+| SY-80 | The server only ever receives ciphertext, ids, versions and sizes. It never receives titles, item or group text, answers, notes or names. | Test (e2e: intercept every request to the Worker and check no marker text appears); no title, item or name in any request body: `src/sync/runtime.test.ts` |
 | SY-81 | The sync code never leaves the device, except encrypted under a pairing key the server never sees (SY-10). | Test |
 | SY-82 | Stripe receives only `account_id` and the plan as metadata. The product is named "Wants & Won'ts supporter", and the card-statement descriptor is neutral (see [decision 5](#18-decisions-needed)). | Review |
 | SY-83 | No third-party error reporting is added. Errors stay in the browser console and in the Worker's own error lines (SY-44). | Review |
@@ -556,12 +563,12 @@ Things to confirm in test mode during Phase 1, before relying on it:
 
 | What | Rules | Where |
 | --- | --- | --- |
-| **TLA+ model `Sync.tla`** (new, beside `Autosave.tla`). Two devices, one server. Local edits and deletes; pushes that succeed, are rejected (412) or have their reply lost; pulls; offline periods. Each edit's content is the set of edit ids it has seen, so "lost" can be stated exactly. | SY-35…SY-39 | `docs/spec/formal/tla/Sync.tla`, run in `formal.yml` |
+| **TLA+ model `Sync.tla`** (new, beside `Autosave.tla`). Two devices, one server. Local edits and deletes; pushes that succeed, are rejected (412) or have their reply lost; pulls; offline periods. Each edit's content is the set of edit ids it has seen, so "lost" can be stated exactly. | SY-35…SY-39 | `docs/spec/formal/tla/Sync.tla` (`Sync.cfg`, `SyncLiveness.cfg`, `SyncOneWriter.cfg`), run in `formal.yml` |
 | Invariant `NoSilentLoss`: every edit made is in some live menu (on a device or the server), or in the history of a deletion or edit made by a device that had seen it. | SY-39 | ″ |
 | Liveness `Converges`: `<>[]` all devices' live menus equal the server's and nothing is dirty, under fairness on network and pull, with bounded edits. | SY-38 | ″ |
 | `Autosave.tla` updated: the save callback no longer deletes the old title. | SV-1…SV-3 | existing configs |
 | **fast-check** `src/__props__/sync.props.test.ts` | | |
-| merge is idempotent (the same pull twice = once); fast-forward; dirty content always survives (as the menu or a copy); tombstones and rollbacks without valid ciphertext are ignored | SY-17…SY-19, SY-34…SY-37 | real `sync-merge.ts` |
+| merge is idempotent (the same pull twice = once); fast-forward; dirty content always survives (as the menu or a copy); tombstones and rollbacks without valid ciphertext are ignored | SY-17…SY-19, SY-24, SY-34…SY-37 | real `src/sync/merge.ts` |
 | two simulated devices + an in-memory server, random interleavings (like `autosave.props`): converge, nothing lost | SY-38, SY-39 | real merge + push queue |
 | Crypto unit tests: HKDF RFC 5869 vectors through our wrapper; frozen derivation vectors; AES-GCM tamper and AAD tests; "ciphertext contains no plaintext" | SY-1, SY-2, SY-15, SY-16 | `src/sync-crypto.test.ts` |
 | Server: Vitest + `@cloudflare/vitest-plugin` (the renamed `vitest-pool-workers`; Miniflare, real D1): auth, If-Match, quotas, no CORS headers, rate limits, webhooks with Stripe fixture payloads, cron, no-content logging | SY-6…SY-8, SY-40…SY-46, SY-60…SY-68 | `server/test/` |

@@ -7,16 +7,23 @@ import { App } from "./App";
 import reportWebVitals from "./reportWebVitals";
 import { BrowserRouter } from "react-router-dom";
 import { StorageProvider } from "./providers/Storage";
+import { SyncProvider } from "./providers/Sync";
 import { createLocalStorage, Storage } from "./storage";
+import { createLazySyncRuntime } from "./sync/lazy";
 import { trackError, trackUncaughtErrors, trackWebVital } from "./analytics";
 
 /**
  * Starts the app in `#root`. The website calls it as is (src/index.tsx); a host that
  * embeds the app can pass its own menu storage, after `setPlatform` (src/platform.ts).
  */
-export const startApp = ({ storage = createLocalStorage() }: { storage?: Storage } = {}) => {
+export const startApp = ({ storage }: { storage?: Storage } = {}) => {
   // Analytics: uncaught errors (their kind only) and Core Web Vitals.
   trackUncaughtErrors();
+
+  // Supporter sync (docs/spec/sync.md). Storage tells it about every save; it does
+  // nothing over the network unless sync has been turned on in this browser.
+  const sync = createLazySyncRuntime();
+  const menus = storage ?? createLocalStorage({ sync });
 
   const root = ReactDOM.createRoot(document.getElementById("root") as HTMLElement, {
     // A render error with no error boundary blanks the page: report it as a "react"
@@ -31,9 +38,11 @@ export const startApp = ({ storage = createLocalStorage() }: { storage?: Storage
   root.render(
     <React.StrictMode>
       <BrowserRouter>
-        <StorageProvider storage={storage}>
-          <App />
-        </StorageProvider>
+        <SyncProvider runtime={sync}>
+          <StorageProvider storage={menus}>
+            <App />
+          </StorageProvider>
+        </SyncProvider>
       </BrowserRouter>
     </React.StrictMode>
   );

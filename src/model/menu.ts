@@ -61,6 +61,12 @@ export type RelationshipMenuDocument = {
    * sync. Never part of a link. Absent until the menu is first saved.
    */
   id?: string;
+  /**
+   * With sync on, the menu's local revision when it was read (spec SY-24). An
+   * editor passes it back with its next save, so a change synced in meanwhile is
+   * kept as well, never overwritten. Never part of a link or the stored menu.
+   */
+  revision?: number;
   title: string;
   encoded: string;
   /** When this menu was first saved in this browser (ms since epoch). */

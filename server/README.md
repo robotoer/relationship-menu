@@ -39,8 +39,8 @@ Authorization: MenuSync v1 account=<id>, key=<pubkey>, ts=<unix seconds>, sig=<s
 | `GET /v1/health` | | `200 ok` | |
 | `GET /v1/account` | | `{status, plan, renewsAt, readOnly, lapsedAt, purgeAt, purgeSoon, limits, usage}`; `status` is `none` for an unknown account | 401 |
 | `DELETE /v1/account` | | 204 | 502 if Stripe can't cancel (nothing is deleted) |
-| `POST /v1/account/rotate` | `{key, proof}`, where `proof` is the new key's signature over `menu-sync/v1\nrotate\n<old id>\n<new id>\n<ts>` | `{accountId}` | 401, 402, 409 |
-| `GET /v1/menus?since=<seq>` | | `{menus:[{id, version, seq, deleted, updatedAt, ciphertext}], next, more, resync}` | 402 |
+| `POST /v1/account/rotate` | `{key, proof}`, where `proof` is the new key's signature over `menu-sync/v1\nrotate\n<old id>\n<new id>\n<ts>` | `{accountId}` | 401, 402, 409, 503 `rotation_too_slow` (it commits within 60 s of arriving, or not at all) |
+| `GET /v1/menus?since=<seq>[&full=1]` | | `{menus:[{id, version, seq, deleted, updatedAt, ciphertext}], next, more, resync, purged}` | 402 |
 | `PUT /v1/menus/:id` | ciphertext ≤ 64 KiB, with `If-None-Match: *` (new) or `If-Match: "<version>"` | `{version, seq}` | 402 `not_supporter` / `read_only`, 412 `{current}`, 413, 428, 507 |
 | `DELETE /v1/menus/:id` | encrypted tombstone ≤ 4 KiB, with `If-Match` | `{version, seq}` | as for PUT |
 | `POST /v1/checkout` | `{plan}`: one of `supporter_{6,12,24}_yearly` or `supporter_30_lifetime` | `{url}` | 400, 409 `already_supporter` |
@@ -53,6 +53,7 @@ Authorization: MenuSync v1 account=<id>, key=<pubkey>, ts=<unix seconds>, sig=<s
 - Errors are JSON: `{"error": "<code>"}`.
 - Rate limits answer 429 with `Retry-After`.
 - `resync: true` means the device's cursor is older than a forgotten tombstone. The device should pull from `since=0` and treat synced menus that are now missing as deleted.
+- `purged` is the account's newest forgotten tombstone (`purged_seq`). The later pages of a listing that started from 0 send `full=1`, so they aren't told to resync again; if `purged` changes part-way, the device starts the listing over.
 
 ### Keys, records and pairing blobs
 
@@ -80,7 +81,7 @@ The additional data is 65 bytes. It is authenticated but not sent:
 
 So a record that's moved to another account or menu, served as another version, or has its `deleted` flag flipped fails to decrypt.
 
-The padded plaintext is a 4-byte unsigned big-endian length *n*, then *n* bytes of UTF-8 JSON, then zeros. It's padded to the next multiple of 1024 bytes, and is at least 1024. The JSON is `{"v":1, "id", "title", "encoded", "person"?, "createdAt"?, "updatedAt"?, "editId", "deleted"?}`, in that order. A tombstone has `"deleted": true`, an empty title and an empty `encoded`.
+The padded plaintext is a 4-byte unsigned big-endian length *n*, then *n* bytes of UTF-8 JSON, then zeros. It's padded to the next multiple of 1024 bytes, and is at least 1024. The JSON is `{"v":1, "id", "title", "encoded", "person"?, "createdAt"?, "updatedAt"?, "editId", "deviceId"?, "deleted"?}`, in that order. `updatedAt` is the edit time and `deviceId` is the writing device's id: a conflict goes to the later edit time, then the device id (SY-35). A tombstone has `"deleted": true`, an empty title and an empty `encoded`.
 
 So every record is a whole number of KiB plus 28 bytes: 1,052 bytes for a tombstone or a small menu. The largest padded plaintext is 63 KiB for a menu and 3 KiB for a tombstone, so records stay within the 64 KiB and 4 KiB limits.
 
