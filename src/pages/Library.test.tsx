@@ -1,5 +1,5 @@
 import { encodeData } from "../data-encoder";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { LibraryPage } from "./Library";
 
@@ -154,5 +154,98 @@ describe("LibraryPage", () => {
     fireEvent.change(screen.getByLabelText("Search"), { target: { value: "hiking" } });
     expect(headings()).toEqual(["Alpha"]);
     expect(screen.getByText("1 of 2")).toBeInTheDocument();
+  });
+});
+
+describe("LibraryPage: keeping menus", () => {
+  const IPHONE_SAFARI =
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Mobile/15E148 Safari/604.1";
+  // `id` is the menu's storage id and `link` the slug its tile opens; neither is
+  // used for the export, which builds each link from the menu itself.
+  const menus = [
+    {
+      title: "Alpha",
+      id: "menu-id-alpha",
+      link: "tile-link-alpha",
+      encoded: encodeData({ G: [{ item: "Hiking", value: "maybe" as const }] }),
+    },
+    { title: "Beta", id: "menu-id-beta", link: "tile-link-beta", encoded: encodeData({ G: [{ item: "Trust" }] }) },
+  ];
+  let gtag: ReturnType<typeof vi.fn>;
+  beforeEach(() => {
+    localStorage.clear();
+    gtag = vi.fn();
+    (window as unknown as { gtag: unknown }).gtag = gtag;
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+    delete (window as unknown as { gtag?: unknown }).gtag;
+  });
+
+  it("SV-13: Export all menus saves every menu, even ones hidden by a search", async () => {
+    const files: Blob[] = [];
+    URL.createObjectURL = vi.fn((blob: Blob) => {
+      files.push(blob);
+      return "blob:local-file";
+    });
+    URL.revokeObjectURL = vi.fn();
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    render(
+      <MemoryRouter>
+        <LibraryPage menus={menus} />
+      </MemoryRouter>
+    );
+    const button = screen.getByRole("button", { name: "Export all menus" });
+    expect(button).toHaveAccessibleDescription(
+      "A backup file with a link to each menu. It's made on this device and never uploaded."
+    );
+    fireEvent.change(screen.getByLabelText("Search"), { target: { value: "hiking" } });
+    await act(async () => {
+      fireEvent.click(button);
+    });
+    expect(screen.getByText("Downloaded a file with 2 menus.")).toBeInTheDocument();
+    const text = await files[0].text();
+    expect(text).toContain("1. Alpha");
+    expect(text).toContain("2. Beta");
+    // Each link is the menu itself; storage ids never go into the file.
+    expect(text).not.toContain("menu-id-");
+    expect(text).not.toContain("tile-link-");
+    // Only that it happened: no titles, no count.
+    expect(gtag).toHaveBeenCalledWith("event", "menus_exported", {});
+  });
+
+  it("SV-13: an empty Library has nothing to export", () => {
+    render(
+      <MemoryRouter>
+        <LibraryPage menus={[]} />
+      </MemoryRouter>
+    );
+    expect(screen.queryByRole("button", { name: "Export all menus" })).not.toBeInTheDocument();
+  });
+
+  it("SV-12: an empty Library suggests the Home Screen on iPhone Safari, a full one doesn't", () => {
+    vi.spyOn(navigator, "userAgent", "get").mockReturnValue(IPHONE_SAFARI);
+    const { unmount } = render(
+      <MemoryRouter>
+        <LibraryPage menus={[]} />
+      </MemoryRouter>
+    );
+    expect(screen.getByRole("complementary", { name: "Tip: keep your menus" })).toBeInTheDocument();
+    unmount();
+    render(
+      <MemoryRouter>
+        <LibraryPage menus={menus} />
+      </MemoryRouter>
+    );
+    expect(screen.queryByRole("complementary")).not.toBeInTheDocument();
+  });
+
+  it("SV-12: no tip in other browsers", () => {
+    render(
+      <MemoryRouter>
+        <LibraryPage menus={[]} />
+      </MemoryRouter>
+    );
+    expect(screen.queryByRole("complementary")).not.toBeInTheDocument();
   });
 });

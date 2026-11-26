@@ -105,3 +105,19 @@
     margin-left: 0;
   }
 }
+
+/* Export all menus (SV-13) and the Home Screen tip (SV-12). */
+.library-export {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  margin-top: 1rem;
+}
+.library-export span {
+  color: var(--c-mist);
+  font-size: 1.05rem;
+}
+.library-hint {
+  margin-top: 1rem;
+}

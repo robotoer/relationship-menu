@@ -66,6 +66,12 @@
   font-size: 1.1rem;
 }
 
+.menu-tip {
+  margin: 1.25rem 1rem 0;
+}
+.menu-tip:empty {
+  display: none;
+}
 
 /* ---- Groups grid ---- */
 .menu-page {

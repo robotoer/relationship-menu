@@ -37,10 +37,20 @@ Google Analytics is loaded only on `relationship-menu.vercel.app`, and not in au
 | `link_open_failed` | A link couldn't be opened | `reason`: `unreadable` (cut off) or `not_found` |
 | `library_menu_opened` | A saved menu is reopened from the Library | `item_count`, `percent_answered` (`0`, `25`, `50`, `75`, `100`) |
 | `comparison_shown` | A comparison appears | `menu_count`, `source` (`link` = a compare link, `share_dialog` = pasted into the Share dialog, `button` = the Compare page's button), `item_count`, `conflict_count` |
-| `compare_filter_used` | A compare filter is picked | `filter`: `agree`, `both-want`, `conflict`, `differ`, `unanswered`, `missing`, `all` |
+| `compare_filter_used` | A compare filter is picked (from the filter bar or an overview tile) | `filter`: `agree`, `both-want`, `conflict`, `differ`, `unanswered`, `missing`, `all` |
+| `compare_searched` | The comparison is searched (never the text) | |
+| `compare_sorted` | The comparison's order is changed | `sort`: `menu`, `difference` |
+| `discussion_started` | "Start" or "Continue" in a guided discussion | `topic_count`, `menu_count`, `resumed` |
+| `discussion_summary_viewed` | The discussion summary is opened | `topic_count`, `covered_count`, and a count per outcome: `agreed`, `compromise`, `revisit`, `agree_to_disagree`, `boundary` |
+| `discussion_summary_exported` | The summary is copied, downloaded or printed | `method`: `copy`, `download`, `print` |
+| `ai_prep_interest` | "Prepare this conversation with AI (coming soon)" is clicked: measures interest, nothing is sent | |
 | `library_searched` | The Library is searched (once per visit; never the text) | |
 | `library_sorted` | The Library sort is changed | `sort`: `edited`, `created`, `title` |
 | `menu_deleted` | A menu is deleted from the Library | |
+| `menus_exported` | Export all menus is used in the Library (never the file, its titles or how many) | |
+| `persistent_storage_granted` / `persistent_storage_denied` | The browser's answer to keeping this site's storage, asked once per browser after the first save (spec SV-11). Read with GA's own Browser and OS dimensions | |
+| `home_screen_hint_shown` | The Home Screen tip appears (iPhone/iPad Safari only; once per page load) | |
+| `home_screen_hint_dismissed` | The Home Screen tip is dismissed (it then stays hidden in that browser) | |
 | `save_failed` | A save fails | |
 | `support_viewed` | The Support page is opened | `from`: `nav`, `share` (after sharing), `compare` (under results), `landing`, `direct` |
 | `support_option_chosen` | An amount is picked on the Support page (checkout isn't open yet, so this measures interest) | `amount_usd` (6, 12, 24, 30), `plan` (`yearly`, `lifetime`) |

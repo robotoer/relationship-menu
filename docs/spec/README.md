@@ -193,6 +193,9 @@ sequenceDiagram
 | LB-1 | The library shows each menu's title (or "Untitled menu"), person, item and group counts, answered progress, and edited/created dates when known. | Test |
 | LB-2 | Search matches title, person or item text, ignoring case. Sort by recently edited, newest, or title. Menus without dates sort last. | [Property](../../src/__props__/links-keyboard-library.props.test.ts) |
 | LB-3 | Deleting from the library asks for confirmation. | Test |
+| SV-11 | **Keeping storage:** after the first successful save in a browser, the app asks the browser to keep this site's storage (`navigator.storage.persist()`), once per browser. The request never blocks, delays or fails a save, and whatever the browser answers changes nothing else. | Test |
+| SV-12 | **Home Screen tip:** Safari on iPhone and iPad may delete a site's storage after a week of use without opening that site; Home Screen apps are exempt but keep storage of their own. So in Safari on iPhone and iPad (not other browsers, not a Home Screen app), a quiet tip says "Safari may delete menus from sites you haven't opened in a week" and how to add the site to the Home Screen. It shows on the landing page, in an empty Library, and once per browser in the editor after a save. Dismissing it hides it for good in this browser. | Test (unit + e2e) |
+| SV-13 | **Export all menus:** the Library makes one text file with every saved menu's title and menu link (answers, notes and person info included), whatever the search shows. It's built in the browser and never uploaded: downloaded, or on iPhone and iPad offered to the share sheet ("Save to Files"). Opening a link from it brings that menu back (LK-6 applies). | Test (unit + e2e) |
 
 ---
 
@@ -265,6 +268,47 @@ flowchart TB
 | CP-14 | Each person's note on an item is shown under it, labelled with their name. Notes never change matching, answers, filters or counts; if a menu has the item twice, its first note counts. | [Property](../../src/__props__/compare.props.test.ts), Test |
 | CP-13 | The comparison appears after pressing Compare; a shared compare link with two or more valid menus opens straight to it. Columns are labelled with the person's name when known, else the menu title. | Test (e2e) |
 
+### At a glance
+
+An overview above the items (`src/compare-insights.ts`, `CompareOverview`):
+- the headline: the share of items everyone answered that they agree on, how many conflicts there are, and how many items aren't answered by everyone;
+- tiles for shared wants, agree, talk about it and conflicts, which also apply that filter;
+- alignment per group;
+- the biggest differences;
+- each person's must-haves, off-limits and open items;
+- a way into the guided discussion.
+
+| ID | Rule | Checked by |
+| --- | --- | --- |
+| CP-20 | The overview's counts are the filters' counts; group totals and each person's answers add up to the number of items. | [Property](../../src/__props__/insights-discussion.props.test.ts), Test |
+| CP-21 | Alignment is the agreed share of items everyone answered (0–100%), shown per group too; with nothing fully answered it says so instead of showing a number. | [Property](../../src/__props__/insights-discussion.props.test.ts), Test |
+| CP-22 | "Biggest differences first" orders items by how far apart the answers are (Must have … Off limits), conflicts above everything, ties in menu order; items with fewer than two answers go last. Nothing is added or dropped. | [Property](../../src/__props__/insights-discussion.props.test.ts), Test |
+| CP-23 | The overview lists at most five biggest differences, and only real ones (answers not all the same). | [Property](../../src/__props__/insights-discussion.props.test.ts), Test |
+| CP-24 | Search matches item text, group names and notes (ignoring case); it combines with the filter and a group choice, and "Show everything" clears all three. | Test (unit + e2e) |
+| CP-25 | Sorting by difference shows one list, with each item's group as a caption. | Test (unit + e2e) |
+
+---
+
+## 7b. Talking it through
+
+**In short:** from the comparison, "Talk it through" (`/discuss`, same link format) turns the differences into a guided conversation. It starts with ground rules, then goes through one topic at a time: everyone's answers, a few prompts, a place for notes, an outcome and a next step. At the end there's a summary to keep. Notes stay in this browser.
+
+```mermaid
+flowchart LR
+  I[Intro: plan + ground rules] --> S[Shared ground ×2] --> E[Talk about it] --> C[Conflicts] --> K[Check in: unanswered] --> R[Summary: by outcome]
+```
+
+| ID | Rule | Checked by |
+| --- | --- | --- |
+| DS-1 | The intro shows who's talking, how many topics of each kind, a rough time, and the ground rules. Nothing is decided by the app. | Test |
+| DS-2 | The agenda has every conflict, difference and not-fully-answered item exactly once, in this order: up to two shared wants (Must have first), differences, conflicts (largest gap first within each, ties in menu order), then check-ins. Agreed items that aren't shared wants are left out. | [Property](../../src/__props__/insights-discussion.props.test.ts), Test |
+| DS-3 | Each topic has prompts suited to its kind, chosen the same way every time. | [Property](../../src/__props__/insights-discussion.props.test.ts), Test |
+| DS-4 | Each topic shows everyone's answers and notes from their menus, with a notes field, one of five outcomes (Agreed, Compromise, Revisit later, Agree to disagree, Boundary) and an optional next step. Topics can be skipped, revisited from the progress dots, and finished in any order. | Test (unit + e2e) |
+| DS-5 | Notes are saved in this browser as they're typed, under a key made from the people's names and menu titles (so they survive changed answers). They never leave the browser and never reach analytics. | Test (unit + e2e) |
+| DS-6 | Coming back offers "Continue", which goes to the first topic not yet covered. | Test (unit + e2e) |
+| DS-7 | The summary groups covered topics by outcome, with answers, notes and next steps. It can be copied or downloaded as Markdown, or printed. | Test (unit + e2e) |
+| DS-8 | "Prepare with AI" isn't built: it says so and records interest only. Nothing about the menus is sent. | Test |
+
 ---
 
 ## 8. Pages and navigation
@@ -293,7 +337,7 @@ flowchart LR
 
 | ID | Rule | Checked by |
 | --- | --- | --- |
-| PR-1 | No menu content leaves the browser except inside links the user copies. There is no server-side storage. | Review |
+| PR-1 | No menu content leaves the browser except inside links the user copies and the backup file they export (SV-13), both of which go only where the user puts them. There is no server-side storage. | Review |
 | PR-2 | Analytics receive the page path (never the `?encoded=` query) and a fixed set of usage events ([`src/analytics.ts`](../../src/analytics.ts), listed in [`docs/analytics.md`](../analytics.md)). Event parameters are only template ids, link kinds, filter ids, counts and true/false: never titles, item or group text, notes, names, search queries or link contents. The types enforce this, and an e2e test drives the app with marker text and checks that none of it reaches analytics. | Test (e2e) + types |
 | PR-3 | The menu link includes answers, notes and person info and says so in the share dialog; the template link includes none of them. | [Property](../../src/__props__/links-keyboard-library.props.test.ts), Test |
 
@@ -350,10 +394,13 @@ flowchart LR
 | Saving | SV-4, SV-7, SV-8, SV-9, SV-10 | Test | `storage.test.ts`, `ipfs-recovery.test.ts`, `App.test.tsx`, e2e (`ipfs-recovery.spec.ts`) |
 | Library | LB-2 | Property | links-keyboard-library props |
 | Library | LB-1, LB-3 | Test | `Library.test.tsx`, e2e |
+| Keeping menus | SV-11, SV-12, SV-13 | Test | `persistence.test.tsx`, `HomeScreenHint.test.tsx`, `export-menus.test.ts`, `Library.test.tsx`, `e2e/keeping-menus.spec.ts` |
 | Links | LK-1…LK-5, LK-9 | Property (incl. arbitrary junk input) | links-keyboard-library props |
 | Links | LK-6…LK-8 | Test (e2e) | `e2e/` |
 | Comparing | CP-10, CP-11 | **Proof** of the code itself + Property | [`answer-cells.ts`](../../src/answer-cells.ts), [`compare.props`](../../src/__props__/compare.props.test.ts) |
 | Comparing | CP-1…CP-5, CP-12, CP-14 | Property (against a naive reference) | compare props |
+| Comparing | CP-20…CP-25 | Property + Test | [`insights-discussion.props`](../../src/__props__/insights-discussion.props.test.ts), `Compare.test.tsx`, `e2e/discuss.spec.ts` |
+| Discussing | DS-1…DS-8 | Property (DS-2, DS-3) + Test | `discussion.test.ts`, `Discuss.test.tsx`, `e2e/discuss.spec.ts` |
 | Comparing | CP-13 | Test (e2e) | `e2e/` |
 | Pages, privacy, accessibility | NV, PR, AX | Test / Review | see each table |
 
@@ -395,7 +442,7 @@ flowchart LR
 | [TLA+ / TLC](https://lamport.azurewebsites.net/tla/tla.html) | The autosave queue, rename and page-leave | Explores every interleaving of edits, timers and slow saves. |
 | [fast-check](https://fast-check.dev) | Property tests on the real code | Ties each model to the code, and covers JS-only details (prototypes, key order, object identity). |
 
-Run everything locally: `yarn test --watchAll=false` (includes the property tests), `yarn verify` (Dafny on your PATH), and TLC as in [`formal/tla/README.md`](formal/tla/README.md).
+Run everything locally: `yarn test --run` (includes the property tests), `yarn verify` (Dafny on your PATH), and TLC as in [`formal/tla/README.md`](formal/tla/README.md).
 
 ---
 

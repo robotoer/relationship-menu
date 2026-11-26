@@ -154,10 +154,10 @@ test.describe("Compare filters and people", () => {
     await expect(grid.getByRole("img", { name: "Ana: Must Have" })).toBeVisible();
     await expect(grid.getByRole("img", { name: "Ben: Off Limits" })).toBeVisible();
 
-    await page.getByRole("button", { name: /^Conflicts/ }).click();
+    await page.getByRole("group", { name: "Show items" }).getByRole("button", { name: /^Conflicts/ }).click();
     await expect(grid.locator(".menu-item-compare")).toHaveCount(1);
     await expect(grid).toContainText("Kissing");
-    await page.getByRole("button", { name: /^Agree/ }).click();
+    await page.getByRole("group", { name: "Show items" }).getByRole("button", { name: /^Agree/ }).click();
     await expect(grid.locator(".menu-item-compare")).toHaveCount(1);
     await expect(grid).toContainText("Dancing");
   });
@@ -206,6 +206,6 @@ test.describe("Share dialog", () => {
     await dialog.getByRole("button", { name: "Compare" }).click();
     await page.waitForURL("**/compare**");
     await expect(page.locator(".compare-page-grid")).toBeVisible();
-    await expect(page.getByRole("button", { name: /^Conflicts/ })).toContainText("1");
+    await expect(page.getByRole("group", { name: "Show items" }).getByRole("button", { name: /^Conflicts/ })).toContainText("1");
   });
 });
