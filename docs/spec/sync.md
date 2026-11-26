@@ -1,6 +1,6 @@
 # Supporter sync: specification and plan
 
-**Status: approved 25 November 2026, with the recommended answers to every decision in §18. Nothing is built yet.** Every "Checked by" entry below names the check we plan to write.
+**Status: approved 25 November 2026, with the recommended answers to every decision in §18, and built.** The Worker and the sync client are live at `wantsandwonts.com`, deployed from `main`, with Stripe in live mode (see the [setup log](#19-setup-log)). What's left is a first real payment, to see the live webhook and the supporter status together. Each "Checked by" entry names the check for that rule.
 
 This covers the paid "Supporter" tier: encrypted sync across devices, encrypted backup and restore, and a small supporter heart. It follows the style of the [main spec](README.md). Every rule has an ID (`SY-…` for sync and payments, `HO-…` for hosting), and tests will name the rule they check. [§13](#13-changes-to-existing-rules) lists the existing rules this changes.
 

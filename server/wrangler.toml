@@ -89,6 +89,9 @@ invocation_logs = false
 [env.test.vars]
 APP_ORIGIN = "http://localhost:3099"
 MANAGED_PAYMENTS = "true"
+# The AI coach (docs/spec/coach.md). It also needs the OPENROUTER_API_KEY secret;
+# without it the coach answers 503 coach_unavailable and the app uses the built-in prompts.
+COACH_ENABLED = "true"
 
 [[env.test.d1_databases]]
 binding = "DB"
@@ -136,6 +139,9 @@ invocation_logs = false
 [env.production.vars]
 APP_ORIGIN = "https://wantsandwonts.com"
 MANAGED_PAYMENTS = "true"
+# The AI coach for supporters (docs/spec/coach.md), with the default model and
+# limits. It also needs the OPENROUTER_API_KEY secret (see "Before switching it on").
+COACH_ENABLED = "true"
 
 [[env.production.d1_databases]]
 binding = "DB"
