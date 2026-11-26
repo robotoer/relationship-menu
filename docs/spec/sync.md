@@ -621,3 +621,39 @@ What exists, and where. IDs here are not secrets: they go into `wrangler.toml`, 
 | *to do* | Cloudflare API token (Workers + D1 edit) → GitHub secret `CLOUDFLARE_API_TOKEN`, plus `CLOUDFLARE_ACCOUNT_ID` | You, when PR 1 is ready to deploy |
 | *to do* | Stripe restricted key and webhook signing secret → `wrangler secret put` (test environment) | You, once the test Worker has a URL (end of Phase 2) |
 | *to do* | Card-statement text (decision 5) | You, before going live |
+
+---
+
+## 20. Considered next: phone apps and conversation guides
+
+Researched 25 November 2026, after the plan was approved. None of this is in scope for PRs 1–5 yet; each item needs your decision.
+
+### Phone apps
+
+| Option | Cost | What it adds | Catch |
+| --- | --- | --- | --- |
+| **Installable web app** (what we have, plus prompts) | $0 | A Home Screen icon. On iPhone, storage is exempt from Safari's 7-day deletion. | iPhone shows no install prompt, so we have to explain how. A Home Screen web app has its own storage, separate from Safari's. |
+| **Android wrapper** (Trusted Web Activity) | $25 once, about 1 day, plus Google's 14-day closed test | A Play Store listing; runs in Chrome with the same storage and crypto | Sign-in only, with no prices in the app, so Google takes 0% |
+| **iPhone app** (Capacitor wrapper) | $99/year, 1–2 weeks | An App Store listing | Selling in the app means Apple's in-app purchase (15% for small developers). An app that only lets web supporters sign in is a gray area under guideline 3.1.3(f). There's a "repackaged website" rejection risk. Menus must move to native storage. |
+| **Fully native** (React Native) | Weeks to months | Nothing this app needs | A rewrite |
+
+**Recommendation:** stay with the installable web app now; add the Android wrapper only if a store listing matters to you; consider an iPhone app only if people ask for it and supporter income covers $99/year plus fees. The sync API needs no change for any of these: requests are signed, not cookie- or origin-based.
+
+**A risk that exists today:** Safari deletes a site's localStorage and IndexedDB after 7 days of Safari use without a visit. Today menus live only there, so iPhone users can lose them. Cheap fixes, independent of sync:
+- call `navigator.storage.persist()`;
+- suggest "Add to Home Screen" on iPhone before someone makes a menu;
+- offer an export.
+
+Supporter sync is also a backup.
+
+### Conversation guides after a comparison
+
+| Option | Monthly cost (100 / 1,000 / 10,000 users, 4 guides each) | Privacy | Notes |
+| --- | --- | --- | --- |
+| **Built-in question bank**, chosen in the browser by result (conflict / differ / agree / both Maybe) and topic | $0 / $0 / $0 | Nothing leaves the device | Someone has to write and review about 200 questions. Consistent, and safe to review. |
+| On-device AI rewording those questions (Chrome's built-in model) | $0 | Nothing leaves the device | Desktop Chrome only, not phones |
+| Cloud AI, opt-in: item names only, no notes or names, through a no-log Worker | Claude Haiku 5.5 ≈ $0.24 / $2.40 / $24; Workers AI ≈ $0 / $0 / ~$17 | Breaks "the server never reads menus" for that request, so it needs consent from everyone being compared | Choose a provider with zero retention. Apple requires explicit consent before sending personal data to a third-party AI. |
+
+**Recommendation:** ship the question bank free for everyone, and add a tailored AI guide only if people ask for it, as an opt-in supporter extra.
+
+**Wording, whichever option:** don't describe it as "like a couples therapist." Illinois (HB 1806) and Nevada (AB 406) restrict AI that provides or advertises therapy, and California (AB 489) bans wording that implies a licensed clinician. Include a "not therapy" note and links to 988 and the domestic violence hotline. For Off limits conflicts, prompts should help people respect the "no," never argue someone out of it. This is research, not legal advice.
