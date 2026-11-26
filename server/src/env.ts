@@ -22,6 +22,8 @@ export interface Env {
   /** Daily coach limits (CO-8); defaults in coach.ts. */
   COACH_DAILY_PER_ACCOUNT?: string;
   COACH_DAILY_TOTAL?: string;
+  /** Tests only: overrides ROTATION_COMMIT_MS (accounts.ts). */
+  ROTATION_COMMIT_MS?: string;
 }
 
 /** Quotas per account (SY-23). */

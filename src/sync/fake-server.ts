@@ -43,6 +43,8 @@ const verify = async (key: Uint8Array, signature: Uint8Array, message: Uint8Arra
 
 export const createFakeServer = (options: { now?: () => number } = {}) => {
   const now = options.now ?? Date.now;
+  /** How long a rotation takes between being accepted and committing (the real one: any time, but at most 60 s). */
+  let rotationCommitDelayMs = 0;
   const accounts = new Map<string, Account>();
   const pairings = new Map<string, { blob: string; expiresAt: number; used: boolean }>();
   const requests: FakeRequest[] = [];
@@ -197,6 +199,7 @@ export const createFakeServer = (options: { now?: () => number } = {}) => {
       return json(201, { expiresAt });
     }
     if (method === "POST" && path === "/v1/account/rotate") {
+      const received = now();
       const acc = requireAccount();
       if (!acc) return error(402, "not_supporter");
       const key = typeof input.key === "string" ? fromBase64Url(input.key) : null;
@@ -205,6 +208,9 @@ export const createFakeServer = (options: { now?: () => number } = {}) => {
       const next = await accountIdForKey(key);
       if (!(await verify(key, proof, utf8(rotationMessage(caller.accountId, next, caller.ts))))) return error(401, "unauthorized");
       if (accounts.has(next)) return error(409, "account_exists");
+      if (rotationCommitDelayMs > 0) await new Promise((r) => setTimeout(r, rotationCommitDelayMs));
+      // As server/src/accounts.ts: within 60 s of arriving, or not at all.
+      if (now() - received > 60_000) return error(503, "rotation_too_slow");
       accounts.set(next, { ...acc, seq: 0, purgedSeq: 0, menus: new Map() });
       accounts.delete(caller.accountId);
       return json(200, { accountId: next });
@@ -255,6 +261,9 @@ export const createFakeServer = (options: { now?: () => number } = {}) => {
       a.status = status;
       a.plan = plan;
       a.customer = true;
+    },
+    delayRotationCommit: (ms: number) => {
+      rotationCommitDelayMs = ms;
     },
     setOnline: (value: boolean) => {
       online = value;

@@ -19,7 +19,7 @@ import type { SyncAccount, SyncNotice } from "./context";
 import type { Local, MenuSyncState, SyncStates } from "./merge";
 import { Bytes, fromBase64Url, toBase64Url } from "./bytes";
 import { parseAccount } from "./api";
-import { KeyValueStore, SavedMenu, menuKey, readStoredMenus, writeStoredMenu } from "../menu-store";
+import { KeyValueStore, MENU_KEY_PREFIX, SavedMenu, menuKey, readStoredMenus, writeStoredMenu } from "../menu-store";
 
 export const SYNC_KEY = {
   code: "sync:code",
@@ -220,6 +220,7 @@ export const writeLocal = (
     for (const [key, value] of also) if (kv.getItem(key) !== value) recording.setItem(key, value);
     return changed;
   } catch (error) {
+    const stuck = new Set<string>();
     for (const [key, value, written] of undo.reverse()) {
       // Only a key that still holds what this write put there: never undo a change
       // made since by someone else.
@@ -228,9 +229,16 @@ export const writeLocal = (
         if (value === null) kv.removeItem(key);
         else kv.setItem(key, value);
       } catch {
-        // Putting back an older, never larger, value: nothing more to do if even that fails.
+        // Even putting it back failed: that menu stays changed, and the caller must say so.
+        const id = key.startsWith(MENU_KEY_PREFIX)
+          ? key.slice(MENU_KEY_PREFIX.length)
+          : key.startsWith(SYNC_MENU_PREFIX)
+            ? key.slice(SYNC_MENU_PREFIX.length)
+            : null;
+        if (id) stuck.add(id);
       }
     }
+    if (stuck.size > 0) throw new PartialWriteError(error, [...stuck].sort());
     throw error;
   }
 };
@@ -262,6 +270,20 @@ const writeChanges = (kv: KeyValueStore, before: Local, after: Local, now: numbe
   }
   return changed.sort();
 };
+
+/**
+ * A `writeLocal` that failed and couldn't put everything back: these menus (or
+ * their revisions) stayed changed, so whoever shows them must be told.
+ */
+export class PartialWriteError extends Error {
+  constructor(
+    readonly original: unknown,
+    readonly menuIds: string[]
+  ) {
+    super("Browser storage refused a write, and some of it couldn't be undone.");
+    this.name = "PartialWriteError";
+  }
+}
 
 /** Menus changed here and not yet pushed. */
 export const pendingCount = (local: Local) => Object.values(local.sync).filter((s) => s.dirty).length;

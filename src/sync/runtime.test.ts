@@ -887,10 +887,34 @@ describe("SY-8: the server's answer to a code replacement is lost", () => {
       return real(input, init);
     });
     await expect(a.runtime.replaceCode()).rejects.toMatchObject({ reason: "code_unconfirmed" });
-    await settle(200); // well past 6 minutes
+    await settle(320); // past 12 minutes
     expect(a.kv.getItem(SYNC_KEY.nextCode)).toBeNull();
     expect(await a.runtime.syncCode()).toEqual(words);
     expect(server.accounts.get(oldId)?.status).toBe("active");
+  });
+
+  test("a move held up after it was accepted is refused by the server, so \"not moved\" after 12 minutes is safe", async () => {
+    const a = makeDevice(server);
+    a.save(menu(ID(1), "Ours"));
+    const oldId = await supporter(server, a);
+    await settle();
+    const words = await a.runtime.syncCode();
+    // The answer is lost, and the server is held up for 7 minutes before it would commit.
+    server.delayRotationCommit(7 * 60_000);
+    const real = server.fetch;
+    vi.spyOn(server, "fetch").mockImplementation(async (input, init) => {
+      if (String(input).endsWith("/v1/account/rotate")) {
+        void real(input, init);
+        throw new TypeError("connection reset");
+      }
+      return real(input, init);
+    });
+    await expect(a.runtime.replaceCode()).rejects.toMatchObject({ reason: "code_unconfirmed" });
+    await settle(320); // past 12 minutes
+    expect(a.kv.getItem(SYNC_KEY.nextCode)).toBeNull();
+    expect(await a.runtime.syncCode()).toEqual(words);
+    expect(server.accounts.get(oldId)?.status).toBe("active");
+    expect(server.accounts.size).toBe(1); // the move never happened
   });
 
   test("a clear refusal: nothing moved, and the old code stays", async () => {
@@ -1089,6 +1113,31 @@ describe("SY-17: what the status line couldn't store is written later", () => {
   });
 });
 
+describe("SY-17: however long the status line can't be stored", () => {
+  test("an unreadable record isn't forgotten, even after well over a hundred failed writes", async () => {
+    const a = makeDevice(server);
+    a.save(menu(ID(1), "Ours"));
+    const accountId = await supporter(server, a);
+    await settle();
+    const account = server.accounts.get(accountId)!;
+    const row = account.menus.get(ID(1))!;
+    account.seq += 1;
+    account.menus.set(ID(1), { ...row, version: row.version + 1, seq: account.seq, ciphertext: row.ciphertext.slice(0, -8) + "AAAAAAAA" });
+    a.kv.failKeys.add(SYNC_KEY.runtime);
+    a.runtime.syncNow();
+    await settle();
+    // Many more rounds and saves, each failing to store the status line.
+    for (let i = 0; i < 160; i++) {
+      a.save(menu(ID(2), "Busy", `edit ${i}`));
+      await settle(1, 500);
+    }
+    a.kv.failKeys.clear();
+    a.runtime.syncNow();
+    await settle();
+    expect(a.runtime.getState()).toMatchObject({ kind: "on", unreadable: 1, notices: ["unreadable"] });
+  });
+});
+
 describe("SY-31: sync keeps going when its own status can't be stored", () => {
   test("a full storage for the status line doesn't stop pushes", async () => {
     const a = makeDevice(server);
@@ -1157,6 +1206,41 @@ describe("SY-33: a round that failed part-way still tells the editor", () => {
     b.runtime.syncNow();
     await settle();
     expect(b.menus()[0]).toMatchObject({ encoded: "v2" });
+    expect(announced).toContain(ID(1));
+  });
+});
+
+describe("SY-33: when a failed round can't even be undone", () => {
+  test("the menus it left changed are announced at once", async () => {
+    const a = makeDevice(server);
+    a.save(menu(ID(1), "Ours", "v1"));
+    await supporter(server, a);
+    await settle();
+    const b = makeDevice(server);
+    await b.runtime.start();
+    await b.runtime.restore((await a.runtime.syncCode()).join(" "));
+    await settle();
+    const announced: string[] = [];
+    b.runtime.onMenusChanged((ids) => announced.push(...ids));
+    a.save(menu(ID(1), "Ours", "v2"));
+    await settle();
+    // Storing the cursor fails, and at that moment storage fills up, so the menu and
+    // its revision can't be put back either.
+    const real = b.kv.setItem.bind(b.kv);
+    let broke = false;
+    vi.spyOn(b.kv, "setItem").mockImplementation((key, value) => {
+      if (key === SYNC_KEY.cursor && !broke) {
+        broke = true;
+        b.kv.failKeys.add(menuKey(ID(1)));
+        b.kv.failKeys.add(`sync:menu:${ID(1)}`);
+        throw new DOMException("full", "QuotaExceededError");
+      }
+      real(key, value);
+    });
+    b.runtime.syncNow();
+    await settleUntil(() => broke);
+    await settle(2);
+    expect(b.menus()[0]).toMatchObject({ encoded: "v2" }); // stuck as written
     expect(announced).toContain(ID(1));
   });
 });

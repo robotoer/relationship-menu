@@ -99,7 +99,18 @@ export const rotationMessage = (oldAccountId: string, newAccountId: string, ts: 
  * the new account and deletes the old account's synced data; the device then
  * uploads its menus again under the new code.
  */
+/**
+ * A rotation commits within this long of reaching the Worker, or not at all. Its
+ * signature is only accepted within 5 minutes of its time (SY-6), so a device that
+ * lost the answer knows when "not moved" is final: after the signature window and
+ * this, it can no longer happen (src/sync/runtime.ts ROTATION_SETTLE_MS).
+ */
+export const ROTATION_COMMIT_MS = 60_000;
+
 export const rotateAccount = async (env: Env, caller: Caller, body: Uint8Array): Promise<Response> => {
+  // The Workers clock moves on only across I/O, so this is when the work began.
+  const received = Date.now();
+  const commitWithin = env.ROTATION_COMMIT_MS !== undefined ? Number(env.ROTATION_COMMIT_MS) : ROTATION_COMMIT_MS;
   const account = await requireAccount(env, caller);
   const input = parseJson(body);
   const newKey = typeof input.key === "string" ? fromBase64Url(input.key) : null;
@@ -112,6 +123,8 @@ export const rotateAccount = async (env: Env, caller: Caller, body: Uint8Array):
   }
   if (await getAccount(env.DB, newAccountId)) throw new HttpError(409, "account_exists");
   const now = Date.now();
+  // Too late to move it now: the device may already have decided it didn't happen (SY-8).
+  if (now - received > commitWithin) throw new HttpError(503, "rotation_too_slow");
   await env.DB.batch([
     env.DB.prepare(
       `INSERT INTO accounts (account_id, status, plan, stripe_customer_id, stripe_subscription_id,
