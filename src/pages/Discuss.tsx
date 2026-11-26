@@ -14,8 +14,17 @@ import {
 import { Link } from "react-router-dom";
 import { track } from "../analytics";
 import { platform } from "../platform";
-import { COMPARE_VALUE_LABELS, compareValueClass } from "../components/MenuItemCompare";
-import { GROUND_RULES, OUTCOMES, Outcome, Topic, topicLabel } from "../discussion";
+import {
+  COMPARE_VALUE_LABELS,
+  compareValueClass,
+} from "../components/MenuItemCompare";
+import {
+  GROUND_RULES,
+  OUTCOMES,
+  Outcome,
+  Topic,
+  topicLabel,
+} from "../discussion";
 import {
   Conversation,
   TopicEntry,
@@ -37,12 +46,26 @@ import {
   updateTopic,
 } from "../conversation";
 import { tipFor, tipsIn } from "../conversation-tips";
-import { AreaPanel, Comments, DictationHint, TipCard, TipsPanel, WhoAmI } from "../components/ConversationParts";
+import {
+  AreaPanel,
+  Comments,
+  DictationHint,
+  TipCard,
+  TipsPanel,
+  WhoAmI,
+} from "../components/ConversationParts";
 import { LivePanel } from "../live/LivePanel";
-import { AgendaSettings, MenuNotes, hasMenuNotes } from "../components/AgendaSettings";
+import {
+  AgendaSettings,
+  MenuNotes,
+  hasMenuNotes,
+} from "../components/AgendaSettings";
 import type { Live } from "../live/useLive";
 
-type View = { kind: "intro" } | { kind: "topic"; part: number; index: number } | { kind: "summary" };
+type View =
+  | { kind: "intro" }
+  | { kind: "topic"; part: number; index: number }
+  | { kind: "summary" };
 
 /** A newer version of one of the compared menus, saved in this browser (CV-7). */
 export type MenuUpdate = { index: number; name: string; slug: string };
@@ -93,23 +116,42 @@ export const DiscussPage = ({
   const heading = useRef<HTMLHeadingElement>(null);
   const record = conversation;
 
-  const agenda = useMemo(() => conversationAgenda(conversation), [conversation.menus, conversation.settings]); // eslint-disable-line react-hooks/exhaustive-deps
+  const agenda = useMemo(
+    () => conversationAgenda(conversation),
+    [conversation.menus, conversation.settings],
+  ); // eslint-disable-line react-hooks/exhaustive-deps
   // Until someone changes the plan, it's the suggested one (saved with the first change).
   const settings = settingsOf(conversation);
   const suggested = useMemo(
-    () => suggestParts(agenda, 6, conversation.createdAt, undefined, settings.order),
-    [agenda, conversation.createdAt, settings.order]
+    () =>
+      suggestParts(
+        agenda,
+        6,
+        conversation.createdAt,
+        undefined,
+        settings.order,
+      ),
+    [agenda, conversation.createdAt, settings.order],
   );
   const plan = conversation.parts.length > 0 ? conversation.parts : suggested;
   const parts = useMemo(() => partsWithTopics(plan, agenda), [plan, agenda]);
-  const areas = useMemo(() => agendaAreas(conversation, agenda), [conversation.menus, agenda]); // eslint-disable-line react-hooks/exhaustive-deps
+  const areas = useMemo(
+    () => agendaAreas(conversation, agenda),
+    [conversation.menus, agenda],
+  ); // eslint-disable-line react-hooks/exhaustive-deps
 
   const covered = agenda.filter((t) => isCovered(record.topics[t.key])).length;
   const unread = unreadComments(conversation, me, seen);
 
   /** Saves the plan the first time it's touched, then applies `edit`. */
   const withPlan = (edit: (c: Conversation) => Conversation) =>
-    onChange(edit(conversation.parts.length > 0 ? conversation : setParts(conversation, suggested)));
+    onChange(
+      edit(
+        conversation.parts.length > 0
+          ? conversation
+          : setParts(conversation, suggested),
+      ),
+    );
 
   // Move focus to the new heading when the view changes (keyboard and screen readers).
   useEffect(() => {
@@ -118,7 +160,8 @@ export const DiscussPage = ({
 
   useEffect(() => {
     if (view.kind !== "summary") return;
-    const count = (o: Outcome) => agenda.filter((t) => record.topics[t.key]?.outcome === o).length;
+    const count = (o: Outcome) =>
+      agenda.filter((t) => record.topics[t.key]?.outcome === o).length;
     track("discussion_summary_viewed", {
       topic_count: agenda.length,
       covered_count: covered,
@@ -132,21 +175,29 @@ export const DiscussPage = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view.kind]);
 
-  const update = (key: string, change: Partial<Pick<TopicEntry, "note" | "outcome" | "followUp">>) =>
-    onChange(updateTopic(conversation, key, change));
+  const update = (
+    key: string,
+    change: Partial<Pick<TopicEntry, "note" | "outcome" | "followUp">>,
+  ) => onChange(updateTopic(conversation, key, change));
 
   /** The first part (and topic in it) not finished yet. */
   const firstOpen = (): { part: number; index: number } => {
     for (let p = 0; p < parts.length; p++) {
       if (parts[p].part?.done) continue;
-      const i = parts[p].topics.findIndex((t) => !isCovered(record.topics[t.key]));
+      const i = parts[p].topics.findIndex(
+        (t) => !isCovered(record.topics[t.key]),
+      );
       if (i !== -1) return { part: p, index: i };
     }
     return { part: 0, index: 0 };
   };
 
   const start = (at: { part: number; index: number }) => {
-    track("discussion_started", { topic_count: agenda.length, menu_count: names.length, resumed: covered > 0 });
+    track("discussion_started", {
+      topic_count: agenda.length,
+      menu_count: names.length,
+      resumed: covered > 0,
+    });
     setView({ kind: "topic", ...at });
   };
 
@@ -155,7 +206,13 @@ export const DiscussPage = ({
     const message = `I've added to our Wants & Won'ts conversation "${conversation.title}". Open this to see it and add yours: ${link}`;
     try {
       if (method === "share" && platform().shareText) {
-        if (!(await platform().shareText!({ title: conversation.title, text: message }))) return;
+        if (
+          !(await platform().shareText!({
+            title: conversation.title,
+            text: message,
+          }))
+        )
+          return;
       } else {
         await platform().copyText(link);
         setCopied("link");
@@ -177,7 +234,12 @@ export const DiscussPage = ({
             ? "You agree on everything you've both answered. Enjoy that, or add what you share below."
             : "Choose what to talk about below."}
         </p>
-        <AgendaSettings conversation={conversation} planSaved={conversation.parts.length > 0} onChange={onChange} defaultOpen />
+        <AgendaSettings
+          conversation={conversation}
+          planSaved={conversation.parts.length > 0}
+          onChange={onChange}
+          defaultOpen
+        />
         <Link className="button" to={compareLink}>
           Back to the comparison
         </Link>
@@ -202,9 +264,12 @@ export const DiscussPage = ({
           </p>
         )}
         <p className="discuss-lead">
-          {names.join(" & ")}: {agenda.length} topic{agenda.length === 1 ? "" : "s"}
-          {parts.length > 1 ? ` in ${parts.filter((p) => p.part).length} parts` : ""}, about{" "}
-          {Math.max(5, agenda.length * 3)} minutes in all.{" "}
+          {names.join(" & ")}: {agenda.length} topic
+          {agenda.length === 1 ? "" : "s"}
+          {parts.length > 1
+            ? ` in ${parts.filter((p) => p.part).length} parts`
+            : ""}
+          , about {Math.max(5, agenda.length * 3)} minutes in all.{" "}
           {settings.order === "hardest"
             ? "Start with the hardest, while you're fresh, and end on what you share."
             : "Start with something you share, then work towards the harder ones."}{" "}
@@ -213,14 +278,23 @@ export const DiscussPage = ({
         <div className="conv-header-row">
           <label className="conv-title">
             <span>Conversation name</span>
-            <input value={conversation.title} maxLength={120} onChange={(e) => onChange(setTitle(conversation, e.target.value))} />
+            <input
+              value={conversation.title}
+              maxLength={120}
+              onChange={(e) => onChange(setTitle(conversation, e.target.value))}
+            />
           </label>
-          <WhoAmI names={names} me={me} onMe={onMe} label="On this device, I'm" />
+          <WhoAmI
+            names={names}
+            me={me}
+            onMe={onMe}
+            label="On this device, I'm"
+          />
         </div>
         {unread > 0 && (
           <p className="conv-unread" role="status">
-            💬 {unread} new comment{unread === 1 ? "" : "s"} since you last looked. They're marked "new" on their
-            topics.
+            💬 {unread} new comment{unread === 1 ? "" : "s"} since you last
+            looked. They're marked "new" on their topics.
           </p>
         )}
         {menuUpdates.length > 0 && onUseMenu && (
@@ -252,8 +326,14 @@ export const DiscussPage = ({
         <TipsPanel />
 
         <div className="discuss-actions">
-          <button type="button" className="button-primary" onClick={() => start(covered > 0 ? next : { part: 0, index: 0 })}>
-            {covered > 0 ? `▶ Continue (${covered} of ${agenda.length} done)` : "▶ Start"}
+          <button
+            type="button"
+            className="button-primary"
+            onClick={() => start(covered > 0 ? next : { part: 0, index: 0 })}
+          >
+            {covered > 0
+              ? `▶ Continue (${covered} of ${agenda.length} done)`
+              : "▶ Start"}
           </button>
           {covered > 0 && (
             <button type="button" onClick={() => setView({ kind: "summary" })}>
@@ -265,16 +345,24 @@ export const DiscussPage = ({
           </Link>
         </div>
 
-        <AgendaSettings conversation={conversation} planSaved={conversation.parts.length > 0} onChange={onChange} />
+        <AgendaSettings
+          conversation={conversation}
+          planSaved={conversation.parts.length > 0}
+          onChange={onChange}
+        />
 
         <h2>The plan</h2>
         <p className="conv-hint">
-          Hard conversations go better in shorter sittings. Here's the agenda in parts of a few topics each, easiest
-          first. Rename them, pick a day, or move topics between them.
+          Hard conversations go better in shorter sittings. Here's the agenda in
+          parts of a few topics each, easiest first. Rename them, pick a day, or
+          move topics between them.
         </p>
         <ol className="conv-parts">
           {parts.map(({ part, topics }, p) => (
-            <li key={part?.id ?? "rest"} className={`conv-part${part?.done ? " done" : ""}`}>
+            <li
+              key={part?.id ?? "rest"}
+              className={`conv-part${part?.done ? " done" : ""}`}
+            >
               <div className="conv-part-head">
                 {part ? (
                   <input
@@ -282,14 +370,20 @@ export const DiscussPage = ({
                     aria-label={`Name of part ${p + 1}`}
                     value={part.title}
                     maxLength={120}
-                    onChange={(e) => withPlan((c) => updatePart(c, part.id, { title: e.target.value }))}
+                    onChange={(e) =>
+                      withPlan((c) =>
+                        updatePart(c, part.id, { title: e.target.value }),
+                      )
+                    }
                   />
                 ) : (
                   <strong>Not planned yet</strong>
                 )}
                 <span className="conv-part-meta">
-                  {topics.length} topic{topics.length === 1 ? "" : "s"} · about {minutesFor(topics.length)} min ·{" "}
-                  {topics.filter((t) => isCovered(record.topics[t.key])).length} done
+                  {topics.length} topic{topics.length === 1 ? "" : "s"} · about{" "}
+                  {minutesFor(topics.length)} min ·{" "}
+                  {topics.filter((t) => isCovered(record.topics[t.key])).length}{" "}
+                  done
                 </span>
               </div>
               {part && (
@@ -299,7 +393,13 @@ export const DiscussPage = ({
                     <input
                       type="date"
                       value={part.when ?? ""}
-                      onChange={(e) => withPlan((c) => updatePart(c, part.id, { when: e.target.value || undefined }))}
+                      onChange={(e) =>
+                        withPlan((c) =>
+                          updatePart(c, part.id, {
+                            when: e.target.value || undefined,
+                          }),
+                        )
+                      }
                     />
                   </label>
                   <label className="conv-check">
@@ -307,8 +407,13 @@ export const DiscussPage = ({
                       type="checkbox"
                       checked={!!part.done}
                       onChange={(e) => {
-                        withPlan((c) => updatePart(c, part.id, { done: e.target.checked }));
-                        if (e.target.checked) track("conversation_part_done", { part_count: parts.length });
+                        withPlan((c) =>
+                          updatePart(c, part.id, { done: e.target.checked }),
+                        );
+                        if (e.target.checked)
+                          track("conversation_part_done", {
+                            part_count: parts.length,
+                          });
                       }}
                     />
                     <span>Done</span>
@@ -317,11 +422,16 @@ export const DiscussPage = ({
                     <button
                       type="button"
                       onClick={() => {
-                        const i = topics.findIndex((t) => !isCovered(record.topics[t.key]));
+                        const i = topics.findIndex(
+                          (t) => !isCovered(record.topics[t.key]),
+                        );
                         start({ part: p, index: i === -1 ? 0 : i });
                       }}
                     >
-                      {topics.some((t) => isCovered(record.topics[t.key])) ? "Continue" : "Start"} part {p + 1}
+                      {topics.some((t) => isCovered(record.topics[t.key]))
+                        ? "Continue"
+                        : "Start"}{" "}
+                      part {p + 1}
                     </button>
                   )}
                 </div>
@@ -331,19 +441,29 @@ export const DiscussPage = ({
                 <ul>
                   {topics.map((t) => (
                     <li key={t.key}>
-                      <span className={`swatch-dot kind-${t.kind}`} aria-hidden="true" /> {t.item}{" "}
+                      <span
+                        className={`swatch-dot kind-${t.kind}`}
+                        aria-hidden="true"
+                      />{" "}
+                      {t.item}{" "}
                       <span className="discuss-summary-group">· {t.group}</span>
-                      {settings.menuNotes === "highlight" && hasMenuNotes(t) && (
-                        <span className="conv-has-notes" title="Someone wrote a note on their menu">
-                          {" "}
-                          ✎<span className="sr-only"> has menu notes</span>
-                        </span>
-                      )}
+                      {settings.menuNotes === "highlight" &&
+                        hasMenuNotes(t) && (
+                          <span
+                            className="conv-has-notes"
+                            title="Someone wrote a note on their menu"
+                          >
+                            {" "}
+                            ✎<span className="sr-only"> has menu notes</span>
+                          </span>
+                        )}
                       {parts.filter((x) => x.part).length > 1 && (
                         <select
                           aria-label={`Move "${t.item}" to another part`}
                           value={part?.id ?? ""}
-                          onChange={(e) => withPlan((c) => moveTopic(c, t.key, e.target.value))}
+                          onChange={(e) =>
+                            withPlan((c) => moveTopic(c, t.key, e.target.value))
+                          }
                         >
                           {!part && <option value="">Not planned</option>}
                           {parts
@@ -365,7 +485,11 @@ export const DiscussPage = ({
                       rows={2}
                       value={part.note ?? ""}
                       placeholder="What to remember next time, what you agreed to try"
-                      onChange={(e) => withPlan((c) => updatePart(c, part.id, { note: e.target.value }))}
+                      onChange={(e) =>
+                        withPlan((c) =>
+                          updatePart(c, part.id, { note: e.target.value }),
+                        )
+                      }
                     />
                   </label>
                 )}
@@ -377,19 +501,27 @@ export const DiscussPage = ({
         {live && <LivePanel live={live} />}
 
         <section className="conv-share" aria-labelledby="conv-share-title">
-          <h2 id="conv-share-title">{live?.entry ? "Send a copy instead" : "Not in the same room?"}</h2>
+          <h2 id="conv-share-title">
+            {live?.entry ? "Send a copy instead" : "Not in the same room?"}
+          </h2>
           <p>
-            Take turns from your own phones. Send this conversation; when they open the link, it's added to their
-            copy (or saved, if they don't have one), with your notes and comments. They add theirs and send it back.
-            Each link brings both copies up to date.
+            Take turns from your own phones. Send this conversation; when they
+            open the link, it's added to their copy (or saved, if they don't
+            have one), with your notes and comments. They add theirs and send it
+            back. Each link brings both copies up to date.
           </p>
           <p className="conv-hint">
-            The link holds both menus, every note and every comment. Anyone with it can read them, so send it only
-            to the people in this conversation. It never passes through our server.
+            The link holds both menus, every note and every comment. Anyone with
+            it can read them, so send it only to the people in this
+            conversation. It never passes through our server.
           </p>
           <div className="discuss-actions">
             {platform().shareText && (
-              <button type="button" className="button-primary" onClick={() => share("share")}>
+              <button
+                type="button"
+                className="button-primary"
+                onClick={() => share("share")}
+              >
                 Send my updates…
               </button>
             )}
@@ -416,16 +548,23 @@ export const DiscussPage = ({
   }
 
   if (view.kind === "summary") {
-    const summary = conversationSummary({ ...conversation, parts: plan }, agenda, names);
+    const summary = conversationSummary(
+      { ...conversation, parts: plan },
+      agenda,
+      names,
+    );
     const download = () => {
-      const file = new File([summary], "relationship-menu-discussion.md", { type: "text/markdown" });
+      const file = new File([summary], "relationship-menu-discussion.md", {
+        type: "text/markdown",
+      });
       void platform()
         .saveFile(file)
         .then(
           (outcome) => {
-            if (outcome !== "cancelled") track("discussion_summary_exported", { method: "download" });
+            if (outcome !== "cancelled")
+              track("discussion_summary_exported", { method: "download" });
           },
-          (e) => console.error("Couldn't save the summary:", e)
+          (e) => console.error("Couldn't save the summary:", e),
         );
     };
     return (
@@ -434,13 +573,18 @@ export const DiscussPage = ({
           Your discussion
         </h1>
         <p className="discuss-lead">
-          {covered} of {agenda.length} topics discussed. These notes are saved only in this browser; send the
-          conversation to the others, or copy or download it to keep it somewhere else.
+          {covered} of {agenda.length} topics discussed. These notes are saved
+          only in this browser; send the conversation to the others, or copy or
+          download it to keep it somewhere else.
         </p>
-        {record.coach?.closing && <p className="discuss-coach-closing">{record.coach.closing}</p>}
+        {record.coach?.closing && (
+          <p className="discuss-coach-closing">{record.coach.closing}</p>
+        )}
         <TipCard tip={tipsIn("closing")[1]} heading="Before you finish" />
         {OUTCOMES.map((o) => {
-          const topics = agenda.filter((t) => record.topics[t.key]?.outcome === o.id);
+          const topics = agenda.filter(
+            (t) => record.topics[t.key]?.outcome === o.id,
+          );
           if (topics.length === 0) return null;
           return (
             <section key={o.id} className={`discuss-outcome outcome-${o.id}`}>
@@ -449,22 +593,36 @@ export const DiscussPage = ({
               </h2>
               <ul>
                 {topics.map((t) => (
-                  <SummaryItem key={t.key} topic={t} record={record.topics[t.key]!} names={names} />
+                  <SummaryItem
+                    key={t.key}
+                    topic={t}
+                    record={record.topics[t.key]!}
+                    names={names}
+                  />
                 ))}
               </ul>
             </section>
           );
         })}
         {(() => {
-          const unsettled = agenda.filter((t) => isCovered(record.topics[t.key]) && !record.topics[t.key]?.outcome);
+          const unsettled = agenda.filter(
+            (t) =>
+              isCovered(record.topics[t.key]) && !record.topics[t.key]?.outcome,
+          );
           return unsettled.length > 0 ? (
             <section className="discuss-outcome">
               <h2>
-                Notes, no outcome yet <span className="discuss-count">{unsettled.length}</span>
+                Notes, no outcome yet{" "}
+                <span className="discuss-count">{unsettled.length}</span>
               </h2>
               <ul>
                 {unsettled.map((t) => (
-                  <SummaryItem key={t.key} topic={t} record={record.topics[t.key]!} names={names} />
+                  <SummaryItem
+                    key={t.key}
+                    topic={t}
+                    record={record.topics[t.key]!}
+                    names={names}
+                  />
                 ))}
               </ul>
             </section>
@@ -499,7 +657,10 @@ export const DiscussPage = ({
           >
             Print
           </button>
-          <button type="button" onClick={() => setView({ kind: "topic", ...firstOpen() })}>
+          <button
+            type="button"
+            onClick={() => setView({ kind: "topic", ...firstOpen() })}
+          >
             Back to topics
           </button>
           <button type="button" onClick={() => setView({ kind: "intro" })}>
@@ -518,12 +679,16 @@ export const DiscussPage = ({
   const topic = topics[view.index] ?? topics[0];
   const r = record.topics[topic.key];
   const lastInPart = view.index === topics.length - 1;
-  const nextPart = parts.findIndex((p, i) => i > view.part && p.topics.length > 0 && !p.part?.done);
-  const firstOfArea = topics.findIndex((t) => t.group === topic.group) === view.index;
+  const nextPart = parts.findIndex(
+    (p, i) => i > view.part && p.topics.length > 0 && !p.part?.done,
+  );
+  const firstOfArea =
+    topics.findIndex((t) => t.group === topic.group) === view.index;
   const area = areas.find((a) => a.group === topic.group);
   const go = (index: number) => {
     if (index < 0) return setView({ kind: "intro" });
-    if (index < topics.length) return setView({ kind: "topic", part: view.part, index });
+    if (index < topics.length)
+      return setView({ kind: "topic", part: view.part, index });
     // End of this part: mark it done, then the next part or the summary.
     if (part && !part.done) {
       withPlan((c) => updatePart(c, part.id, { done: true }));
@@ -535,7 +700,8 @@ export const DiscussPage = ({
     <div className="discuss-page discuss-topic-view">
       {parts.length > 1 && (
         <p className="conv-part-label">
-          Part {view.part + 1} of {parts.length}: {part?.title ?? "Not planned yet"}
+          Part {view.part + 1} of {parts.length}:{" "}
+          {part?.title ?? "Not planned yet"}
         </p>
       )}
       <nav className="discuss-progress" aria-label="Topics">
@@ -584,9 +750,13 @@ export const DiscussPage = ({
         <ul className="discuss-answers">
           {topic.values.map((v, i) => (
             <li key={i}>
-              <span className={`swatch ${compareValueClass(v)}`} aria-hidden="true" />
+              <span
+                className={`swatch ${compareValueClass(v)}`}
+                aria-hidden="true"
+              />
               <span>
-                <strong>{names[i]}</strong>: {COMPARE_VALUE_LABELS[compareValueClass(v)]}
+                <strong>{names[i]}</strong>:{" "}
+                {COMPARE_VALUE_LABELS[compareValueClass(v)]}
               </span>
               {settings.menuNotes === "show" && topic.notes?.[i] && (
                 <span className="discuss-their-note">"{topic.notes[i]}"</span>
@@ -595,13 +765,23 @@ export const DiscussPage = ({
           ))}
         </ul>
         {settings.menuNotes !== "show" && (
-          <MenuNotes key={topic.key} topic={topic} names={names} view={settings.menuNotes} />
+          <MenuNotes
+            key={topic.key}
+            topic={topic}
+            names={names}
+            view={settings.menuNotes}
+          />
         )}
 
         {record.coach?.topics[topic.key] && (
-          <section className="discuss-coach" aria-label="Suggested by the AI coach">
+          <section
+            className="discuss-coach"
+            aria-label="Suggested by the AI coach"
+          >
             <h2>✦ Suggested for you</h2>
-            {record.coach.topics[topic.key].about && <p>{record.coach.topics[topic.key].about}</p>}
+            {record.coach.topics[topic.key].about && (
+              <p>{record.coach.topics[topic.key].about}</p>
+            )}
             <ul className="discuss-prompts">
               {record.coach.topics[topic.key].questions.map((q) => (
                 <li key={q}>{q}</li>
@@ -611,7 +791,11 @@ export const DiscussPage = ({
         )}
         {settings.prompts && (
           <>
-            <h2>{record.coach?.topics[topic.key] ? "More to talk about" : "Talk about"}</h2>
+            <h2>
+              {record.coach?.topics[topic.key]
+                ? "More to talk about"
+                : "Talk about"}
+            </h2>
             <ul className="discuss-prompts">
               {topic.prompts.map((p) => (
                 <li key={p}>{p}</li>
@@ -637,7 +821,10 @@ export const DiscussPage = ({
         <fieldset className="discuss-outcomes">
           <legend>Where did you land?</legend>
           {OUTCOMES.map((o) => (
-            <label key={o.id} className={`discuss-outcome-option outcome-${o.id}`}>
+            <label
+              key={o.id}
+              className={`discuss-outcome-option outcome-${o.id}`}
+            >
               <input
                 type="radio"
                 name={`outcome-${topic.key}`}
@@ -677,8 +864,18 @@ export const DiscussPage = ({
         <button type="button" onClick={() => go(view.index - 1)}>
           ◀ Back
         </button>
-        <button type="button" className="button-primary" onClick={() => go(view.index + 1)}>
-          {lastInPart ? (nextPart === -1 ? "Finish ▶" : `Finish part ${view.part + 1} ▶`) : isCovered(r) ? "Next ▶" : "Skip for now ▶"}
+        <button
+          type="button"
+          className="button-primary"
+          onClick={() => go(view.index + 1)}
+        >
+          {lastInPart
+            ? nextPart === -1
+              ? "Finish ▶"
+              : `Finish part ${view.part + 1} ▶`
+            : isCovered(r)
+              ? "Next ▶"
+              : "Skip for now ▶"}
         </button>
         <button type="button" onClick={() => setView({ kind: "summary" })}>
           Summary
@@ -695,10 +892,11 @@ export const DiscussPage = ({
 /** Shown on every view: what this is (and isn't), and where to get help (CO-11). */
 const SafetyNote = () => (
   <aside className="discuss-safety" aria-label="Not therapy">
-    This is a conversation guide, not therapy or counselling. If you feel unsafe or are in crisis, in the
-    US call or text <strong>988</strong>, or the National Domestic Violence Hotline at{" "}
-    <strong>1-800-799-7233</strong> (text START to 88788). Outside the US, contact your local emergency
-    number or helplines.
+    This is a conversation guide, not therapy or counselling. If you feel unsafe
+    or are in crisis, in the US call or text <strong>988</strong>, or the
+    National Domestic Violence Hotline at <strong>1-800-799-7233</strong> (text
+    START to 88788). Outside the US, contact your local emergency number or
+    helplines.
   </aside>
 );
 
@@ -722,7 +920,10 @@ const CoachPanel = ({
   const [step, setStep] = useState<"idle" | "consent" | "working">("idle");
   const [agreed, setAgreed] = useState(false);
   const [error, setError] = useState<CoachError | null>(null);
-  const { request, ids, groups, omitted } = useMemo(() => buildCoachRequest(agenda, people), [agenda, people]);
+  const { request, ids, groups, omitted } = useMemo(
+    () => buildCoachRequest(agenda, people),
+    [agenda, people],
+  );
 
   const send = async () => {
     setStep("working");
@@ -748,14 +949,27 @@ const CoachPanel = ({
         {saved ? (
           <>
             <h2>✦ Prepared with AI</h2>
-            {saved.opening && <p className="discuss-coach-opening">{saved.opening}</p>}
-            <p>Each topic has suggested questions for you two, alongside the built-in prompts.</p>
-            <button type="button" className="discuss-ai-button" onClick={() => setStep("consent")}>
+            {saved.opening && (
+              <p className="discuss-coach-opening">{saved.opening}</p>
+            )}
+            <p>
+              Each topic has suggested questions for you two, alongside the
+              built-in prompts.
+            </p>
+            <button
+              type="button"
+              className="discuss-ai-button"
+              onClick={() => setStep("consent")}
+            >
               Prepare again
             </button>
           </>
         ) : (
-          <button type="button" className="discuss-ai-button" onClick={() => setStep("consent")}>
+          <button
+            type="button"
+            className="discuss-ai-button"
+            onClick={() => setStep("consent")}
+          >
             ✦ Prepare this conversation with AI
           </button>
         )}
@@ -767,8 +981,9 @@ const CoachPanel = ({
     <section className="discuss-ai discuss-consent" aria-label="AI coach">
       <h2>Prepare with AI</h2>
       <p>
-        An AI (Anthropic's Claude, through OpenRouter) will suggest an opening and questions written for these topics. To do
-        that, <strong>this is all that's sent</strong>:
+        An AI (Anthropic's Claude, through OpenRouter) will suggest an opening
+        and questions written for these topics. To do that,{" "}
+        <strong>this is all that's sent</strong>:
       </p>
       <ul className="discuss-consent-list">
         {coachPreview(request).map((line) => (
@@ -777,18 +992,27 @@ const CoachPanel = ({
       </ul>
       {omitted > 0 && (
         <p>
-          The last {omitted} topics aren't included ({COACH_LIMITS.maxTopics} at most, to keep each preparation small).
+          The last {omitted} topics aren't included ({COACH_LIMITS.maxTopics} at
+          most, to keep each preparation small).
         </p>
       )}
       <p>
-        <strong>Never sent:</strong> names, notes, menu titles, or anything you write in this discussion.
-        It goes through our server, which doesn't log or keep it, then through OpenRouter to the AI
-        provider. Neither uses it for training. The suggestions are saved only in this browser, with
-        your notes.
+        <strong>Never sent:</strong> names, notes, menu titles, or anything you
+        write in this discussion. It goes through our server, which doesn't log
+        or keep it, then through OpenRouter to the AI provider. Neither uses it
+        for training. The suggestions are saved only in this browser, with your
+        notes.
       </p>
-      <p>It's a conversation guide, not therapy, and it won't take sides or judge your answers.</p>
+      <p>
+        It's a conversation guide, not therapy, and it won't take sides or judge
+        your answers.
+      </p>
       <label className="discuss-consent-check">
-        <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
+        <input
+          type="checkbox"
+          checked={agreed}
+          onChange={(e) => setAgreed(e.target.checked)}
+        />
         <span>Everyone taking part agrees to send this.</span>
       </label>
       {error && (
@@ -797,10 +1021,19 @@ const CoachPanel = ({
         </p>
       )}
       <div className="discuss-actions">
-        <button type="button" className="button-primary" disabled={!agreed || step === "working"} onClick={send}>
+        <button
+          type="button"
+          className="button-primary"
+          disabled={!agreed || step === "working"}
+          onClick={send}
+        >
           {step === "working" ? "Preparing…" : "Prepare questions"}
         </button>
-        <button type="button" disabled={step === "working"} onClick={() => setStep("idle")}>
+        <button
+          type="button"
+          disabled={step === "working"}
+          onClick={() => setStep("idle")}
+        >
           Cancel
         </button>
       </div>
@@ -808,7 +1041,15 @@ const CoachPanel = ({
   );
 };
 
-const SummaryItem = ({ topic, record, names }: { topic: Topic; record: TopicEntry; names: string[] }) => (
+const SummaryItem = ({
+  topic,
+  record,
+  names,
+}: {
+  topic: Topic;
+  record: TopicEntry;
+  names: string[];
+}) => (
   <li className="discuss-summary-item">
     <span className="discuss-summary-swatches" aria-hidden="true">
       {topic.values.map((v, i) => (
@@ -816,10 +1057,18 @@ const SummaryItem = ({ topic, record, names }: { topic: Topic; record: TopicEntr
       ))}
     </span>
     <div>
-      <strong>{topic.item}</strong> <span className="discuss-summary-group">· {topic.group}</span>
+      <strong>{topic.item}</strong>{" "}
+      <span className="discuss-summary-group">· {topic.group}</span>
       <span className="sr-only">
         {" "}
-        ({topic.values.map((v, i) => `${names[i]}: ${COMPARE_VALUE_LABELS[compareValueClass(v)]}`).join(", ")})
+        (
+        {topic.values
+          .map(
+            (v, i) =>
+              `${names[i]}: ${COMPARE_VALUE_LABELS[compareValueClass(v)]}`,
+          )
+          .join(", ")}
+        )
       </span>
       {record.note?.trim() && <p>{record.note}</p>}
       {record.followUp?.trim() && (
@@ -837,16 +1086,27 @@ const SummaryItem = ({ topic, record, names }: { topic: Topic; record: TopicEntr
   </li>
 );
 
-/** "Prepare with AI" isn't built yet: measure interest honestly (like the Support page). */
+/**
+ * "Prepare with AI" for people who aren't supporters (DS-8): the coach is a thank-you
+ * for supporters, so this says so and points to the Support page. Opening it is
+ * counted (no parameters); nothing about the menus is sent.
+ */
 const AiPrepTeaser = () => {
   const [asked, setAsked] = useState(false);
   return (
     <div className="discuss-ai">
       {asked ? (
         <p role="status">
-          Thanks! An AI helper that prepares this conversation with you (suggested questions for your
-          specific answers, and a recap afterwards) isn't available yet. Knowing you'd use it helps us
-          decide to build it. Nothing about your menus was sent.
+          The AI coach prepares this conversation with you: questions for your
+          specific answers, and what to watch for. It's a thank-you for
+          supporters, and only runs when everyone here agrees to what's sent.
+          Nothing about your menus was sent.{" "}
+          {platform().support && (
+            <Link to="/support" state={{ supportFrom: "coach" }}>
+              Support Wants &amp; Won'ts
+            </Link>
+          )}
+          {platform().support && " to turn it on."}
         </p>
       ) : (
         <button
@@ -857,7 +1117,7 @@ const AiPrepTeaser = () => {
             setAsked(true);
           }}
         >
-          ✦ Prepare this conversation with AI (coming soon)
+          ✦ Prepare this conversation with AI (for supporters)
         </button>
       )}
     </div>

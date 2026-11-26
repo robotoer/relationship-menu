@@ -316,7 +316,7 @@ flowchart LR
 | DS-5 | Notes are saved in this browser as they're typed, in the conversation for these menus ([§7c](#7c-conversations)). They leave the browser only in a conversation link someone chooses to send (CV-6), and never reach analytics. | Test (unit + e2e) |
 | DS-6 | Coming back offers "Continue", which goes to the first topic not yet covered. | Test (unit + e2e) |
 | DS-7 | The summary groups covered topics by outcome, with answers, notes and next steps. It can be copied or downloaded as Markdown (with everything in CV-12), or printed. | Test (unit + e2e) |
-| DS-8 | "Prepare with AI": for supporters, the AI coach ([coach.md](coach.md), CO-1…CO-12) after everyone agrees to exactly what's sent; for everyone else an honest "coming soon" that records interest only and sends nothing. | Test |
+| DS-8 | "Prepare with AI": for supporters, the AI coach ([coach.md](coach.md), CO-1…CO-12) after everyone agrees to exactly what's sent; for everyone else, "Prepare this conversation with AI (for supporters)", which says what the coach does, that it's a thank-you for supporters, and links to the Support page (on the website). It records interest only and sends nothing. | Test |
 
 ---
 

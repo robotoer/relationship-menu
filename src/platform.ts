@@ -28,12 +28,14 @@ export type Platform = {
   /** Copies text. Rejects if it couldn't. */
   copyText(text: string): Promise<void>;
   /** The share sheet for a message, or null where there isn't one. Resolves false if cancelled. */
-  shareText: ((share: { title?: string; text: string }) => Promise<boolean>) | null;
+  shareText:
+    | ((share: { title?: string; text: string }) => Promise<boolean>)
+    | null;
   /** Saves a file (a download, or the host's own way). Call it straight from a click. */
   saveFile(file: File): Promise<SaveOutcome>;
   /** Whether to show the Support page and links to it. */
   support: boolean;
-  /** Whether to show the "Prepare with AI (coming soon)" teaser. */
+  /** Whether to tell people who aren't supporters about the AI coach ("Prepare with AI (for supporters)"). */
   aiTeaser: boolean;
   /** Whether to show the "Add to Home Screen" tip (Safari on iPhone and iPad). */
   homeScreenHint: boolean;
@@ -67,7 +69,7 @@ const webPlatform = (): Platform => ({
             (e) => {
               if ((e as Error)?.name === "AbortError") return false;
               throw e;
-            }
+            },
           )
       : null,
   saveFile: async (file) => {
