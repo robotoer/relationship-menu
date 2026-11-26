@@ -134,10 +134,14 @@ test.describe('Application Workflow', () => {
     await page.press('input.new-group-title', 'Enter');
     await expect(page.locator('.save-status')).toHaveText(/Saved/);
 
-    // The URL carries the menu, and browser storage holds a copy under its title.
+    // The URL carries the menu, and browser storage holds a copy under its id (SY-20).
     expect(page.url()).toContain('encoded=');
-    const stored = await page.evaluate((title) => localStorage.getItem(`menu:${title}`), menuTitle);
-    expect(JSON.parse(stored!).title).toBe(menuTitle);
+    const stored = await page.evaluate(() =>
+      Object.keys(localStorage)
+        .filter((key) => key.startsWith('menu-v2:'))
+        .map((key) => JSON.parse(localStorage.getItem(key)!).title)
+    );
+    expect(stored).toEqual([menuTitle]);
   });
 
   test('User can navigate to library and see saved menus', async ({ page }) => {

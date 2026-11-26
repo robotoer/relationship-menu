@@ -99,9 +99,11 @@ describe("SY-91: recovering IPFS-only menus", () => {
     await seedBlockStore(idb, [{ key, bytes: bytesOf(doc) }]);
     localStorage.setItem(`menu:${cid}`, DATE);
 
-    const documents = await createLocalStorage().getDocuments();
-    expect(documents["Our menu"]).toEqual(doc);
+    expect(await recoverIpfsMenus(idb)).toBe(1);
     expect(JSON.parse(localStorage.getItem(`menu:${cid}`)!)).toMatchObject({ ...doc, savedAt: Date.parse(DATE) });
+    // Then it's listed like any other menu (and given an id, SY-90).
+    const documents = Object.values(await createLocalStorage().getDocuments());
+    expect(documents).toEqual([{ ...doc, id: expect.any(String) }]);
   });
 
   test("recovers several, including non-ASCII titles", async () => {
@@ -109,7 +111,7 @@ describe("SY-91: recovering IPFS-only menus", () => {
     for (const { cid } of VECTORS) localStorage.setItem(`menu:${cid}`, DATE);
     expect(await recoverIpfsMenus(idb)).toBe(2);
     const documents = await createLocalStorage().getDocuments();
-    expect(Object.keys(documents).sort()).toEqual(VECTORS.map((v) => v.doc.title).sort());
+    expect(Object.values(documents).map((d) => d.title).sort()).toEqual(VECTORS.map((v) => v.doc.title).sort());
   });
 
   test("never lists a pointer it can't resolve as a menu (no unreadable entries)", async () => {
@@ -141,6 +143,22 @@ describe("SY-91: recovering IPFS-only menus", () => {
     expect(open).not.toHaveBeenCalled();
   });
 
+  test("goes on recovering the others when one menu can't be written (e.g. storage full)", async () => {
+    await seedBlockStore(idb, VECTORS.map(({ doc, key }) => ({ key, bytes: bytesOf(doc) })));
+    for (const { cid } of VECTORS) localStorage.setItem(`menu:${cid}`, DATE);
+    const tooBig = `menu:${VECTORS[0]!.cid}`;
+    const realSetItem = Storage.prototype.setItem;
+    const setItem = vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key, value) {
+      if (key === tooBig) throw new DOMException("full", "QuotaExceededError");
+      return realSetItem.call(this, key, value);
+    });
+    expect(await recoverIpfsMenus(idb)).toBe(1);
+    setItem.mockRestore();
+    // The one that didn't fit keeps its pointer; the other was recovered.
+    expect(localStorage.getItem(tooBig)).toBe(DATE);
+    expect(JSON.parse(localStorage.getItem(`menu:${VECTORS[1]!.cid}`)!).title).toBe(VECTORS[1]!.doc.title);
+  });
+
   test("is safe to run again: a recovered entry is no longer a pointer", async () => {
     const { doc, cid, key } = VECTORS[0]!;
     await seedBlockStore(idb, [{ key, bytes: bytesOf(doc) }]);
@@ -155,8 +173,8 @@ describe("SY-91: recovering IPFS-only menus", () => {
     localStorage.setItem(`menu:${cid}`, DATE);
     const newer = { title: doc.title, encoded: "newer", savedAt: Date.parse(DATE) + 1000 };
     localStorage.setItem(`menu:${doc.title}`, JSON.stringify(newer));
-    const documents = await createLocalStorage().getDocuments();
-    expect(documents[doc.title]?.encoded).toBe("newer");
+    const documents = Object.values(await createLocalStorage().getDocuments());
+    expect(documents.filter((d) => d.title === doc.title).map((d) => d.encoded)).toEqual(["newer"]);
   });
 });
 

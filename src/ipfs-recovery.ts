@@ -175,11 +175,17 @@ export const recoverIpfsMenus = async (
       // Another tab may have saved meanwhile; never overwrite a changed entry.
       if (localStorage.getItem(pointer.key) !== pointer.value) continue;
       const savedAt = Date.parse(pointer.value);
-      localStorage.setItem(
-        pointer.key,
-        JSON.stringify({ ...menu, savedAt: Number.isFinite(savedAt) ? savedAt : 0 })
-      );
-      recovered++;
+      try {
+        localStorage.setItem(
+          pointer.key,
+          JSON.stringify({ ...menu, savedAt: Number.isFinite(savedAt) ? savedAt : 0 })
+        );
+        recovered++;
+      } catch {
+        // E.g. this menu doesn't fit in what's left of the storage quota. Leave its
+        // pointer as it is (a later load can try again) and go on with the others,
+        // which may be smaller.
+      }
     }
   } finally {
     db.close();

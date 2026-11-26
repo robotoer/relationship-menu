@@ -53,6 +53,7 @@ There is no server and no account. A menu lives in the browser that made it, and
 ```mermaid
 classDiagram
   class MenuDocument {
+    id: string        // random, local + sync only, never in links
     title: string
     encoded: string   // the menu, compressed
     createdAt?: number
@@ -90,9 +91,9 @@ classDiagram
 | --- | --- | --- |
 | DM-1 | Group names in a menu are unique (exact text). Order of groups and of items is meaningful and kept everywhere. | ED-* rules below |
 | DM-2 | An item's answer is one of the four answers or absent. Anything else read from outside (a link, storage) is treated as absent. | LK-3 |
-| DM-3 | Item `id`s exist only inside the editor (for focus and undo). They are stripped before saving or sharing, and never used to match items between menus. | Review |
+| DM-3 | Item `id`s exist only inside the editor (for focus and undo). They are stripped before saving or sharing, and never used to match items between menus. Menu ids (DM-5) likewise never appear in links. | Review, [Property](../../src/__props__/links-keyboard-library.props.test.ts) |
 | DM-4 | Any text can be a group name or title, including `__proto__` or `constructor`; such names behave like any other. | ED-12 |
-| DM-5 | The library holds at most one menu per title. | SV-6 |
+| DM-5 | Every saved menu has a random 128-bit id ([SY-20](sync.md#5-menu-ids-and-stored-data)). Saving never overwrites a different menu, whatever its title. Titles stay unique when you name a menu (SV-7). | SV-6, SV-7 |
 | DM-6 | An item may have a short note ("only on weekends"). Notes are personal, like answers: they travel in menu links but never in template links, and they never affect matching. | LK-9, CP-14, PR-3 |
 
 ---
@@ -159,7 +160,7 @@ stateDiagram-v2
 
 ## 5. Saving and the library
 
-**In short:** the editor saves automatically, shortly after you stop typing, one save at a time. A menu is stored under its title; renaming moves it. Nothing ever overwrites a *different* menu.
+**In short:** the editor saves automatically, shortly after you stop typing, one save at a time. A menu is stored under a random id, so renaming it is just another save. Nothing ever overwrites a *different* menu.
 
 ```mermaid
 sequenceDiagram
@@ -172,7 +173,6 @@ sequenceDiagram
   Note over Q: waits 400 ms of quiet
   Q->>S: save version N
   S-->>Q: ok
-  Q->>S: if renamed: remove old title
   Note over Q: saves never overlap or run out of order
   U->>E: leave the page
   E->>Q: save anything waiting now
@@ -184,8 +184,8 @@ sequenceDiagram
 | SV-2 | Saves run one at a time, in order. The version that ends up stored is always the latest one you made. | [Proof](formal/tla/Autosave.tla) |
 | SV-3 | Undoing back to the saved version before the wait ends saves nothing (the intermediate version is never stored). | [Proof](formal/tla/Autosave.tla) |
 | SV-4 | An empty, untitled menu is not saved. | Test |
-| SV-5 | **Rename:** the menu is saved under the new title first; the old title is removed only after that save succeeded. A failed save leaves the old entry in place and shows "Couldn't save". | [Proof](formal/tla/Autosave.tla) |
-| SV-6 | Storage keeps one entry per title. When older duplicates exist, the most recently saved wins. | [Property](../../src/__props__/links-keyboard-library.props.test.ts) |
+| SV-5 | **Rename:** a menu keeps its id when renamed, so a rename is an ordinary save of its one entry and nothing is removed ([SY-21](sync.md#5-menu-ids-and-stored-data)). A failed save leaves the stored entry as it was and shows "Couldn't save". | [Proof](formal/tla/Autosave.tla) |
+| SV-6 | Storage keeps one entry per menu id. Menus saved before ids existed are read one per title (when older duplicates exist, the most recently saved wins) and get an id the first time this version loads them; the id-keyed entry is written before the old ones are removed, so stopping at any point loses nothing ([SY-90](sync.md#11-moving-off-ipfs)). | [Property](../../src/__props__/menu-store.props.test.ts), [Property](../../src/__props__/links-keyboard-library.props.test.ts) |
 | SV-7 | A menu is never saved under a title that belongs to a different saved menu; the editor says "Another menu already has this title" until it's renamed. | Test |
 | SV-8 | `createdAt` is set on the first save and never changes; `updatedAt` is set on every save. | Test |
 | SV-9 | Menus saved by older versions (raw `menu:<title>` entries, and IPFS-era `menu:<CID>` / `menu:pending:<title>` copies) are listed like any other; the next save of that menu tidies the old copies away. Menus the IPFS version kept only in its IndexedDB block store (saved July 2024 – March 2026, with just a date in browser storage) are read back from that store before the Library first loads, and are never shown as unreadable entries; the old store itself is left untouched ([SY-91, SY-92](sync.md#11-moving-off-ipfs)). | Test (unit + e2e) |
@@ -390,7 +390,7 @@ flowchart LR
 | Keyboard | KB-4 | Review (one table drives both) | `keyboard.ts` |
 | Keyboard | KB-6, KB-7 | Test | `Menu.test.tsx`, `ShareDialog.test.tsx`, e2e |
 | Saving | SV-1, SV-2, SV-3, SV-5 | **Proof** (TLC, all interleavings up to the bounds) + Property | [`Autosave.tla`](formal/tla/Autosave.tla), [`autosave.props`](../../src/__props__/autosave.props.test.ts) |
-| Saving | SV-6 | Property | links-keyboard-library props |
+| Saving | SV-6 | Property (incl. a crash after every write) | menu-store props, links-keyboard-library props |
 | Saving | SV-4, SV-7, SV-8, SV-9, SV-10 | Test | `storage.test.ts`, `ipfs-recovery.test.ts`, `App.test.tsx`, e2e (`ipfs-recovery.spec.ts`) |
 | Library | LB-2 | Property | links-keyboard-library props |
 | Library | LB-1, LB-3 | Test | `Library.test.tsx`, e2e |
@@ -427,7 +427,7 @@ flowchart LR
 
 ### Gaps: what isn't formally covered, and what would be next
 
-- **App-level storage logic** (copy-on-conflict naming LK-6, title conflicts SV-7, legacy entries SV-9) lives inside `App.tsx` and `providers/Storage.tsx`, so it only has example tests. Next step: move it into a pure module and give it a property test or Dafny model like the editing core.
+- **App-level storage logic:** migrating older entries (SV-6, SY-90) now lives in a pure module (`menu-store.ts`) with property tests, but copy-on-conflict naming (LK-6) and title conflicts (SV-7) are still inside `App.tsx`, so they only have example tests. Next step: move them into a pure module too.
 - **Browser storage itself** isn't modelled: the TLA+ model treats a save as one atomic write plus an optional delete, which matches `localStorage`.
 - **Real time** isn't modelled. TLC checks the order of events, not the 400 ms timer. The property tests use fake timers.
 - **The Dafny editing model is a hand-written mirror** of `menu-editing.ts`. The property tests check the same claims on the real code, which catches drift, but they don't prove it. `answer-cells.ts` is verified directly with LemmaScript. Moving more of `menu-editing.ts` to LemmaScript is possible once LemmaScript handles object-keyed maps.

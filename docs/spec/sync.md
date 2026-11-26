@@ -157,8 +157,8 @@ sequenceDiagram
 
 | ID | Rule | Checked by |
 | --- | --- | --- |
-| SY-20 | Every menu has a random 128-bit id. It is assigned on the menu's first save, or the first time this version of the app loads an older menu. Ids never appear in links, like item ids (DM-3). | Property (links never contain ids) |
-| SY-21 | Browser storage keeps one entry per menu id. Renaming keeps the id: it's an ordinary save. Nothing is deleted on rename (replaces the second half of SV-5). | Test |
+| SY-20 | Every menu has a random 128-bit id. It is assigned on the menu's first save, or the first time this version of the app loads an older menu. Ids never appear in links, like item ids (DM-3). | Test (`src/storage.test.ts`; `e2e/menu-ids.spec.ts` checks the link) |
+| SY-21 | Browser storage keeps one entry per menu id (`menu-v2:<id>`). Renaming keeps the id: it's an ordinary save. Nothing is deleted on rename (replaces the second half of SV-5). Two menus may share a title; the Library opens each by its id. | Proof (`Autosave.tla` `SV5_NeverRemoved`) + Property (`autosave.props`) + Test (`e2e/menu-ids.spec.ts`) |
 | SY-22 | **Server row:** `account_id, menu_id, version, seq, updated_at, deleted, ciphertext`. The nonce is the ciphertext's first 12 bytes, and the ciphertext is at most 64 KiB. Titles exist only inside the ciphertext. `seq` is the account's change counter at the time of the write. | Test (server schema) |
 | SY-23 | **Quotas per account:** 500 live menus, 64 KiB per menu, 4 MiB in total. Tombstones don't count toward these, and the server forgets them after 180 days. Over quota gets HTTP 507, and the app says "Sync storage is full. Your menus are still saved on this device." | Test (server) |
 | SY-24 | Each menu in browser storage has a **local revision** that goes up on every change, local or synced. A save says which revision it started from. A save that started from an older revision than the stored one is a conflict (SY-35), never an overwrite. | Property |
@@ -360,7 +360,7 @@ New events follow [`src/analytics.ts`](../../src/analytics.ts): typed, with fixe
 
 | ID | Rule | Checked by |
 | --- | --- | --- |
-| SY-90 | Old `menu:<title>`, `menu:<CID>` and `menu:pending:<title>` entries keep being read (SV-9), and get an id on first load. The id-keyed entry is written **before** the old entry is removed. | Test |
+| SY-90 | Old `menu:<title>`, `menu:<CID>` and `menu:pending:<title>` entries keep being read (SV-9), and get an id on first load. The id-keyed entry is written **before** the old entry is removed. Each migrated menu remembers its old title, so a re-run, or a save from a tab still running an older version, updates that menu instead of duplicating it. | Property (`src/__props__/menu-store.props.test.ts`, including a crash after every write) + Test (`storage.test.ts`, `e2e/menu-ids.spec.ts`) |
 | SY-91 | Menus saved by the IPFS backend between July 2024 and March 2026 may exist only in its IndexedDB store: localStorage held just a date under `menu:<CID>`. Before the Library first loads, the app reads the `helia-blocks` IndexedDB store directly (plain IndexedDB, JSON blocks, no IPFS libraries), checks that each block hashes to its CID, and copies the menu into browser storage under the same key, dated when it was saved. A pointer that can't be resolved is hidden, never listed as an unreadable menu. *(IPFS itself was removed in #71, before this recovery existed; until it ships, such menus show as unreadable entries.)* | Test (`src/ipfs-recovery.test.ts`, vectors from multiformats 13.4.2; `e2e/ipfs-recovery.spec.ts`) |
 | SY-92 | The old IPFS IndexedDB data is left in place, not deleted, until you decide otherwise. | Review |
 | SY-93 | The `Storage` interface stays. The IPFS backend, `NetworkStatus` and the P2P e2e tests go, which removes about two thirds of the download. *(Done in #71 with the move to Vite: 1.87 MB → 420 KB of JavaScript.)* | Review |
@@ -449,9 +449,9 @@ The GitHub repository and package names are optional, and change only with your 
 
 | Rule | Today | After |
 | --- | --- | --- |
-| DM-5 | The library holds at most one menu per title. | Menus are keyed by id (SY-20). Titles stay unique when *you* name a menu (SV-7 unchanged), but two menus created offline on two devices can share a title. The library shows both. |
-| SV-5 | Rename: save under the new title, then remove the old one. | Rename is an ordinary save of the same id (SY-21). `Autosave.tla` drops its delete step. SV-1…SV-3 are re-checked. |
-| SV-6 | One entry per title; most recent wins. | One entry per id. Legacy entries without an id still collapse by title, most recent wins (unchanged). |
+| DM-5 | The library holds at most one menu per title. | **Done:** menus are keyed by id (SY-20). Titles stay unique when *you* name a menu (SV-7 unchanged), but two menus created offline on two devices can share a title. The library shows both. |
+| SV-5 | Rename: save under the new title, then remove the old one. | **Done:** rename is an ordinary save of the same id (SY-21). `Autosave.tla` dropped its delete step and `AutosaveDeleteFails.cfg`; SV-1…SV-3 are re-checked. |
+| SV-6 | One entry per title; most recent wins. | **Done:** one entry per id. Legacy entries without an id still collapse by title, most recent wins, then get an id (SY-90). |
 | SV-9 | Menus saved before the IPFS node started are listed. | Plus SY-90 and SY-91. |
 | SV-10 | Written to browser storage before the slower IPFS copy. | Written to browser storage before the sync push (SY-30). |
 | PR-1 | No menu content leaves the browser except inside links the user copies. No server-side storage. | …except inside links the user copies, and, for supporters who turn on sync, **encrypted so only their own devices can read it** (SY-80). |

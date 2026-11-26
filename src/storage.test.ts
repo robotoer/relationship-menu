@@ -1,8 +1,14 @@
 import * as storage from "./storage";
 import { createLocalStorage } from "./storage";
+import { MENU_ID_PATTERN } from "./menu-id";
+import { menuKey } from "./menu-store";
 import { RelationshipMenuDocument } from "./model/menu";
 
-describe("LocalStorage", () => { 
+/** The saved menus as `title → document without id`, for easy comparison. */
+const byTitle = (docs: { [id: string]: RelationshipMenuDocument }) =>
+  Object.fromEntries(Object.values(docs).map(({ id: _, ...doc }) => [doc.title, doc]));
+
+describe("LocalStorage (SY-20, SY-21: menus are keyed by a random id)", () => {
   let storage: ReturnType<typeof createLocalStorage>;
 
   beforeEach(() => {
@@ -10,230 +16,115 @@ describe("LocalStorage", () => {
     storage = createLocalStorage();
   });
 
-  test("should save and retrieve documents", async () => {
-    const doc: RelationshipMenuDocument = {
-      title: "Test Document",
-      encoded: "encoded-content",
-    };
-
-    await storage.saveDocuments(doc);
+  test("saves and retrieves documents under a random id", async () => {
+    const doc: RelationshipMenuDocument = { title: "Test Document", encoded: "encoded-content" };
+    const [id] = await storage.saveDocuments(doc);
+    expect(id).toMatch(MENU_ID_PATTERN);
     const documents = await storage.getDocuments();
-
-    expect(documents["Test Document"]).toEqual(doc);
+    expect(documents[id!]).toEqual({ ...doc, id });
+    expect(localStorage.getItem(menuKey(id!))).not.toBeNull();
   });
 
-  test("deleteDocument removes that menu and keeps the others", async () => {
-    await storage.saveDocuments(
-      { title: "Keep", encoded: "a" },
-      { title: "Remove", encoded: "b" }
-    );
-    await storage.deleteDocument("Remove");
+  test("keeps the id it's given, so a rename is an ordinary save of the same entry", async () => {
+    const [id] = await storage.saveDocuments({ title: "Before", encoded: "x" });
+    await storage.saveDocuments({ id, title: "After", encoded: "x" });
     const documents = await storage.getDocuments();
-
-    expect(Object.keys(documents)).toEqual(["Keep"]);
+    expect(Object.keys(documents)).toEqual([id]);
+    expect(documents[id!]?.title).toBe("After");
   });
 
-  test("should retrieve documents by id", async () => {
-    const doc1: RelationshipMenuDocument = {
-      title: "Doc1",
-      encoded: "encoded-content-1",
-    };
-    const doc2: RelationshipMenuDocument = {
-      title: "Doc2",
-      encoded: "encoded-content-2",
-    };
-
-    await storage.saveDocuments(doc1, doc2);
+  test("two menus may share a title without overwriting each other", async () => {
+    const ids = await storage.saveDocuments({ title: "Same", encoded: "a" }, { title: "Same", encoded: "b" });
     const documents = await storage.getDocuments();
-
-    expect(documents["Doc1"]).toEqual(doc1);
-    expect(documents["Doc2"]).toEqual(doc2);
+    expect(ids[0]).not.toBe(ids[1]);
+    expect(Object.values(documents).map((d) => d.encoded).sort()).toEqual(["a", "b"]);
   });
 
-  test("should read IPFS-format JSON entries from localStorage", async () => {
-    // Simulate IPFS storage saving a document with a CID key and JSON value
-    const doc: RelationshipMenuDocument = {
-      title: "IPFS Menu",
-      encoded: "ipfs-encoded-content",
-    };
-    localStorage.setItem(
-      "menu:bafyreigdmqpykrgxyaxtlafqpqhzrusn5nugbkjf3iy2grdiqbpnb2jcri",
-      JSON.stringify(doc)
-    );
-
-    const documents = await storage.getDocuments();
-
-    expect(documents["IPFS Menu"]).toEqual(doc);
+  test("getDocuments(id) returns only that menu", async () => {
+    const [a] = await storage.saveDocuments({ title: "A", encoded: "1" }, { title: "B", encoded: "2" });
+    expect(Object.keys(await storage.getDocuments(a))).toEqual([a]);
   });
 
-  test("should read both raw and JSON format entries", async () => {
-    // Raw format (localStorage save)
-    localStorage.setItem("menu:Raw Menu", "raw-encoded-content");
-    // JSON format (IPFS save)
-    localStorage.setItem(
-      "menu:bafyreigdmqpykrgxyaxtlafqpqhzrusn5nugbkjf3iy2grdiqbpnb2jcri",
-      JSON.stringify({ title: "IPFS Menu", encoded: "ipfs-encoded-content" })
-    );
-
+  test("deleteDocument removes that menu by id and keeps the others", async () => {
+    const [keep, remove] = await storage.saveDocuments({ title: "Keep", encoded: "a" }, { title: "Remove", encoded: "b" });
+    await storage.deleteDocument(remove!);
     const documents = await storage.getDocuments();
-
-    expect(documents["Raw Menu"]).toEqual({
-      title: "Raw Menu",
-      encoded: "raw-encoded-content",
-    });
-    expect(documents["IPFS Menu"]).toEqual({
-      title: "IPFS Menu",
-      encoded: "ipfs-encoded-content",
-    });
+    expect(Object.keys(documents)).toEqual([keep]);
   });
 
-  test("should ignore non-menu localStorage entries", async () => {
+  test("ignores non-menu localStorage entries", async () => {
     localStorage.setItem("other-key", "other-value");
-    localStorage.setItem("menu:My Menu", "encoded-data");
-
-    const documents = await storage.getDocuments();
-
-    expect(Object.keys(documents)).toEqual(["My Menu"]);
-  });
-
-  test("should delete a single document by title (raw format)", async () => {
-    const doc1: RelationshipMenuDocument = {
-      title: "Doc1",
-      encoded: "encoded-content-1",
-    };
-    const doc2: RelationshipMenuDocument = {
-      title: "Doc2",
-      encoded: "encoded-content-2",
-    };
-
-    await storage.saveDocuments(doc1, doc2);
-    await storage.deleteDocument("Doc1");
-    const documents = await storage.getDocuments();
-
-    expect(documents["Doc1"]).toBeUndefined();
-    expect(documents["Doc2"]).toEqual(doc2);
-  });
-
-  test("should delete a single document by title (JSON format)", async () => {
-    localStorage.setItem(
-      "menu:bafyreigdmqpykrgxyaxtlafqpqhzrusn5nugbkjf3iy2grdiqbpnb2jcri",
-      JSON.stringify({ title: "IPFS Menu", encoded: "ipfs-encoded-content" })
-    );
-    localStorage.setItem("menu:Other Menu", "other-encoded-content");
-
-    await storage.deleteDocument("IPFS Menu");
-    const documents = await storage.getDocuments();
-
-    expect(documents["IPFS Menu"]).toBeUndefined();
-    expect(documents["Other Menu"]).toEqual({
-      title: "Other Menu",
-      encoded: "other-encoded-content",
-    });
-  });
-
-  test("should not delete a CID-keyed JSON entry whose title differs from the requested title", async () => {
-    // Simulate: a CID-keyed IPFS entry at menu:someCID belongs to a different menu.
-    const cidKey = "menu:someCID";
-    localStorage.setItem(
-      cidKey,
-      JSON.stringify({ title: "Actual IPFS Menu", encoded: "ipfs-data" })
-    );
-    // Also add a raw entry with a different title
-    localStorage.setItem("menu:rawTitle", "raw-data");
-
-    await storage.deleteDocument("someCID");
-    const documents = await storage.getDocuments();
-
-    // The CID-keyed JSON entry should NOT have been deleted (its title is different)
-    expect(documents["Actual IPFS Menu"]).toEqual({
-      title: "Actual IPFS Menu",
-      encoded: "ipfs-data",
-    });
-    // The raw entry should still exist (title doesn't match)
-    expect(documents["rawTitle"]).toEqual({
-      title: "rawTitle",
-      encoded: "raw-data",
-    });
-    // "someCID" should not appear as a document (no raw entry with that title existed)
-    expect(documents["someCID"]).toBeUndefined();
-  });
-
-  test("should delete raw entry when CID-keyed JSON entry has a different title at the same key", async () => {
-    // A CID-keyed JSON entry at menu:someCID belongs to "Actual IPFS Menu"
-    localStorage.setItem(
-      "menu:someCID",
-      JSON.stringify({ title: "Actual IPFS Menu", encoded: "ipfs-data" })
-    );
-    // A raw entry for "MyMenu" that should be deletable
-    localStorage.setItem("menu:MyMenu", "my-encoded-data");
-
-    await storage.deleteDocument("MyMenu");
-    const documents = await storage.getDocuments();
-
-    // The raw entry should be deleted
-    expect(documents["MyMenu"]).toBeUndefined();
-    // The CID-keyed JSON entry should remain
-    expect(documents["Actual IPFS Menu"]).toEqual({
-      title: "Actual IPFS Menu",
-      encoded: "ipfs-data",
-    });
+    await storage.saveDocuments({ title: "My Menu", encoded: "e" });
+    expect(Object.values(await storage.getDocuments()).map((d) => d.title)).toEqual(["My Menu"]);
+    expect(localStorage.getItem("other-key")).toBe("other-value");
   });
 });
 
-describe("localStorage menu entries", () => {
+describe("SV-9, SY-90: menus saved by older versions get ids on load", () => {
   const s = storage;
-
   beforeEach(() => localStorage.clear());
 
-  it("latestByTitle keeps the most recently saved version of each menu", () => {
+  test("reads raw and JSON (title- and CID-keyed) entries, then stores them by id", async () => {
+    localStorage.setItem("menu:Raw Menu", "raw-encoded-content");
+    localStorage.setItem(
+      "menu:bafyreigdmqpykrgxyaxtlafqpqhzrusn5nugbkjf3iy2grdiqbpnb2jcri",
+      JSON.stringify({ title: "IPFS Menu", encoded: "ipfs-encoded-content" })
+    );
+    const documents = await s.createLocalStorage().getDocuments();
+    expect(byTitle(documents)).toEqual({
+      "Raw Menu": { title: "Raw Menu", encoded: "raw-encoded-content" },
+      "IPFS Menu": { title: "IPFS Menu", encoded: "ipfs-encoded-content" },
+    });
+    for (const id of Object.keys(documents)) expect(id).toMatch(MENU_ID_PATTERN);
+    // The old entries are gone; the id-keyed ones replaced them.
+    expect(s.readLocalMenuEntries()).toEqual([]);
+  });
+
+  test("keeps the most recently saved copy of each title (SV-6)", async () => {
+    localStorage.setItem("menu:bafyOld", JSON.stringify({ title: "A", encoded: "old", savedAt: 1 }));
+    localStorage.setItem("menu:pending:A", JSON.stringify({ title: "A", encoded: "newer", savedAt: 2 }));
+    localStorage.setItem("menu:B", "raw-b");
+    const documents = byTitle(await s.createLocalStorage().getDocuments());
+    expect(documents.A?.encoded).toBe("newer");
+    expect(documents.B).toEqual({ title: "B", encoded: "raw-b" });
+  });
+
+  test("gives each migrated menu the same id on every later load", async () => {
+    localStorage.setItem("menu:A", JSON.stringify({ title: "A", encoded: "1", savedAt: 1 }));
+    const first = Object.keys(await s.createLocalStorage().getDocuments());
+    const second = Object.keys(await s.createLocalStorage().getDocuments());
+    expect(second).toEqual(first);
+  });
+
+  test("a save from a tab still running an old version updates the same menu", async () => {
+    localStorage.setItem("menu:A", JSON.stringify({ title: "A", encoded: "1", savedAt: 1 }));
+    const [id] = Object.keys(await s.createLocalStorage().getDocuments());
+    // The old tab writes its usual title-keyed entry, later than the migration.
+    localStorage.setItem("menu:A", JSON.stringify({ title: "A", encoded: "2", savedAt: Date.now() + 1000 }));
+    const documents = await s.createLocalStorage().getDocuments();
+    expect(Object.keys(documents)).toEqual([id]);
+    expect(documents[id!]?.encoded).toBe("2");
+  });
+
+  test("latestByTitle keeps the most recently saved version of each legacy menu", () => {
     localStorage.setItem("menu:cidOld", JSON.stringify({ title: "A", encoded: "old", savedAt: 1 }));
     localStorage.setItem("menu:cidNew", JSON.stringify({ title: "A", encoded: "new", savedAt: 2 }));
     localStorage.setItem("menu:B", "raw-b");
     const latest = s.latestByTitle(s.readLocalMenuEntries());
-    expect(latest.A.doc.encoded).toBe("new");
-    expect(latest.B.doc).toEqual({ title: "B", encoded: "raw-b" });
-  });
-
-  it("saving locally removes other copies of the same menu", async () => {
-    localStorage.setItem("menu:cid1", JSON.stringify({ title: "A", encoded: "old" }));
-    await s.createLocalStorage().saveDocuments({ title: "A", encoded: "new" });
-    expect(localStorage.getItem("menu:cid1")).toBeNull();
-    expect(await s.createLocalStorage().getDocuments()).toEqual({
-      A: { title: "A", encoded: "new" },
-    });
-  });
-
-  it("IPFS-era copies (CID and pending keys) still load, and the next save tidies them up", async () => {
-    localStorage.setItem("menu:bafyOld", JSON.stringify({ title: "A", encoded: "old", savedAt: 1 }));
-    localStorage.setItem("menu:pending:A", JSON.stringify({ title: "A", encoded: "newer", savedAt: 2 }));
-    expect((await s.createLocalStorage().getDocuments()).A.encoded).toBe("newer");
-    await s.createLocalStorage().saveDocuments({ title: "A", encoded: "latest" });
-    expect(localStorage.getItem("menu:bafyOld")).toBeNull();
-    expect(localStorage.getItem("menu:pending:A")).toBeNull();
-    expect((await s.createLocalStorage().getDocuments()).A.encoded).toBe("latest");
-  });
-
-  it("removeLocalMenuEntries keeps the excepted key and other titles", () => {
-    localStorage.setItem("menu:x", JSON.stringify({ title: "A", encoded: "1" }));
-    localStorage.setItem("menu:y", JSON.stringify({ title: "A", encoded: "2" }));
-    localStorage.setItem("menu:z", JSON.stringify({ title: "B", encoded: "3" }));
-    localStorage.setItem("other", "untouched");
-    s.removeLocalMenuEntries("A", "menu:y");
-    expect(localStorage.getItem("menu:x")).toBeNull();
-    expect(localStorage.getItem("menu:y")).not.toBeNull();
-    expect(localStorage.getItem("menu:z")).not.toBeNull();
-    expect(localStorage.getItem("other")).toBe("untouched");
+    expect(latest.A?.doc.encoded).toBe("new");
+    expect(latest.B?.doc).toEqual({ title: "B", encoded: "raw-b" });
   });
 });
 
-describe("menus with titles that match built-in object properties", () => {
+describe("menus with titles that match built-in object properties (DM-4)", () => {
   const s = storage;
   beforeEach(() => localStorage.clear());
 
-  it("lists menus titled constructor or toString", async () => {
+  it("lists menus titled constructor, toString or __proto__", async () => {
     localStorage.setItem("menu:c1", JSON.stringify({ title: "constructor", encoded: "e1", savedAt: 1 }));
     localStorage.setItem("menu:c2", JSON.stringify({ title: "toString", encoded: "e2", savedAt: 1 }));
+    localStorage.setItem("menu:c3", JSON.stringify({ title: "__proto__", encoded: "e3", savedAt: 1 }));
     const docs = await s.createLocalStorage().getDocuments();
-    expect(Object.keys(docs).sort()).toEqual(["constructor", "toString"]);
+    expect(Object.values(docs).map((d) => d.title).sort()).toEqual(["__proto__", "constructor", "toString"]);
   });
 });

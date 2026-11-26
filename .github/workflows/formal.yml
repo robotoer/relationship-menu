@@ -46,7 +46,7 @@ jobs:
       - name: Model-check autosave (SV-1, SV-2, SV-3, SV-5)
         working-directory: docs/spec/formal/tla
         run: |
-          for cfg in Autosave AutosaveDeleteFails AutosaveStatus; do
+          for cfg in Autosave AutosaveStatus; do
             echo "::group::$cfg"
             java -XX:+UseParallelGC -cp "$RUNNER_TEMP/tla2tools.jar" tlc2.TLC -workers auto -config "$cfg.cfg" Autosave.tla | tee "$RUNNER_TEMP/$cfg.out"
             echo "::endgroup::"

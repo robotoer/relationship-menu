@@ -20,7 +20,8 @@ import {
 import { MenuPage } from "./pages/Menu";
 import { decodeData, encodeData } from "./data-encoder";
 import { MenuComparison } from "./model/compare";
-import { useStorage } from "./providers/Storage";
+import { SavedDocument, useStorage } from "./providers/Storage";
+import { newMenuId } from "./menu-id";
 import { compareMenus } from "./data-comparer";
 import { MenuChange, applyMenuChange } from "./menu-editing";
 import { useAutosave } from "./autosave";
@@ -101,7 +102,7 @@ const WrappedLibraryPage = () => {
     () =>
       Object.values(documentsMap).map((doc) => ({
         ...doc,
-        id: encodeMenuSlug(doc.title, doc.encoded, doc.person),
+        link: encodeMenuSlug(doc.title, doc.encoded, doc.person),
       })),
     [documentsMap]
   );
@@ -120,11 +121,14 @@ const sameMenu = (encoded: string, menu: RelationshipMenu): boolean => {
   }
 };
 
+/** The titles of saved menus. */
+const savedTitles = (saved: { [id: string]: SavedDocument }) => new Set(Object.values(saved).map((d) => d.title));
+
 /** "Title (2)", "Title (3)", ... — the first that isn't already a saved menu's title. */
-const uniqueTitle = (title: string, saved: { [title: string]: unknown }) => {
+const uniqueTitle = (title: string, taken: Set<string>) => {
   for (let n = 2; ; n++) {
     const candidate = `${title || "Untitled"} (${n})`;
-    if (!Object.prototype.hasOwnProperty.call(saved, candidate)) return candidate;
+    if (!taken.has(candidate)) return candidate;
   }
 };
 
@@ -219,9 +223,9 @@ const WrappedMenuPage = () => {
     setMenuState(next);
   };
   const loadedFromUrl = useRef(false);
-  // The title this editor's menu is saved under (set when a menu is loaded or first
-  // saved). Renaming saves under the new title and removes this entry.
-  const ownedTitle = useRef<string | null>(null);
+  // The id this editor's menu is saved under (SY-20): set when a saved menu is opened,
+  // or made up on its first save. Renaming keeps it, so a rename is an ordinary save.
+  const menuId = useRef<string | null>(null);
   // Get path paremeters from react-router-dom:
   const [params, setParams] = useSearchParams();
 
@@ -231,13 +235,20 @@ const WrappedMenuPage = () => {
   // Whether an in-app link (the Library) opened it, for analytics. Also captured once.
   const location = useLocation();
   const fromLibrary = useRef(openedFrom(location.state) === "library");
+  // The Library says exactly which menu to open, since two menus may share a title.
+  const openedMenuId = useRef(
+    typeof (location.state as { menuId?: unknown } | null)?.menuId === "string"
+      ? ((location.state as { menuId: string }).menuId)
+      : null
+  );
   // False until the opened link (if any) has been loaded.
   const [loaded, setLoaded] = useState(!initialEncoded.current);
   const [notice, setNotice] = useState<string | null>(null);
 
-  // Load the menu from the link. Two formats:
+  // Load the menu from the link. Formats:
   // 1. "titleEncoded:menuEncoded" — self-contained link (all data in URL)
-  // 2. A document ID (the title) — looked up in this browser's storage
+  // 2. Older Library links: a title (or a menu id) — looked up in this browser
+  // When the Library opened it, its menu id (in the navigation state) says which one.
   // The "loaded" guard is only set once the menu has actually been applied, so a load
   // cancelled by React StrictMode is retried rather than lost.
   useEffect(() => {
@@ -247,20 +258,27 @@ const WrappedMenuPage = () => {
     (async () => {
       let opened: DecodedCompareSlug | null = null;
       let notFound = false;
+      // The saved menu this link is, when known for sure.
+      let openedDoc: SavedDocument | undefined;
+      const saved = await storage.getDocuments();
+      if (cancelled) return;
       try {
-        if (raw.includes(":")) {
+        const fromId = openedMenuId.current !== null ? saved[openedMenuId.current] : undefined;
+        if (fromId) {
+          openedDoc = fromId;
+          opened = decodeCompareSlug(encodeMenuSlug(fromId.title, fromId.encoded, fromId.person));
+        } else if (raw.includes(":")) {
           opened = decodeCompareSlug(raw);
         } else {
-          const doc = (await storage.getDocuments(raw))[raw];
-          notFound = !doc;
-          opened = doc
-            ? decodeCompareSlug(encodeMenuSlug(doc.title, doc.encoded, doc.person))
+          openedDoc = saved[raw] ?? Object.values(saved).find((d) => d.title === raw);
+          notFound = !openedDoc;
+          opened = openedDoc
+            ? decodeCompareSlug(encodeMenuSlug(openedDoc.title, openedDoc.encoded, openedDoc.person))
             : null;
         }
       } catch (e) {
         console.error("Failed to open menu link:", e);
       }
-      if (cancelled) return;
       if (!opened) {
         track("link_open_failed", { reason: notFound ? "not_found" : "unreadable" });
         setNotice(
@@ -274,23 +292,22 @@ const WrappedMenuPage = () => {
       }
       // Opening a link must never replace a different menu you already saved under
       // the same title (e.g. your partner's menu, or a template of your own menu):
-      // open it as a copy with a free title instead.
-      const saved = await storage.getDocuments();
-      if (cancelled) return;
+      // open it as a copy with a free title instead. A link to a menu you already
+      // have, unchanged, opens that menu (LK-6).
       loadedFromUrl.current = true;
-      const existing = Object.prototype.hasOwnProperty.call(saved, opened.title)
-        ? saved[opened.title]
-        : undefined;
+      const decoded = opened;
+      const sameTitle = Object.values(saved).filter((d) => d.title === decoded.title);
+      const existing = openedDoc ?? sameTitle.find((d) => sameMenu(d.encoded, decoded.menu));
       let openedTitle = opened.title;
-      if (existing && !sameMenu(existing.encoded, opened.menu)) {
-        openedTitle = uniqueTitle(opened.title, saved);
+      if (!existing && sameTitle.length > 0) {
+        openedTitle = uniqueTitle(opened.title, savedTitles(saved));
         setNotice(
           `You already have a menu called "${opened.title}", so this link was opened as "${openedTitle}". Rename it any time.`
         );
-        ownedTitle.current = null;
+        menuId.current = null;
       } else {
         setNotice(null);
-        ownedTitle.current = opened.title;
+        menuId.current = existing?.id ?? null;
         createdAt.current = existing?.createdAt ?? null;
       }
       const items = Object.values(opened.menu).flat();
@@ -305,12 +322,12 @@ const WrappedMenuPage = () => {
         track("shared_link_opened", {
           link_type: items.some((i) => i.value) ? "menu" : "template",
           has_person: !!opened.person,
-          own_menu: !!existing && openedTitle === opened.title,
+          own_menu: !!existing,
           opened_as_copy: openedTitle !== opened.title,
           item_count: items.length,
         });
       }
-      setPerson(opened.person ?? (openedTitle === opened.title ? existing?.person : undefined) ?? {});
+      setPerson(opened.person ?? existing?.person ?? {});
       setTitle(openedTitle);
       setMenu(ensureItemIds(opened.menu));
       setLoaded(true);
@@ -321,9 +338,12 @@ const WrappedMenuPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storage]);
   // Save the menu (and its title) to storage, debounced, one save at a time.
+  // SV-7: a title you type can't be one a *different* saved menu already has. (Two
+  // menus may share a title, e.g. after syncing; that doesn't stop either saving.)
+  const savedTitle = menuId.current !== null ? documents[menuId.current]?.title : undefined;
   const titleTaken =
-    title !== ownedTitle.current &&
-    Object.prototype.hasOwnProperty.call(documents, title);
+    title !== savedTitle &&
+    Object.values(documents).some((d) => d.title === title && d.id !== menuId.current);
   const docToSave = useMemo(
     () =>
       !loaded || titleTaken || (title === "" && Object.keys(menu).length === 0)
@@ -336,21 +356,18 @@ const WrappedMenuPage = () => {
     [title, menu, person, titleTaken, loaded]
   );
   const saveState = useAutosave(docToSave, async (doc) => {
-    // The storage provider reports failures by returning no IDs; treat that as an
-    // error so a failed rename never goes on to delete the menu's old entry.
+    // Saved under the menu's id, whatever its title: a rename is just a save (SY-21).
+    // The storage provider reports failures by returning no ids.
     const now = Date.now();
     createdAt.current ??= now;
+    const id = (menuId.current ??= newMenuId());
     const ids = await storage.saveDocuments({
       ...doc,
+      id,
       createdAt: createdAt.current,
       updatedAt: now,
     });
     if (ids.length === 0) throw new Error("Saving the menu failed");
-    const previous = ownedTitle.current;
-    ownedTitle.current = doc.title;
-    if (previous !== null && previous !== doc.title) {
-      await storage.deleteDocument(previous);
-    }
   });
 
   // Analytics: how far people get answering a menu. Milestones already reached when
@@ -429,8 +446,8 @@ const WrappedMenuPage = () => {
         track("template_chosen", { template_id: template.id });
         editMenu({ kind: "replace", menu: ensureItemIds(templateMenu(template)) });
         if (title === "") {
-          const taken = Object.prototype.hasOwnProperty.call(documents, template.name);
-          setTitle(taken ? uniqueTitle(template.name, documents) : template.name);
+          const titles = savedTitles(documents);
+          setTitle(titles.has(template.name) ? uniqueTitle(template.name, titles) : template.name);
         }
       }}
       saveStatus={titleTaken ? "title-taken" : saveState}

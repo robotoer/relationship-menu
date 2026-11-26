@@ -56,6 +56,11 @@ export type Person = {
 };
 
 export type RelationshipMenuDocument = {
+  /**
+   * Random id (spec SY-20): the key this menu is saved under, in this browser and in
+   * sync. Never part of a link. Absent until the menu is first saved.
+   */
+  id?: string;
   title: string;
   encoded: string;
   /** When this menu was first saved in this browser (ms since epoch). */
