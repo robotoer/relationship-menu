@@ -12,6 +12,10 @@ export default defineConfig({
   root: "handoff",
   // VITE_* settings come from the repository root, as for the app.
   envDir: "..",
+  // Its own dependency cache: the e2e tests run this dev server beside the app's,
+  // and two configs sharing node_modules/.vite rewrite each other's, which breaks
+  // the app's lazy imports (web-vitals).
+  cacheDir: "../node_modules/.vite-handoff",
   // Every path serves the page, as on Vercel (vercel.json's rewrite).
   appType: "spa",
   build: { outDir: "../build-handoff", emptyOutDir: true },
