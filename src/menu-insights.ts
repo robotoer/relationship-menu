@@ -50,8 +50,9 @@ export const themeOf = (item: string, group: string): Theme | null =>
   GROUP_LOOKUP.get(normalizeText(group)) ??
   keywordTheme(group);
 
-const ANSWERS = Object.keys(ANSWER_RANK) as RelationshipMenuItemValue[];
-const isAnswer = (value: unknown): value is RelationshipMenuItemValue =>
+export const ANSWERS = Object.keys(ANSWER_RANK) as RelationshipMenuItemValue[];
+/** One of the four answers; anything else counts as unanswered (DM-2). */
+export const isAnswer = (value: unknown): value is RelationshipMenuItemValue =>
   typeof value === "string" && (ANSWERS as string[]).includes(value);
 
 export type ThemeScore = {

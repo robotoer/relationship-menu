@@ -48,6 +48,19 @@
   margin-top: 0.5rem;
 }
 
+.insights-class {
+  margin-bottom: 0.75rem;
+}
+.insights-class strong {
+  font-family: var(--font-pixel);
+  font-size: 0.65rem;
+  font-weight: 400;
+}
+.insights-multiclass,
+.insights-class-flavor {
+  color: var(--c-slate);
+}
+
 .insights-stats {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
@@ -78,6 +91,62 @@
 }
 .insights-stat-value {
   text-align: right;
+}
+
+/* Loot (IN-11). Rarity colours are decorative; the rarity is always written out. */
+.insights-loot {
+  --rarity: var(--c-slate);
+  --rarity-ink: var(--c-white);
+  padding: 0.75rem 1rem;
+  border: var(--px) solid var(--c-ink);
+  border-left: calc(var(--px) * 3) solid var(--rarity);
+  overflow-wrap: anywhere;
+}
+.insights-loot.rarity-uncommon { --rarity: var(--c-green); --rarity-ink: var(--c-ink); }
+.insights-loot.rarity-rare { --rarity: var(--c-blue); }
+.insights-loot.rarity-epic { --rarity: var(--c-plum); }
+.insights-loot.rarity-legendary { --rarity: var(--c-orange); --rarity-ink: var(--c-ink); }
+.insights-loot-name strong {
+  font-family: var(--font-pixel);
+  font-size: 0.7rem;
+  font-weight: 400;
+  line-height: 1.7;
+}
+.insights-rarity {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  color: var(--rarity-ink);
+  background: var(--rarity);
+  font-family: var(--font-pixel);
+  font-size: 0.5rem;
+  text-transform: uppercase;
+}
+.insights-loot-themes {
+  font-size: 1.2rem;
+}
+.insights-loot-lines {
+  margin: 0.25rem 0 0.5rem;
+  padding: 0;
+  list-style: none;
+}
+.insights-loot-lines li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+.insights-loot-mark {
+  flex: none;
+  width: 0.6rem;
+  height: 0.6rem;
+  border: calc(var(--px) / 2) solid var(--c-ink);
+}
+.line-must-have .insights-loot-mark { background: var(--pref-must-have); }
+.line-like-to-have .insights-loot-mark { background: var(--pref-like-to-have); }
+.line-maybe .insights-loot-mark { background: var(--pref-maybe); }
+.line-off-limits .insights-loot-mark { background: var(--pref-off-limits); }
+.insights-loot-flavor {
+  color: var(--c-slate);
+  font-style: italic;
 }
 
 .insights-badges {

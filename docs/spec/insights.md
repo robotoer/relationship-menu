@@ -1,8 +1,8 @@
 # Just for fun: menu insights
 
-**In short:** the editor turns a menu's answers into a playful portrait: an **animal** (with a style and a "streak" of a second animal), a row of **stats**, and **badges**. Later phases add an RPG character sheet with a loot item, a share card, and a "party" view when comparing. Everything is worked out in the browser from the menu alone, using words written once and kept in the code. No AI runs while anyone uses it, so it costs nothing per use and nothing leaves the browser.
+**In short:** the editor turns a menu's answers into a playful portrait: an **animal** (with a style and a "streak" of a second animal), an RPG **character sheet** (class, level and stats), a **loot** item whose stat lines quote the menu's own items, and **badges**. Later phases add a share card and a "party" view when comparing. Everything is worked out in the browser from the menu alone, using words written once and kept in the code. No AI runs while anyone uses it, so it costs nothing per use and nothing leaves the browser.
 
-**Status:** phase 1 (scoring, animal, stats, badges in the editor) is a prototype: `src/menu-insights.ts`, words in `src/insights-content.ts`, shown by `src/components/MenuInsights.tsx`. Phases 2 to 5 are planned (see [Phases](#phases)).
+**Status:** phases 1 and 2 are built. `src/menu-insights.ts` does the scoring, `src/menu-loot.ts` the character sheet and loot, `src/insights-content.ts` holds the words, and `src/components/MenuInsights.tsx` shows them. Phases 3 to 5 are planned (see [Phases](#phases)).
 
 ```mermaid
 flowchart LR
@@ -57,6 +57,10 @@ The Chameleon 🦎 stands in when no theme has a score yet, and the Egg 🥚 whe
 | IN-7 | **Badges never ask for an answer.** Effort badges (answering, notes, own items) may show as not yet earned, with a hint. Badges that depend on *which* answers were given only appear once earned, never as a goal. | [Property](../../src/__props__/menu-insights.props.test.ts), Test |
 | IN-8 | **Tone:** no wording treats an answer as better or worse. Off limits is a valid answer, never a flaw or a punchline (as in CO-6). It's labelled "just for fun": not a personality test, and never a compatibility verdict. | Review (`insights-content.ts`) |
 | IN-9 | Emoji are decorative (hidden from screen readers) and always have a name in text; each stat has its value in text. No sideways scrolling from 320 px (AX-4). | Test, Review |
+| IN-10 | **Character sheet:** once hatched, the class comes from the animal's theme (the Chameleon is a Shapeshifter), with a multiclass from its streak. The level is 1, plus 1 for every 5 answered items, up to 20. | Test, [Property](../../src/__props__/menu-loot.props.test.ts) |
+| IN-11 | **Loot:** once hatched, an item named *style prefix + theme base + "of" + a quoted Must have* (else the phrase of the streak's theme, or of the animal's). Its lines: the top two themes' scores, up to two Must haves (+3), one Like to have (+1), one Maybe ("Unidentified"), and up to two Off limits ("Immune to", a boundary as armour, never a flaw). "Roll again" changes the words and which items are quoted, nothing else. | Test, [Property](../../src/__props__/menu-loot.props.test.ts) |
+| IN-12 | **Quoting:** only item text is ever quoted, never notes, titles or names. Never a sensitive item: template items flagged in `SENSITIVE_ITEMS` (sex and sexual health, kids, other partners and veto, marriage, past relationships, politics), or own items matching `SENSITIVE_KEYWORDS`. Quotes are cut to 40 characters. The panel is only ever shown in this browser. Phase 3's share card will add a preview before anything leaves it. | Test, [Property](../../src/__props__/menu-loot.props.test.ts) |
+| IN-13 | Level and rarity depend only on *how many* items are answered, never on which answers. Rarity: Common, Uncommon from 40% of items answered, Rare from 70%, Epic from 90%, Legendary when every item of a menu of 10 or more is answered. | [Property](../../src/__props__/menu-loot.props.test.ts), Test |
 
 ### Badges
 
@@ -72,13 +76,40 @@ The Chameleon 🦎 stands in when no theme has a score yet, and the Egg 🥚 whe
 
 Badges that would reward one answer over another ("No Maybes", "All in") are left out on purpose: they'd nudge people away from honest answers.
 
+### Classes and loot
+
+| Theme | Class | Loot bases | "of …" when nothing can be quoted |
+| --- | --- | --- | --- |
+| Closeness | Enchanter | Weighted Blanket, Cuddle Gauntlets, Locket | Snuggles |
+| Talk | Bard | Speaking Stone, Carrier Pigeon, Scroll | Long Talks |
+| Space | Ranger | Cloak, Tower Key, Do-Not-Disturb Sign | Alone Time |
+| Roots | Paladin | Ring, Anchor, Pebble | Forever |
+| Spotlight | Herald | Banner, Megaphone, Party Hat | Grand Entrances |
+| Hearth | Artificer | Chore Wheel, Ladle, Ledger | the Hearth |
+| Care | Cleric | Healing Potion, Hot Water Bottle, Soup Flask | Soup and Sympathy |
+| Adventure | Swashbuckler | Compass, Boots, Picnic Basket | Side Quests |
+| *(none)* | Shapeshifter | Mimic Chest, Mystery Box | the Unknown |
+
+An example, for a Wholehearted Otter with a streak of Beaver, 18 of 20 items answered:
+
+```
+Unwavering Weighted Blanket of Holding hands        ★ Epic
+  +3.0 Closeness · +2.0 Hearth
+  +3 Cuddling
+  +3 Shared cooking
+  +1 Regular date nights
+  Unidentified: Meeting family
+  Immune to: Posting about us online
+  Nearly complete. It hums faintly.
+```
+
 ## Phases
 
 | Phase | What | Notes |
 | --- | --- | --- |
 | 1 | Scoring, animal, stats, badges in the editor | This prototype. Emoji stand in for art. |
-| 2 | **RPG sheet and loot:** a class from the top two themes (Bard = Talk, Cleric = Care, Ranger = Space, Paladin = Roots, …) and a generated item, e.g. "Unwavering Weighted Blanket of Daily Check-ins". Its stat lines quote the menu's own items: Must have +3, Like to have +1, Off limits as "Immune to: …". Rarity comes from how complete the menu is. | Needs a `sensitive` flag on template items (sex, safer sex, kids, veto, …): those are never quoted, and the theme word is used instead. Custom items are quoted only after a preview. |
-| 3 | **Share card:** drawn in the browser (SVG to PNG), shared with the system share sheet or downloaded. Shows the animal, class and stats, never answers. | Analytics may count that a card was shared (no parameters), never which animal (PR-2). |
+| 2 | **RPG sheet and loot** (built): class, level and stats, and a generated item whose lines quote the menu's own items (IN-10…IN-13). | Sensitive items are never quoted. Own items are quoted in the panel, which only this browser shows, unless they match the sensitive keywords. |
+| 3 | **Share card:** drawn in the browser (SVG to PNG), shared with the system share sheet or downloaded. Shows the animal, class and stats, never answers; loot lines that quote items only after a preview with each quote removable. | Analytics may count that a card was shared (no parameters), never which animal (PR-2). |
 | 4 | **Compare "party":** each person's animal side by side, with a party description ("a tank and a rogue"). Pair badges (Shared Must-Haves, Talked It Through, Full Party) are only ever awarded, never shown as missing. | No compatibility score or verdict (CO-6). |
 | 5 | **Pixel sprites** in the Sweetie 16 palette replace the emoji: CC0 packs (check each licence) or a dozen drawn 16×16. Layering an animal with a held item and a hat multiplies the variety. | Keep the bundle small: sprites as one sheet or inline SVG. |
 
