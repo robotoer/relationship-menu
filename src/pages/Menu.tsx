@@ -20,6 +20,8 @@ import {
 import { ShareDialog } from "../components/ShareDialog";
 import { track } from "../analytics";
 import { Link } from "react-router-dom";
+import { useAfterSave } from "../persistence";
+import { HomeScreenHint } from "../components/HomeScreenHint";
 
 /**
  * Renders an input element for the menu title.
@@ -212,6 +214,9 @@ export const MenuPage = ({
   onUseTemplate?: (template: MenuTemplate) => void;
 }) => {
   const groupNames = Object.keys(menu);
+  // Once a save succeeded: ask the browser to keep storage, and maybe suggest the
+  // Home Screen on iPhone/iPad Safari (SV-11, SV-12).
+  const { showHomeScreenHint } = useAfterSave(saveStatus);
   /** Why an item can't become a group right now, or undefined if it can (ED-14). */
   const makeGroupBlockedReason = (text: string) => {
     const name = text.trim();
@@ -488,6 +493,12 @@ export const MenuPage = ({
               ✕
             </button>
           )}
+        </div>
+      )}
+
+      {showHomeScreenHint && (
+        <div className="menu-tip">
+          <HomeScreenHint hasMenus />
         </div>
       )}
 

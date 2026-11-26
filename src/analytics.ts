@@ -143,6 +143,12 @@ export type AnalyticsEvent =
   | { name: "library_searched"; params?: undefined }
   | { name: "library_sorted"; params: { sort: LibrarySort } }
   | { name: "menu_deleted"; params?: undefined }
+  | { name: "menus_exported"; params?: undefined }
+  // Keeping menus (spec SV-11, SV-12)
+  | { name: "persistent_storage_granted"; params?: undefined }
+  | { name: "persistent_storage_denied"; params?: undefined }
+  | { name: "home_screen_hint_shown"; params?: undefined }
+  | { name: "home_screen_hint_dismissed"; params?: undefined }
   // Supporting the project
   | { name: "support_viewed"; params: { from: SupportFrom } }
   | { name: "support_option_chosen"; params: { amount_usd: 6 | 12 | 24 | 30; plan: SupportPlan } }

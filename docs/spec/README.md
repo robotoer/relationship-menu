@@ -193,6 +193,9 @@ sequenceDiagram
 | LB-1 | The library shows each menu's title (or "Untitled menu"), person, item and group counts, answered progress, and edited/created dates when known. | Test |
 | LB-2 | Search matches title, person or item text, ignoring case. Sort by recently edited, newest, or title. Menus without dates sort last. | [Property](../../src/__props__/links-keyboard-library.props.test.ts) |
 | LB-3 | Deleting from the library asks for confirmation. | Test |
+| SV-11 | **Keeping storage:** after the first successful save in a browser, the app asks the browser to keep this site's storage (`navigator.storage.persist()`), once per browser. The request never blocks, delays or fails a save, and whatever the browser answers changes nothing else. | Test |
+| SV-12 | **Home Screen tip:** Safari on iPhone and iPad may delete a site's storage after a week of use without opening that site; Home Screen apps are exempt but keep storage of their own. So in Safari on iPhone and iPad (not other browsers, not a Home Screen app), a quiet tip says "Safari may delete menus from sites you haven't opened in a week" and how to add the site to the Home Screen. It shows on the landing page, in an empty Library, and once per browser in the editor after a save. Dismissing it hides it for good in this browser. | Test (unit + e2e) |
+| SV-13 | **Export all menus:** the Library makes one text file with every saved menu's title and menu link (answers, notes and person info included), whatever the search shows. It's built in the browser and never uploaded: downloaded, or on iPhone and iPad offered to the share sheet ("Save to Files"). Opening a link from it brings that menu back (LK-6 applies). | Test (unit + e2e) |
 
 ---
 
@@ -334,7 +337,7 @@ flowchart LR
 
 | ID | Rule | Checked by |
 | --- | --- | --- |
-| PR-1 | No menu content leaves the browser except inside links the user copies. There is no server-side storage. | Review |
+| PR-1 | No menu content leaves the browser except inside links the user copies and the backup file they export (SV-13), both of which go only where the user puts them. There is no server-side storage. | Review |
 | PR-2 | Analytics receive the page path (never the `?encoded=` query) and a fixed set of usage events ([`src/analytics.ts`](../../src/analytics.ts), listed in [`docs/analytics.md`](../analytics.md)). Event parameters are only template ids, link kinds, filter ids, counts and true/false: never titles, item or group text, notes, names, search queries or link contents. The types enforce this, and an e2e test drives the app with marker text and checks that none of it reaches analytics. | Test (e2e) + types |
 | PR-3 | The menu link includes answers, notes and person info and says so in the share dialog; the template link includes none of them. | [Property](../../src/__props__/links-keyboard-library.props.test.ts), Test |
 
@@ -391,6 +394,7 @@ flowchart LR
 | Saving | SV-4, SV-7, SV-8, SV-9, SV-10 | Test | `storage.test.ts`, `ipfs-recovery.test.ts`, `App.test.tsx`, e2e (`ipfs-recovery.spec.ts`) |
 | Library | LB-2 | Property | links-keyboard-library props |
 | Library | LB-1, LB-3 | Test | `Library.test.tsx`, e2e |
+| Keeping menus | SV-11, SV-12, SV-13 | Test | `persistence.test.tsx`, `HomeScreenHint.test.tsx`, `export-menus.test.ts`, `Library.test.tsx`, `e2e/keeping-menus.spec.ts` |
 | Links | LK-1…LK-5, LK-9 | Property (incl. arbitrary junk input) | links-keyboard-library props |
 | Links | LK-6…LK-8 | Test (e2e) | `e2e/` |
 | Comparing | CP-10, CP-11 | **Proof** of the code itself + Property | [`answer-cells.ts`](../../src/answer-cells.ts), [`compare.props`](../../src/__props__/compare.props.test.ts) |
@@ -438,7 +442,7 @@ flowchart LR
 | [TLA+ / TLC](https://lamport.azurewebsites.net/tla/tla.html) | The autosave queue, rename and page-leave | Explores every interleaving of edits, timers and slow saves. |
 | [fast-check](https://fast-check.dev) | Property tests on the real code | Ties each model to the code, and covers JS-only details (prototypes, key order, object identity). |
 
-Run everything locally: `yarn test --watchAll=false` (includes the property tests), `yarn verify` (Dafny on your PATH), and TLC as in [`formal/tla/README.md`](formal/tla/README.md).
+Run everything locally: `yarn test --run` (includes the property tests), `yarn verify` (Dafny on your PATH), and TLC as in [`formal/tla/README.md`](formal/tla/README.md).
 
 ---
 

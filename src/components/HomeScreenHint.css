@@ -1,0 +1,29 @@
+/* A quiet tip (spec SV-12): calm colors, no shadow, easy to dismiss. */
+.home-screen-hint {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  max-width: 40em;
+  padding: 0.75rem 1rem;
+  color: var(--c-white);
+  background: var(--c-shade);
+  border: var(--px) solid var(--c-slate);
+}
+.home-screen-hint p {
+  flex: 1 1 16em;
+  margin: 0;
+  font-size: 1.05rem;
+  line-height: 1.25;
+}
+.home-screen-hint strong {
+  color: var(--c-cyan);
+  font-weight: normal;
+}
+.home-screen-hint em {
+  font-style: normal;
+  color: var(--c-yellow);
+}
+.home-screen-hint button {
+  flex: 0 0 auto;
+}

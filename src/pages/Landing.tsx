@@ -7,6 +7,7 @@ import { Link } from "react-router-dom";
 import "./Landing.css";
 import { MENU_TEMPLATES } from "../templates";
 import { LandingButton, track } from "../analytics";
+import { HomeScreenHint } from "../components/HomeScreenHint";
 
 /** Analytics: which landing page button was used. */
 const clicked = (button_id: LandingButton) => () => track("landing_button_clicked", { button_id });
@@ -56,6 +57,7 @@ export const LandingPage = ({ savedCount = 0 }: { savedCount?: number }) => {
             </Link>
           )}
         </div>
+        <HomeScreenHint className="landing-hint" hasMenus={savedCount > 0} />
         <div className="landing-demo" aria-label="Example comparison of two people's answers">
           <div className="landing-demo-header">
             <span>YOU</span>
@@ -195,7 +197,12 @@ export const LandingPage = ({ savedCount = 0 }: { savedCount?: number }) => {
             Opening someone's link saves a copy in your Library. If you already have a
             menu with that name, the copy gets a new name instead of replacing yours.
           </li>
-          <li>Clearing your browser's site data deletes your saved menus.</li>
+          <li>
+            Clearing your browser's site data deletes your saved menus. On iPhone and
+            iPad, Safari may also delete them if you haven't opened this site for a week;
+            adding it to your Home Screen avoids that. <strong>Export all menus</strong>,
+            in your Library, saves a backup file with a link to each one.
+          </li>
         </ul>
       </section>
 

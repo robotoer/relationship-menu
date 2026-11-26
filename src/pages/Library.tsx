@@ -18,6 +18,8 @@ import {
 } from "../library-info";
 import { RandomAvatar } from "react-random-avatars";
 import { openedFromState, track, trackOnce } from "../analytics";
+import { exportMenus } from "../export-menus";
+import { HomeScreenHint } from "../components/HomeScreenHint";
 
 /**
  * Renders the Library page, displaying a list of relationship menus.
@@ -59,6 +61,23 @@ export const LibraryPage = ({
     [menus, query, sort]
   );
 
+  // Export all menus (SV-13): what the last export did, for the status line.
+  const [exported, setExported] = useState<string | null>(null);
+  const handleExport = async () => {
+    try {
+      const outcome = await exportMenus(menus);
+      if (outcome === "cancelled") return;
+      track("menus_exported");
+      const count = `${menus.length} menu${menus.length === 1 ? "" : "s"}`;
+      setExported(
+        outcome === "shared" ? `Shared a file with ${count}.` : `Downloaded a file with ${count}.`
+      );
+    } catch (e) {
+      console.error("Failed to export menus:", e);
+      setExported("Couldn't export. Try again, or open each menu and copy its link with Share.");
+    }
+  };
+
   return (
     <div className="library-page">
       <div className="library-header">
@@ -67,6 +86,7 @@ export const LibraryPage = ({
           Menus you've made or opened are saved in this browser.{" "}
           {menus.length === 0 && "Nothing here yet: start one below."}
         </p>
+        {menus.length === 0 && <HomeScreenHint className="library-hint" />}
         {menus.length > 0 && (
           <div className="library-controls">
             <label>
@@ -100,6 +120,17 @@ export const LibraryPage = ({
               {shown.length === menus.length
                 ? `${menus.length} menu${menus.length === 1 ? "" : "s"}`
                 : `${shown.length} of ${menus.length}`}
+            </span>
+          </div>
+        )}
+        {menus.length > 0 && (
+          <div className="library-export">
+            <button type="button" onClick={handleExport} aria-describedby="library-export-about">
+              Export all menus
+            </button>
+            <span id="library-export-about" aria-live="polite">
+              {exported ??
+                "A backup file with a link to each menu. It's made on this device and never uploaded."}
             </span>
           </div>
         )}

@@ -10,7 +10,8 @@
     "kicker demo"
     "title demo"
     "lead demo"
-    "actions demo";
+    "actions demo"
+    "hint demo";
   column-gap: 3rem;
   align-items: start;
   padding: 2rem 0 3rem;
@@ -65,6 +66,12 @@
     box-shadow: inset calc(-1 * var(--px)) calc(-1 * var(--px)) 0 0 var(--c-orange),
       0 0 0 var(--px) var(--c-white);
   }
+}
+
+/* The Home Screen tip (SV-12), only shown in Safari on iPhone and iPad. */
+.landing-hint {
+  grid-area: hint;
+  margin-top: 1.5rem;
 }
 
 /* Mini comparison grid in the hero. */
@@ -288,6 +295,7 @@
       "title"
       "lead"
       "actions"
+      "hint"
       "demo";
     row-gap: 0.5rem;
   }
