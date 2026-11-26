@@ -17,6 +17,13 @@ describe("HO-1: only /v1/* runs Worker code", () => {
     expect(wranglerToml).not.toMatch(/^\[env\.[a-z]+\.assets\]/m);
   });
 
+  it("production is served at wantsandwonts.com, as a custom domain (the whole host)", () => {
+    const production = wranglerToml.match(/^\[env\.production\]\n((?:[^[\n].*\n?|\n|  .*\n|\]\n)*)/m)?.[1] ?? "";
+    expect(production).toMatch(/^routes = \[\n  \{ pattern = "wantsandwonts\.com", custom_domain = true \},\n\]$/m);
+    // Only production has an address of its own.
+    expect(wranglerToml.match(/^routes\b/gm)).toHaveLength(1);
+  });
+
   it("the Worker code answers anything outside /v1/ with a JSON 404, so it never serves pages", async () => {
     for (const path of ["/", "/library", "/import", "/menu?encoded=abc", "/robots.txt", "/v1"]) {
       const response = await unsigned("GET", path);

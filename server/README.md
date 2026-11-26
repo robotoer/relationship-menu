@@ -140,4 +140,4 @@ Leave everything else at None.
 
 All of these need the GitHub Actions secrets `CLOUDFLARE_API_TOKEN` (Workers Scripts: Edit, D1: Edit, scoped to your account) and `CLOUDFLARE_ACCOUNT_ID`. Without them, the preview and test deploys skip with a warning.
 
-**The production address:** `wantsandwonts.com` is attached by uncommenting `routes` under `[env.production]` in `wrangler.toml` and deploying. That creates the domain's DNS records, so it's the owner's step. `wantsandwonts.app` and `www.wantsandwonts.com` redirect to it with Cloudflare redirect rules in the dashboard.
+**The production address:** `wantsandwonts.com` is a Workers custom domain, set by `routes` under `[env.production]` in `wrangler.toml`; Cloudflare manages its DNS record and certificate. `wantsandwonts.app` and `www.wantsandwonts.com` redirect to it with Cloudflare redirect rules in the dashboard.

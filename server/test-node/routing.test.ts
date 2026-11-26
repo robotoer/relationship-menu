@@ -17,15 +17,23 @@ const toml = readFileSync(join(SERVER, "wrangler.toml"), "utf8");
 const tempDirs: string[] = [];
 afterAll(() => tempDirs.forEach((dir) => rmSync(dir, { recursive: true, force: true })));
 
-/** wrangler.toml with absolute paths, and the fixture app in place of ../build. */
+/**
+ * wrangler.toml with absolute paths, the fixture app in place of ../build, and no
+ * `routes`. The harness reads a route as a path pattern (`wantsandwonts.com` would
+ * be the root page only) and sends requests that match it straight to the Worker,
+ * past the asset router. On Cloudflare a custom domain is the whole host, asset
+ * router included, and production is checked there (server/README.md).
+ */
 const configFile = (): string => {
   const patched = toml
     .replace(/^main = "src\/index\.ts"$/m, `main = ${JSON.stringify(join(SERVER, "src/index.ts"))}`)
     .replace(/^directory = "\.\.\/build"$/m, `directory = ${JSON.stringify(FIXTURE_APP)}`)
-    .replaceAll(/^migrations_dir = "migrations"$/gm, `migrations_dir = ${JSON.stringify(join(SERVER, "migrations"))}`);
+    .replaceAll(/^migrations_dir = "migrations"$/gm, `migrations_dir = ${JSON.stringify(join(SERVER, "migrations"))}`)
+    .replace(/^routes = \[\n(?:[ \t].*\n)*\]\n/m, "");
   // Guard: the replacements above must all have applied.
   expect(patched).toContain(FIXTURE_APP);
   expect(patched).toContain(join(SERVER, "src/index.ts"));
+  expect(patched).not.toMatch(/^routes\b/m);
   const dir = mkdtempSync(join(tmpdir(), "wantsandwonts-routing-"));
   tempDirs.push(dir);
   const file = join(dir, "wrangler.toml");

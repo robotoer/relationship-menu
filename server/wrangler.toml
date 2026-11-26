@@ -111,13 +111,13 @@ crons = ["17 3 * * *"]
 [env.production]
 name = "wantsandwonts"
 workers_dev = false
-# HO-1: the production address. Attaching it adds DNS records to the
-# wantsandwonts.com zone, so the owner does it, not CI: uncomment these lines in
-# a commit of their own, then deploy. wantsandwonts.app and www. redirect here
-# with Cloudflare redirect rules (dashboard), not through this Worker.
-# routes = [
-#   { pattern = "wantsandwonts.com", custom_domain = true },
-# ]
+# HO-1: the production address. Cloudflare manages its DNS record and
+# certificate as a Workers custom domain (attached on 2026-11-26). wantsandwonts.app
+# and www. redirect here with Cloudflare redirect rules (dashboard), not through
+# this Worker.
+routes = [
+  { pattern = "wantsandwonts.com", custom_domain = true },
+]
 
 [env.production.observability]
 enabled = true
