@@ -10,6 +10,7 @@
 
 # production
 /build
+/build-handoff
 
 # misc
 .DS_Store

@@ -11,6 +11,11 @@ import { SyncProvider } from "./providers/Sync";
 import { createLocalStorage } from "./storage";
 import { createLazySyncRuntime } from "./sync/lazy";
 import { trackError, trackUncaughtErrors, trackWebVital } from "./analytics";
+import { captureImportFragment } from "./handoff/receive";
+
+// HO-5: menus arriving from the old address are in /import's URL fragment. Take
+// them out of the address bar before anything else runs.
+captureImportFragment();
 
 // Analytics: uncaught errors (their kind only) and Core Web Vitals.
 trackUncaughtErrors();

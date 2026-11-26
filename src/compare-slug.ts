@@ -4,6 +4,7 @@
  */
 
 import { decodeData, encodeData } from "./data-encoder";
+import { sanitizePerson } from "./person";
 import { ITEM_NOTE_LIMIT, Person, RelationshipMenu, RelationshipMenuItemValue } from "./model/menu";
 
 export type DecodedCompareSlug = {
@@ -12,20 +13,7 @@ export type DecodedCompareSlug = {
   person?: Person;
 };
 
-const PERSON_LIMITS: Record<keyof Person, number> = { name: 60, pronouns: 30, note: 280 };
-
-/** Keeps only short string fields of a person; returns undefined if nothing is left. */
-export const sanitizePerson = (value: unknown): Person | undefined => {
-  if (!value || typeof value !== "object") return undefined;
-  const person: Person = {};
-  for (const key of Object.keys(PERSON_LIMITS) as (keyof Person)[]) {
-    const field = (value as Record<string, unknown>)[key];
-    if (typeof field === "string" && field.trim()) {
-      person[key] = field.trim().slice(0, PERSON_LIMITS[key]);
-    }
-  }
-  return Object.keys(person).length ? person : undefined;
-};
+export { sanitizePerson };
 
 /**
  * Builds a menu slug: `title:menu`, plus `:about` when person info is included.
@@ -112,7 +100,8 @@ const sanitizeMenu = (menu: unknown): RelationshipMenu | null => {
           value: PREFERENCES.has(item.value) ? item.value : undefined,
         };
         const note = typeof item.note === "string" ? item.note.trim() : "";
-        if (note) clean.note = note.slice(0, ITEM_NOTE_LIMIT);
+        // Trim again after cutting, so reading the result again changes nothing.
+        if (note) clean.note = note.slice(0, ITEM_NOTE_LIMIT).trimEnd();
         return clean;
       });
   }

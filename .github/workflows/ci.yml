@@ -22,6 +22,8 @@ jobs:
         run: yarn install --immutable
       - name: Build
         run: yarn build
+      - name: Build the old address's hand-off page (vercel.json)
+        run: yarn build:handoff
       - name: Test
         run: yarn test --run
       - name: Install Playwright Browsers

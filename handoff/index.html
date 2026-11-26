@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#1a1c2c" />
+    <title>Wants &amp; Won'ts: a relationship menu</title>
+    <!--
+      The old address (relationship-menu.vercel.app) serves only this page, at every
+      path (spec HO-3…HO-8). It brings this browser's saved menus over to the new
+      address, then opens the same page there. No app and no analytics.
+    -->
+    <link rel="canonical" href="https://wantsandwonts.com/" />
+    <meta
+      name="description"
+      content="Relationship Menu is now Wants & Won'ts, at wantsandwonts.com. Build a relationship menu, answer each item, and compare answers with your partner."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Wants &amp; Won'ts" />
+    <meta property="og:title" content="Wants &amp; Won'ts: a relationship menu" />
+    <meta
+      property="og:description"
+      content="Say what you want from a relationship, compare answers with your partner, and see where you match."
+    />
+    <meta property="og:url" content="https://wantsandwonts.com/" />
+    <meta property="og:image" content="https://wantsandwonts.com/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <!-- Without JavaScript there are no saved menus to bring along (the app needs it too). -->
+    <noscript><meta http-equiv="refresh" content="0; url=https://wantsandwonts.com/" /></noscript>
+    <style>
+      :root { color-scheme: dark; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: #1a1c2c;
+        color: #f4f4f4;
+        font: 18px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+      }
+      main { max-width: 32rem; padding: 1.5rem; text-align: center; }
+      h1 { font-size: 1.4rem; margin: 0 0 0.75rem; color: #ffcd75; }
+      a { color: #73eff7; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Relationship Menu is now Wants &amp; Won'ts</h1>
+      <p>
+        Bringing your menus over to
+        <a id="new-address" href="https://wantsandwonts.com/">wantsandwonts.com</a>…
+      </p>
+    </main>
+    <script type="module" src="/main.ts"></script>
+  </body>
+</html>

@@ -5,7 +5,7 @@
  */
 
 import { RelationshipMenuDocument } from "./model/menu";
-import { sanitizePerson } from "./compare-slug";
+import { sanitizePerson } from "./person";
 import { ipfsPointerCid } from "./ipfs-recovery";
 
 /**
