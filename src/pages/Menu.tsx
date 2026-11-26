@@ -3,7 +3,16 @@
  */
 
 import "./Menu.css";
-import { Fragment, KeyboardEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  Fragment,
+  KeyboardEvent,
+  Suspense,
+  lazy,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { MenuGroup } from "../components/MenuGroup";
 import { MenuItem } from "../components/MenuItem";
 import { Person, RelationshipMenu } from "../model/menu";
@@ -22,6 +31,11 @@ import { track } from "../analytics";
 import { Link } from "react-router-dom";
 import { useAfterSave } from "../persistence";
 import { HomeScreenHint } from "../components/HomeScreenHint";
+
+/** "Just for fun" (docs/spec/insights.md), downloaded on its own so the main bundle stays small. */
+const MenuInsights = lazy(() =>
+  import("../components/MenuInsights").then((m) => ({ default: m.MenuInsights }))
+);
 
 /**
  * Renders an input element for the menu title.
@@ -683,6 +697,11 @@ export const MenuPage = ({
           </select>
         </label>
       </div>
+      {groupNames.length > 0 && (
+        <Suspense fallback={null}>
+          <MenuInsights menu={menu} />
+        </Suspense>
+      )}
     </div>
   );
 };

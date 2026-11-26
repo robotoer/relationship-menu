@@ -311,6 +311,12 @@ flowchart LR
 
 ---
 
+## 7c. Just for fun
+
+**In short:** under the editor, a "Just for fun" panel turns the answers into an animal, stats and badges. It's worked out in this browser from words written ahead of time, so it costs nothing and sends nothing. Rules IN-1…IN-9 are in [insights.md](insights.md).
+
+---
+
 ## 8. Pages and navigation
 
 ```mermaid
@@ -401,6 +407,7 @@ flowchart LR
 | Comparing | CP-1…CP-5, CP-12, CP-14 | Property (against a naive reference) | compare props |
 | Comparing | CP-20…CP-25 | Property + Test | [`insights-discussion.props`](../../src/__props__/insights-discussion.props.test.ts), `Compare.test.tsx`, `e2e/discuss.spec.ts` |
 | Discussing | DS-1…DS-8 | Property (DS-2, DS-3) + Test | `discussion.test.ts`, `Discuss.test.tsx`, `e2e/discuss.spec.ts` |
+| Just for fun | IN-1…IN-9 | Property (IN-2, IN-3, IN-4, IN-6, IN-7) + Test; Review (IN-1, IN-8) | [`menu-insights.props`](../../src/__props__/menu-insights.props.test.ts), `menu-insights.test.ts`, `MenuInsights.test.tsx` |
 | Comparing | CP-13 | Test (e2e) | `e2e/` |
 | Pages, privacy, accessibility | NV, PR, AX | Test / Review | see each table |
 
