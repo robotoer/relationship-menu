@@ -26,7 +26,11 @@
  * UTF-8 JSON, then zeros up to the next multiple of 1024 bytes (the fewest that
  * fit; at least 1024). The JSON is
  *
- *   { "v": 1, "id", "title", "encoded", "person"?, "createdAt"?, "updatedAt"?, "editId", "deleted"? }
+ *   { "v": 1, "id", "title", "encoded", "person"?, "createdAt"?, "updatedAt"?, "editId", "deviceId"?, "deleted"? }
+ *
+ * `updatedAt` is the edit time and `deviceId` the writing device's id: SY-35
+ * breaks a conflict by edit time, then device id. Both live only inside the
+ * encryption.
  *
  * The padding hides how many items a menu has, to the nearest KiB (SY-16).
  * A tombstone is the same, with "deleted": true and an empty title and menu.
@@ -67,6 +71,8 @@ export type MenuRecord = {
   updatedAt?: number;
   /** Identifies the edit that produced this record (SY-37). */
   editId: string;
+  /** The device that wrote this record (`sync:device`), for SY-35's tie-break. */
+  deviceId?: string;
   /** Set only on tombstones (SY-19). */
   deleted?: true;
 };
@@ -149,16 +155,18 @@ const toPlaintext = (record: MenuRecord) =>
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
     editId: record.editId,
+    deviceId: record.deviceId,
     deleted: record.deleted ? true : undefined,
   });
 
 /** A tombstone for a deleted menu: it carries nothing of the menu but its id (SY-19). */
-export const tombstone = (id: string, editId: string, updatedAt?: number): MenuRecord => ({
+export const tombstone = (id: string, editId: string, updatedAt?: number, deviceId?: string): MenuRecord => ({
   id,
   title: "",
   encoded: "",
   ...(updatedAt === undefined ? {} : { updatedAt }),
   editId,
+  ...(deviceId === undefined ? {} : { deviceId }),
   deleted: true,
 });
 
@@ -172,6 +180,9 @@ export const encryptRecord = async (
   record: MenuRecord
 ): Promise<Bytes> => {
   if (typeof record.editId !== "string" || record.editId === "") throw new Error("A record needs an edit id.");
+  if (record.deviceId !== undefined && (typeof record.deviceId !== "string" || record.deviceId === "")) {
+    throw new Error("A record's device id can't be empty.");
+  }
   const deleted = record.deleted === true;
   const additionalData = recordAad(keys.accountId, record.id, version, deleted);
   const plain = utf8(toPlaintext(record));
@@ -214,9 +225,10 @@ const readPerson = (value: unknown): Person | undefined | null => {
 /** Checks the decrypted JSON and keeps only the fields a record has. */
 const readPlaintext = (json: unknown, menuId: string, deleted: boolean): MenuRecord | null => {
   if (!isRecord(json) || json.v !== RECORD_FORMAT) return null;
-  const { id, title, encoded, createdAt, updatedAt, editId } = json;
+  const { id, title, encoded, createdAt, updatedAt, editId, deviceId } = json;
   if (id !== menuId || typeof title !== "string" || typeof encoded !== "string") return null;
   if (typeof editId !== "string" || editId === "") return null;
+  if (deviceId !== undefined && (typeof deviceId !== "string" || deviceId === "")) return null;
   if (!optionalNumber(createdAt) || !optionalNumber(updatedAt)) return null;
   if ((json.deleted === true) !== deleted || (json.deleted !== undefined && json.deleted !== true)) return null;
   const person = readPerson(json.person);
@@ -229,6 +241,7 @@ const readPlaintext = (json: unknown, menuId: string, deleted: boolean): MenuRec
     ...(createdAt === undefined ? {} : { createdAt: createdAt as number }),
     ...(updatedAt === undefined ? {} : { updatedAt: updatedAt as number }),
     editId,
+    ...(deviceId === undefined ? {} : { deviceId: deviceId as string }),
     ...(deleted ? { deleted: true as const } : {}),
   };
 };
