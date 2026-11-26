@@ -207,6 +207,9 @@ describe("DiscussPage (DS-1..DS-8)", () => {
     expect(gtag).toHaveBeenCalledWith("event", "conversation_settings_changed", { setting: "include" });
     expect(saved().settings?.include.talk).toBe(false);
 
+    fireEvent.click(panel.getByRole("radio", { name: /Hardest first/ }));
+    expect(screen.getByText(/Start with the hardest, while you're fresh/)).toBeInTheDocument();
+    fireEvent.click(panel.getByRole("radio", { name: /Easiest first/ }));
     fireEvent.click(panel.getByRole("radio", { name: /Hide until revealed/ }));
     fireEvent.click(panel.getByRole("checkbox", { name: /Show them on each topic/ }));
     fireEvent.click(screen.getByRole("button", { name: "▶ Start" }));

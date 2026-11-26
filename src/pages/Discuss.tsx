@@ -204,8 +204,11 @@ export const DiscussPage = ({
         <p className="discuss-lead">
           {names.join(" & ")}: {agenda.length} topic{agenda.length === 1 ? "" : "s"}
           {parts.length > 1 ? ` in ${parts.filter((p) => p.part).length} parts` : ""}, about{" "}
-          {Math.max(5, agenda.length * 3)} minutes in all. Start with something you share, then work towards
-          the harder ones. You can stop any time; everything is saved in this browser.
+          {Math.max(5, agenda.length * 3)} minutes in all.{" "}
+          {settings.order === "hardest"
+            ? "Start with the hardest, while you're fresh, and end on what you share."
+            : "Start with something you share, then work towards the harder ones."}{" "}
+          You can stop any time; everything is saved in this browser.
         </p>
         <div className="conv-header-row">
           <label className="conv-title">
