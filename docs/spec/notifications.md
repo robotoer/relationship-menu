@@ -240,12 +240,12 @@ push_subs (sub_id TEXT PRIMARY KEY, box_id TEXT NOT NULL, member_id TEXT NOT NUL
 
 **As built** (`server/src/push.ts`, `webpush.ts`, `notify.ts`):
 - A send is claimed with a compare-and-set on the subscription row before the request, so a write and the cron racing can't both send.
-- A failed attempt (429, 5xx, unreachable) gives back the window and the day's count, so the next 5-minute cron retries it. Any other 4xx/3xx drops that notification but keeps the subscription. Pushes don't follow redirects.
+- A failed attempt (429, 5xx) gives back the window and the day's count, so the next 5-minute cron retries it. With no answer at all the push may have arrived, so the attempt keeps its window and count and the changes wait a full window (found by `Notify.tla`). Any other 4xx/3xx drops that notification but keeps the subscription. Pushes don't follow redirects.
 - The allowlist (NT-55) also requires the default port, no credentials, and an endpoint of at most 1,024 characters.
 - Re-subscribing the same endpoint returns the existing `subId` with the new keys.
 - Push counts as off (503) also when the keys or subject are malformed; turning notifications off always works.
 - NT-53's 60-day clean-up deletes a subscription only when changes have waited for it for 60 days without a successful send.
-- The scheduling rules are checked by 300 random histories against an independent oracle (`server/test/push.test.ts`); the TLA+ model `Notify.tla` (§9) follows in its own PR.
+- The scheduling rules are checked by 300 random histories against an independent oracle (`server/test/push.test.ts`); and by the TLA+ model `docs/spec/formal/tla/Notify.tla` (three configurations, safety and liveness, run in CI).
 
 **Secrets:** `VAPID_PUBLIC_KEY` (base64url, 65 bytes), `VAPID_PRIVATE_KEY` (base64url, the 32-byte private scalar), `VAPID_SUBJECT` (a project `mailto:` or `https:` contact, not a person's address). Without them, push is off (503) and everything else works.
 

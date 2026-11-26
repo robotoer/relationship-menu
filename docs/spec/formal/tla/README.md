@@ -97,7 +97,7 @@ How the model maps to `server/src/push.ts`:
 | `Due`, `Hold`, `AfterPush`, `Merge` | the "send now" test, the "wait" branch, the row after an accepted push, and "comment beats notes" in `offer` and `flush` |
 | `Offer(s)` | the write handler calling `offer(sub, kind, now)` for one subscription and sending if told to |
 | `Cron` + `Flush(s)` | the 5-minute cron listing subscriptions with `pending_count > 0`, then `flush(sub, now)` and sending for each |
-| `Failed` / `Gone` | 429, 5xx or network error: the row keeps the changes, and `last_sent_at` and `sent_today` stay as they were / 404 or 410: the row is deleted |
+| `Failed` / `Gone` | 429 or 5xx: the row keeps the changes, and `last_sent_at` and `sent_today` stay as they were (`server/src/notify.ts` undoes its claim) / 404 or 410: the row is deleted |
 | `Leave`, `StopSharing`, `Lapse` | leaving or Stop sharing deletes the rows (NT-56); a read-only box refuses writes |
 
 The model assumes two things about the code around `push.ts`. A server test should check both:
@@ -105,7 +105,7 @@ The model assumes two things about the code around `push.ts`. A server test shou
 - **Each offer or flush acts on its own row, at once.** The send decision and the row update are one conditional statement on that row. For example, an `UPDATE … WHERE sub_id = ?` that `RETURNING` shows still matched. So a row deleted after the handler or cron listed it gets no push. And two writes, or a write and the cron, can't both decide to send to one subscription in the same window. The mutated model that skips the "row still exists" check fails `NoSendAfterLeave`.
 - **A transient failure doesn't count as a push.** `last_sent_at` and `sent_today` don't move, so the next cron can retry.
 
-Not modelled: a push that the push service accepted, but whose answer was lost (a network error after delivery). The server counts it as a transient failure, so the retry can reach the device on the next cron, less than 15 minutes later. That breaks NT-24's window for that device. It's rare and harmless: `Topic: <boxId>` makes the newer push replace the older one. Recording `last_sent_at` on a network error too, while keeping the changes pending, would close the gap and delay the retry by at most one window. Also not modelled: subscribing, muting (a deletion, like 404/410), the 5-per-member limit, payload encryption and VAPID. The server tests cover those.
+**A gap the model found, now closed in the server:** a push that the push service accepted, but whose answer was lost (no answer at all). Counting it as a plain failure let the retry reach the device on the next cron, less than 15 minutes after a push it may have received, which breaks NT-24. `server/src/notify.ts` now keeps that attempt's window and day count while the changes wait again, so the retry comes a full window later (`server/test/push.test.ts` and `fcm.test.ts`: "no answer at all…"). The model's `Failed` is the 429/5xx case. Not modelled: subscribing, muting (a deletion, like 404/410), the 5-per-member limit, the FCM channel (§7c, same scheduler), payload encryption and VAPID. The server tests cover those.
 
 Run it the same way:
 
