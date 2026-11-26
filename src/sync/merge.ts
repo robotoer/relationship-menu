@@ -65,6 +65,8 @@ export type MergeContext = {
   newMenuId: () => string;
   /** A fresh random edit id. */
   newEditId: () => string;
+  /** This device's id (`sync:device`), for SY-35's tie-break. Records carry the writer's. */
+  deviceId?: string;
 };
 
 /** A menu made by a conflict: the side that didn't keep the menu id (SY-35). */
@@ -128,13 +130,23 @@ export const conflictTitle = (title: string, taken: Set<string>) => {
 const editTime = (doc: MenuContent) => doc.updatedAt ?? 0;
 
 /**
- * Whether this device's dirty copy is the newer edit: the later save time, then
- * the higher edit id. SY-35 breaks ties by device id, but records (SY-16)
- * don't carry one; edit ids are random, so every device still decides the same.
+ * Whether this device's dirty copy is the newer edit (SY-35): the later save
+ * time, then the higher device id. When either device id is unknown (a record
+ * from before records carried one), the higher edit id. Either way every device
+ * decides the same.
  */
-const localIsNewer = (local: MenuContent, localEdit: string, remote: MenuContent, remoteEdit: string) => {
+const localIsNewer = (
+  local: MenuContent,
+  localEdit: string,
+  localDevice: string | undefined,
+  remote: MenuContent,
+  remoteEdit: string,
+  remoteDevice: string | undefined
+) => {
   const [a, b] = [editTime(local), editTime(remote)];
-  return a !== b ? a > b : localEdit > remoteEdit;
+  if (a !== b) return a > b;
+  if (localDevice && remoteDevice && localDevice !== remoteDevice) return localDevice > remoteDevice;
+  return localEdit > remoteEdit;
 };
 
 /** A working copy of `Local` that the functions below change and then return. */
@@ -295,7 +307,7 @@ class Draft {
 
     // SY-35: both changed. The newer edit keeps the menu id; the other is kept as
     // a new menu. Both are pushed.
-    if (localIsNewer(contentOf(mine), state.editId, remote, body.editId)) {
+    if (localIsNewer(contentOf(mine), state.editId, this.ctx.deviceId, remote, body.editId, body.deviceId)) {
       this.sync[id] = { ...state, baseVersion: version, seenVersion: version };
       this.keepAsCopy(id, remote);
     } else {

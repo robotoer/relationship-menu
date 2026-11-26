@@ -430,6 +430,7 @@ export const createSyncRuntime = (options: RuntimeOptions = {}): SyncRuntime => 
     keys = derived;
     api = createApi(derived, apiOptions);
     deviceId = readDeviceId(kv, newId);
+    ctx.deviceId = deviceId; // SY-35's tie-break
     ready = true;
     publish();
     lead(() => runLoop(gen));
