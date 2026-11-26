@@ -22,8 +22,8 @@ const localDate = (now: number) => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 };
 
-/** The export's file name, like `relationship-menus-2026-11-25.txt`. */
-export const exportFileName = (now = Date.now()) => `relationship-menus-${localDate(now)}.txt`;
+/** The export's file name, like `wants-and-wonts-menus-2026-11-25.txt`. */
+export const exportFileName = (now = Date.now()) => `wants-and-wonts-menus-${localDate(now)}.txt`;
 
 /** The export's text: a short header, then each menu's title and link, by title. */
 export const exportText = (
@@ -33,7 +33,7 @@ export const exportText = (
 ): string => {
   const count = `${menus.length} menu${menus.length === 1 ? "" : "s"}`;
   const lines = [
-    `Relationship Menu: ${count} saved in this browser, exported ${localDate(now)}.`,
+    `Wants & Won'ts: ${count} saved in this browser, exported ${localDate(now)}.`,
     "Open a link to bring that menu back. Each link holds the whole menu, answers,",
     "notes and name included, so keep this file private.",
   ];

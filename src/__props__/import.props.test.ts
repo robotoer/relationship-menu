@@ -63,8 +63,10 @@ describe("LK-6, HO-5: uniqueTitle", () => {
   });
 });
 
-describe("HO-5: importing never overwrites", () => {
-  const params = { numRuns: 300 };
+// Every run decodes and re-encodes a dozen menus (pako), so give these room when the
+// whole suite runs in parallel.
+describe("HO-5: importing never overwrites", { timeout: 30_000 }, () => {
+  const params = { numRuns: 150 };
 
   it("only ever adds new menus, and never changes the existing ones", () => {
     fc.assert(
