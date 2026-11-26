@@ -68,15 +68,20 @@ export const writeSecret = (kv: KeyValueStore, secret: Uint8Array) => kv.setItem
  * answer was lost. Kept until a check settles it, so the account is never left
  * under a code this device has forgotten.
  */
-export const readNextSecret = (kv: KeyValueStore): { secret: Bytes; at: number } | null => {
-  const parsed = parseJson(kv.getItem(SYNC_KEY.nextCode)) as { code?: unknown; at?: unknown } | undefined;
+export const readNextSecret = (kv: KeyValueStore): { secret: Bytes; at: number; sent: number } | null => {
+  const parsed = parseJson(kv.getItem(SYNC_KEY.nextCode)) as { code?: unknown; at?: unknown; sent?: unknown } | undefined;
   const secret = typeof parsed?.code === "string" ? fromBase64Url(parsed.code) : null;
   if (secret?.length !== 32) return null;
-  return { secret, at: typeof parsed?.at === "number" ? parsed.at : 0 };
+  const at = typeof parsed?.at === "number" ? parsed.at : 0;
+  return { secret, at, sent: typeof parsed?.sent === "number" ? parsed.sent : at };
 };
-/** `at`: when the replacement started (another tab waits a while before checking it itself). */
-export const writeNextSecret = (kv: KeyValueStore, secret: Uint8Array, at: number) =>
-  kv.setItem(SYNC_KEY.nextCode, JSON.stringify({ code: toBase64Url(secret), at }));
+/**
+ * `at`: when the replacement started (another tab waits a while before checking
+ * it itself; 0 once anyone may). `sent`: when the request to move the account
+ * was sent (until long enough after it, "not moved" may only mean "not yet").
+ */
+export const writeNextSecret = (kv: KeyValueStore, secret: Uint8Array, at: number, sent: number) =>
+  kv.setItem(SYNC_KEY.nextCode, JSON.stringify({ code: toBase64Url(secret), at, sent }));
 export const clearNextSecret = (kv: KeyValueStore) => kv.removeItem(SYNC_KEY.nextCode);
 
 /** Whether sync is on in this browser (a cheap, synchronous check). */
@@ -251,6 +256,9 @@ const writeChanges = (kv: KeyValueStore, before: Local, after: Local, now: numbe
     if (same(before.sync[id], next)) continue;
     if (next === undefined) kv.removeItem(syncMenuKey(id));
     else kv.setItem(syncMenuKey(id), JSON.stringify(next));
+    // A new revision is news for an editor too (SY-33), even when the content was
+    // already stored: say a round that failed part-way is being tried again.
+    if ((before.sync[id]?.revision ?? 0) !== (next?.revision ?? 0) && !changed.includes(id)) changed.push(id);
   }
   return changed.sort();
 };

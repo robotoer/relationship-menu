@@ -36,7 +36,6 @@ import {
 } from "./engine";
 import { SyncKeys, deriveKeys } from "./keys";
 import {
-  RuntimeReport,
   clearNextSecret,
   clearSyncState,
   readAccount,
@@ -75,6 +74,12 @@ const ROTATION_RETRY_MS = 30_000;
  * checking the outcome itself (that tab may have been closed part-way).
  */
 const ROTATION_GRACE_MS = 2 * 60_000;
+/**
+ * How long after the request to move the account a "not moved" can be believed.
+ * The request's signature is only accepted within 5 minutes of its time (SY-6),
+ * so after that it can no longer be applied late.
+ */
+const ROTATION_SETTLE_MS = 6 * 60_000;
 /** At most one account check a minute from tab switches. */
 const ACCOUNT_CHECK_MS = 60_000;
 /** The longest single timer (browsers overflow past 2^31 ms). */
@@ -208,30 +213,47 @@ export const createSyncRuntime = (options: RuntimeOptions = {}): SyncRuntime => 
     for (const listener of listeners) listener();
   };
 
-  /** The loop's own notices, for every tab (`sync:runtime`). */
-  const report = (changes: Partial<RuntimeReport> & { add?: SyncNotice[]; remove?: SyncNotice[] } = {}) => {
+  /** One update to the loop's notices (`sync:runtime`). */
+  type ReportChange = {
+    add?: SyncNotice[];
+    remove?: SyncNotice[];
+    lastSyncedAt?: number;
+    /** Records found unreadable since the last update (SY-17). */
+    unreadableAdded?: number;
+    unreadableReset?: true;
+  };
+  /** Updates that couldn't be stored yet (storage full): written with the next one. */
+  let owed: ReportChange[] = [];
+
+  /** The loop's own notices, for every tab (`sync:runtime`). Never throws. */
+  const report = (change: ReportChange = {}) => {
+    const all = [...owed, change];
     try {
-      writeNotices(changes);
+      writeNotices(all);
+      owed = [];
     } catch {
-      // Browser storage is full: the notices wait for the next round. Sync carries on.
+      // Browser storage is full: keep the updates for the next try. Sync carries on.
+      owed = all.slice(-100);
     }
     publish();
   };
 
-  const writeNotices = (changes: Partial<RuntimeReport> & { add?: SyncNotice[]; remove?: SyncNotice[] }) => {
+  const writeNotices = (changes: ReportChange[]) => {
     if (!syncIsOn(kv)) return;
     const current = readReport(kv);
     const notices = new Set<SyncNotice>(current.notices.filter((n) => n !== "offline" && n !== "storage_full" && n !== "menu_too_large"));
-    for (const n of changes.add ?? []) notices.add(n);
-    for (const n of changes.remove ?? []) notices.delete(n);
+    let { unreadable, lastSyncedAt } = current;
+    for (const change of changes) {
+      for (const n of change.add ?? []) notices.add(n);
+      for (const n of change.remove ?? []) notices.delete(n);
+      if (change.unreadableReset) unreadable = 0;
+      unreadable += change.unreadableAdded ?? 0;
+      if (change.lastSyncedAt !== undefined) lastSyncedAt = change.lastSyncedAt;
+    }
     if (failing || rotationPending) notices.add("offline");
     if (main?.loop.paused === "storage_full") notices.add("storage_full");
     if (readSkipped(kv).size > 0) notices.add("menu_too_large");
-    writeReport(kv, {
-      lastSyncedAt: changes.lastSyncedAt !== undefined ? changes.lastSyncedAt : current.lastSyncedAt,
-      unreadable: changes.unreadable !== undefined ? changes.unreadable : current.unreadable,
-      notices: [...notices].sort(),
-    });
+    writeReport(kv, { lastSyncedAt, unreadable, notices: [...notices].sort() });
   };
 
   // ---- the loop ---------------------------------------------------------------
@@ -426,7 +448,7 @@ export const createSyncRuntime = (options: RuntimeOptions = {}): SyncRuntime => 
         }
         const changes: Parameters<typeof report>[0] = {};
         if (step.events.unreadable > 0) {
-          changes.unreadable = readReport(kv).unreadable + step.events.unreadable;
+          changes.unreadableAdded = step.events.unreadable;
           changes.add = ["unreadable"];
         }
         if (pullFinished && !holder.loop.pulling) {
@@ -501,7 +523,7 @@ export const createSyncRuntime = (options: RuntimeOptions = {}): SyncRuntime => 
     if (next && readSecret(kv)) {
       let outcome: "moved" | "not_moved" | "unknown" = "unknown";
       if (now() - next.at >= ROTATION_GRACE_MS) {
-        outcome = await rotationOutcome(await deriveKeys(next.secret));
+        outcome = await rotationOutcome(await deriveKeys(next.secret), next.sent);
         if (gen !== generation) return;
         if (outcome === "moved") adoptNewCode(next.secret);
         else if (outcome === "not_moved") clearNextSecret(kv);
@@ -543,12 +565,14 @@ export const createSyncRuntime = (options: RuntimeOptions = {}): SyncRuntime => 
    * transaction that copies the supporter status, so the new account has a status
    * exactly when it happened.
    */
-  const rotationOutcome = async (next: SyncKeys): Promise<"moved" | "not_moved" | "unknown"> => {
+  const rotationOutcome = async (next: SyncKeys, sentAt: number): Promise<"moved" | "not_moved" | "unknown"> => {
     try {
       const status = await createApi(next, apiOptions).accountStatus();
       // Only a plain answer decides; anything else is asked again later.
       if (status === null) return "unknown";
-      return status === "none" ? "not_moved" : "moved";
+      if (status !== "none") return "moved";
+      // Not moved yet. That's final only once the request can no longer be applied late.
+      return now() - sentAt >= ROTATION_SETTLE_MS ? "not_moved" : "unknown";
     } catch {
       return "unknown";
     }
@@ -559,7 +583,8 @@ export const createSyncRuntime = (options: RuntimeOptions = {}): SyncRuntime => 
     writeSecret(kv, secret);
     clearNextSecret(kv);
     resetMenuStates(kv);
-    report({ remove: ["code_replaced", "unreadable"], unreadable: 0 });
+    owed = [];
+    report({ remove: ["code_replaced", "unreadable"], unreadableReset: true });
   };
 
   const requireOn = (): { api: SyncApi; keys: SyncKeys } => {
@@ -579,7 +604,10 @@ export const createSyncRuntime = (options: RuntimeOptions = {}): SyncRuntime => 
       return;
     }
     // A different code: this device's old sync state means nothing to the new account.
-    if (existing) clearSyncState(kv);
+    if (existing) {
+      clearSyncState(kv);
+      owed = [];
+    }
     writeSecret(kv, secret);
     readDeviceId(kv, newId);
     // A brand-new code has no supporter status yet: don't ask the server for menus it can't have.
@@ -672,6 +700,7 @@ export const createSyncRuntime = (options: RuntimeOptions = {}): SyncRuntime => 
       keys = null;
       api = null;
       main = null;
+      owed = [];
       poke();
       clearSyncState(kv);
       publish({ kind: "off" });
@@ -692,7 +721,8 @@ export const createSyncRuntime = (options: RuntimeOptions = {}): SyncRuntime => 
           // Kept until the server's answer is known: if the answer is lost, the account
           // may already be under the new code, and forgetting it would lose the account.
           // Other tabs see it and pause their syncing.
-          writeNextSecret(kv, secret, now());
+          const sent = now();
+          writeNextSecret(kv, secret, sent, sent);
           try {
             await on.api.rotate(next);
           } catch (error) {
@@ -703,12 +733,12 @@ export const createSyncRuntime = (options: RuntimeOptions = {}): SyncRuntime => 
               clearNextSecret(kv);
               throw toSyncError(error);
             }
-            const outcome = await rotationOutcome(next);
+            const outcome = await rotationOutcome(next, sent);
             if (outcome !== "moved") {
               if (outcome === "not_moved") clearNextSecret(kv);
               // Unknown: the new code stays kept, and checking again settles it. This tab
               // is done with it, so any tab may check from now on (at 0).
-              else writeNextSecret(kv, secret, 0);
+              else writeNextSecret(kv, secret, 0, sent);
               throw new SyncError("offline");
             }
           }
@@ -809,6 +839,8 @@ export const createSyncRuntime = (options: RuntimeOptions = {}): SyncRuntime => 
     if (key === POKE_KEY) return pullNow(true);
     // Another tab started or finished replacing the code: pause, or carry on (SY-8).
     if (key === SYNC_KEY.nextCode) return void activate();
+    // Another tab heard about the account (say, supporter status arrived): look again now.
+    if (key === SYNC_KEY.status) poke();
     if (key.startsWith(SYNC_MENU_PREFIX)) pushSoon();
     if (key.startsWith("sync:")) publish();
   };

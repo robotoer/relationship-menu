@@ -66,6 +66,31 @@ describe("loading the runtime, and stopping", () => {
     expect(calls).toEqual(["start", "turnOn"]);
   });
 
+  test("a start that failed is tried again by \"sync now\" and by starting again", async () => {
+    writeSecret(localStorage, new Uint8Array(32).fill(2));
+    const calls: string[] = [];
+    let failures = 1;
+    const runtime = {
+      start: async () => {
+        calls.push("start");
+        if (failures-- > 0) throw new Error("support check failed");
+      },
+      stop: () => void calls.push("stop"),
+      getState: () => ({ kind: "off" as const }),
+      subscribe: () => () => undefined,
+      authorizer: () => null,
+      syncNow: () => void calls.push("syncNow"),
+    } as unknown as SyncRuntime;
+    const load = vi.fn(async () => ({ createSyncRuntime: () => runtime }) as unknown as typeof import("./runtime"));
+    const sync = createLazySyncRuntime({ load });
+    await expect(sync.start()).rejects.toThrow();
+    sync.syncNow();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(calls).toEqual(["start", "stop", "start", "syncNow"]);
+    await sync.start(); // already going again: nothing more
+    expect(calls).toEqual(["start", "stop", "start", "syncNow"]);
+  });
+
   test("stopping before the idle load cancels it, and starting again works", async () => {
     const { load } = fakeModule();
     const sync = createLazySyncRuntime({ load });

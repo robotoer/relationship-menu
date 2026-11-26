@@ -842,6 +842,48 @@ describe("SY-8: the server's answer to a code replacement is lost", () => {
     expect(await accountIdOf(tab1)).toBe(newId);
   });
 
+  test("a check made while the move may still be applied late doesn't count: the code is kept until it's settled", async () => {
+    const a = makeDevice(server);
+    a.save(menu(ID(1), "Ours"));
+    const oldId = await supporter(server, a);
+    await settle();
+    // The connection drops, but the server applies the move a minute later.
+    const real = server.fetch;
+    vi.spyOn(server, "fetch").mockImplementation(async (input, init) => {
+      if (String(input).endsWith("/v1/account/rotate")) {
+        setTimeout(() => void real(input, init), 60_000);
+        throw new TypeError("connection reset");
+      }
+      return real(input, init);
+    });
+    await expect(a.runtime.replaceCode()).rejects.toMatchObject({ reason: "offline" });
+    // The new account doesn't exist yet: "not moved" for now, but the code is kept.
+    expect(a.kv.getItem(SYNC_KEY.nextCode)).not.toBeNull();
+    await settle(40); // the move lands after a minute; checks every 30 s
+    const newId = await accountIdOf(a);
+    expect(newId).not.toBe(oldId);
+    expect(server.accounts.get(newId)?.status).toBe("active");
+    expect(server.liveMenuIds(newId)).toEqual([ID(1)]);
+  });
+
+  test("and once it can no longer be applied, \"not moved\" is believed: the old code carries on", async () => {
+    const a = makeDevice(server);
+    a.save(menu(ID(1), "Ours"));
+    const oldId = await supporter(server, a);
+    await settle();
+    const words = await a.runtime.syncCode();
+    const real = server.fetch;
+    vi.spyOn(server, "fetch").mockImplementation(async (input, init) => {
+      if (String(input).endsWith("/v1/account/rotate")) throw new TypeError("never sent");
+      return real(input, init);
+    });
+    await expect(a.runtime.replaceCode()).rejects.toMatchObject({ reason: "offline" });
+    await settle(200); // well past 6 minutes
+    expect(a.kv.getItem(SYNC_KEY.nextCode)).toBeNull();
+    expect(await a.runtime.syncCode()).toEqual(words);
+    expect(server.accounts.get(oldId)?.status).toBe("active");
+  });
+
   test("a clear refusal: nothing moved, and the old code stays", async () => {
     const a = makeDevice(server);
     await supporter(server, a);
@@ -1017,6 +1059,27 @@ describe("the code changing while a request is in flight", () => {
   });
 });
 
+describe("SY-17: what the status line couldn't store is written later", () => {
+  test("an unreadable record found while storage was full still shows up afterwards", async () => {
+    const a = makeDevice(server);
+    a.save(menu(ID(1), "Ours"));
+    const accountId = await supporter(server, a);
+    await settle();
+    // The server's copy is damaged (and served as a newer version).
+    const account = server.accounts.get(accountId)!;
+    const row = account.menus.get(ID(1))!;
+    account.seq += 1;
+    account.menus.set(ID(1), { ...row, version: row.version + 1, seq: account.seq, ciphertext: row.ciphertext.slice(0, -8) + "AAAAAAAA" });
+    a.kv.failKeys.add(SYNC_KEY.runtime);
+    a.runtime.syncNow();
+    await settle();
+    a.kv.failKeys.clear();
+    a.runtime.syncNow();
+    await settle();
+    expect(a.runtime.getState()).toMatchObject({ kind: "on", unreadable: 1, notices: ["unreadable"] });
+  });
+});
+
 describe("SY-31: sync keeps going when its own status can't be stored", () => {
   test("a full storage for the status line doesn't stop pushes", async () => {
     const a = makeDevice(server);
@@ -1039,6 +1102,53 @@ describe("SY-31: sync keeps going when its own status can't be stored", () => {
       await realPause();
     }
     expect(server.liveMenuIds(accountId)).toEqual([ID(1)]);
+  });
+});
+
+describe("SY-25: news from another tab", () => {
+  test("supporter status heard in another tab wakes the syncing tab at once", async () => {
+    const shared = new MemoryStore();
+    const lock = fakeLock();
+    const tab1 = makeDevice(server, new TabStore(shared), lock.lead);
+    const tab2 = makeDevice(server, new TabStore(shared), lock.lead);
+    await tab1.runtime.start();
+    await tab1.runtime.turnOn();
+    await tab2.runtime.start();
+    tab1.save(menu(ID(1), "Waiting for support"));
+    await settle(2);
+    const accountId = await accountIdOf(tab1);
+    server.setStatus(accountId, "active");
+    // Tab 2 (back from Checkout, say) hears it; tab 1 is the one syncing.
+    await tab2.runtime.refreshAccount();
+    await settle(3); // well under the 5-minute wait
+    expect(server.liveMenuIds(accountId)).toEqual([ID(1)]);
+  });
+});
+
+describe("SY-33: a round that failed part-way still tells the editor", () => {
+  test("when storing the cursor fails, the changed menu is announced once the round succeeds", async () => {
+    const a = makeDevice(server);
+    a.save(menu(ID(1), "Ours", "v1"));
+    await supporter(server, a);
+    await settle();
+    const b = makeDevice(server);
+    await b.runtime.start();
+    await b.runtime.restore((await a.runtime.syncCode()).join(" "));
+    await settle();
+    const announced: string[] = [];
+    b.runtime.onMenusChanged((ids) => announced.push(...ids));
+    a.save(menu(ID(1), "Ours", "v2"));
+    await settle();
+    b.kv.failKeys.add(SYNC_KEY.cursor);
+    b.runtime.syncNow();
+    await settle(3);
+    expect(b.menus()[0]).toMatchObject({ encoded: "v1" }); // all or nothing
+    b.kv.failKeys.clear();
+    await settle(10);
+    b.runtime.syncNow();
+    await settle();
+    expect(b.menus()[0]).toMatchObject({ encoded: "v2" });
+    expect(announced).toContain(ID(1));
   });
 });
 

@@ -86,6 +86,7 @@ export const createLazySyncRuntime = (
   };
 
   let started = false;
+  let idleScheduled = false;
   /** Bumps on stop: an idle load scheduled before it doesn't happen. */
   let attempt = 0;
 
@@ -135,18 +136,25 @@ export const createLazySyncRuntime = (
     ...local.hooks,
 
     start: async () => {
-      if (started) return;
+      // Started and loading (or loaded, or waiting for idle): nothing to do. After a
+      // failed start, starting again tries again.
+      if (started && (loading || idleScheduled)) return;
       started = true;
       const at = attempt;
-      if (syncIsOn(kv)) await ready();
-      else
+      if (syncIsOn(kv)) {
+        await ready();
+      } else if (!idleScheduled) {
+        idleScheduled = true;
         whenIdle(() => {
+          idleScheduled = false;
           if (at === attempt && started) void ready().catch(() => undefined);
         });
+      }
     },
     stop: () => {
       attempt++;
       started = false;
+      idleScheduled = false; // that idle load is now ignored (attempt changed)
       runtime?.stop();
       // A later start (or action) starts the runtime again.
       loading = null;
@@ -169,9 +177,7 @@ export const createLazySyncRuntime = (
     checkout: later("checkout") as SyncRuntime["checkout"],
     manageSubscription: later("manageSubscription") as SyncRuntime["manageSubscription"],
     refreshAccount: later("refreshAccount") as SyncRuntime["refreshAccount"],
-    syncNow: () => {
-      if (runtime) runtime.syncNow();
-      else void ready().then((r) => r.syncNow(), () => undefined);
-    },
+    // Through ready(): a runtime whose start failed is started again first.
+    syncNow: () => void ready().then((r) => r.syncNow(), () => undefined),
   };
 };
