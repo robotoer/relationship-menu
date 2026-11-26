@@ -154,6 +154,7 @@ export type AnalyticsEvent =
   | { name: "conversation_comment_added"; params: { target: "topic" | "area" } }
   | { name: "conversation_part_done"; params: { part_count: number } }
   | { name: "conversation_tips_opened"; params?: undefined }
+  | { name: "conversation_settings_changed"; params: { setting: "include" | "order" | "menu_notes" | "prompts" } }
   | { name: "conversation_deleted"; params?: undefined }
   // Live sharing (docs/spec/notifications.md): counts only, never ids
   | { name: "live_shared"; params?: undefined }

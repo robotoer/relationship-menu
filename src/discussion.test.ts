@@ -1,6 +1,9 @@
 import { compareMenus } from "./data-comparer";
 import {
+  agendaFor,
   buildAgenda,
+  DEFAULT_AGENDA,
+  topicLabel,
   discussionKey,
   discussionSummary,
   emptyRecord,
@@ -116,5 +119,32 @@ describe("discussionSummary (DS-7)", () => {
     expect(text).toContain("## Boundary");
     expect(text).toContain("  - Notes: Ben is sure. Ana understands.");
     expect(text).toContain(`_${agenda.length - 2} topics not discussed yet._`);
+  });
+});
+
+describe("agendaFor: what's on the agenda, and in which order (CV-15, CV-17)", () => {
+  const items = (options = DEFAULT_AGENDA) => agendaFor(comparison, options).map((t) => t.item);
+  const include = (on: Partial<typeof DEFAULT_AGENDA.include>) => ({ ...DEFAULT_AGENDA, include: { ...DEFAULT_AGENDA.include, ...on } });
+
+  it("by default is exactly the agenda the app has always suggested", () => {
+    expect(agendaFor(comparison, DEFAULT_AGENDA)).toEqual(buildAgenda(comparison));
+  });
+
+  it("can include what you agree on: every shared want, and items you're both unsure about", () => {
+    const agenda = agendaFor(comparison, include({ "shared-want": true, "shared-maybe": true }));
+    expect(agenda.map((t) => t.item)).toEqual(["Kissing", "Hiking", "Pets", "Cuddling", "Travel", "Kids", "Marriage"]);
+    const pets = agenda.find((t) => t.item === "Pets")!;
+    expect(pets.bucket).toBe("shared-maybe");
+    expect(topicLabel(pets).label).toBe("Both unsure");
+    expect(pets.prompts[0]).toMatch(/unsure|know or feel|try it/);
+  });
+
+  it("can leave kinds out, and choose how many shared wants to warm up with", () => {
+    expect(items(include({ talk: false, open: false }))).toEqual(["Kissing", "Hiking", "Kids"]);
+    expect(items({ ...DEFAULT_AGENDA, warmUp: 0 })).toEqual(["Cuddling", "Travel", "Kids", "Marriage"]);
+  });
+
+  it("can put the hardest first, ending on what you share", () => {
+    expect(items({ ...DEFAULT_AGENDA, order: "hardest" })).toEqual(["Kids", "Cuddling", "Travel", "Marriage", "Kissing", "Hiking"]);
   });
 });

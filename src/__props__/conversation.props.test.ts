@@ -23,6 +23,7 @@ import {
   conversationAgenda,
   updateAreaNotes,
   updatePart,
+  updateSettings,
   updateTopic,
 } from "../conversation";
 
@@ -52,6 +53,20 @@ const edit: fc.Arbitrary<Edit> = fc.oneof(
     return list.length ? deleteComment(c, { topic: "k1" }, list[0].id, now) : c;
   }),
   fc.string({ maxLength: 6 }).map((t) => (c: Conversation, now: number) => setTitle(c, t, now)),
+  // Settings are shared and merge like the rest: the newer change wins (CV-18).
+  fc.record({ hide: fc.boolean(), wants: fc.boolean(), hardest: fc.boolean() }).map(
+    ({ hide, wants, hardest }) =>
+      (c: Conversation, now: number) =>
+        updateSettings(
+          c,
+          {
+            menuNotes: hide ? "hide" : "highlight",
+            order: hardest ? "hardest" : "gentle",
+            include: { ...(c.settings?.include ?? { conflict: true, talk: true, open: true, degree: true, "shared-maybe": false, "shared-want": false, "shared-no": false }), "shared-want": wants },
+          },
+          now
+        )
+  ),
   fc.constant((c: Conversation, now: number) => replaceMenu(c, 1, ben2, now)),
   fc.boolean().map((done) => (c: Conversation, now: number) => (c.parts[0] ? updatePart(c, c.parts[0].id, { done }, now) : c)),
   fc.constant((c: Conversation, now: number) => {

@@ -608,3 +608,115 @@
     display: none;
   }
 }
+
+/* Shaping the agenda (CV-15…CV-17). */
+.conv-settings {
+  margin: 1.5rem 0 0.5rem;
+  padding: 0.6rem 1rem 0.9rem;
+  background: var(--c-shade);
+  border: var(--px) solid #000;
+  box-shadow: var(--drop);
+}
+.conv-settings > summary {
+  cursor: pointer;
+  list-style-position: outside;
+}
+.conv-settings > summary h2 {
+  display: inline;
+  margin: 0;
+}
+.conv-settings[open] > summary {
+  margin-bottom: 0.5rem;
+}
+.conv-settings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 0.5rem 1.5rem;
+}
+.conv-settings fieldset {
+  min-width: 0;
+  margin: 0 0 0.75rem;
+  padding: 0;
+  border: none;
+}
+.conv-settings legend {
+  margin-bottom: 0.4rem;
+  padding: 0;
+  font-family: var(--font-pixel);
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  color: var(--c-cyan);
+}
+.conv-setting {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  min-height: 40px;
+  padding: 0.2rem 0;
+  cursor: pointer;
+}
+.conv-setting input {
+  flex: none;
+  margin-top: 0.3rem;
+}
+.conv-setting > span {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.conv-setting-title {
+  display: block;
+}
+.conv-setting small {
+  color: var(--c-mist);
+  font-size: 1rem;
+}
+.conv-setting-count {
+  color: var(--c-mist);
+}
+.conv-setting-inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.4rem;
+}
+.conv-has-notes {
+  color: var(--c-cyan);
+  font-family: system-ui, sans-serif;
+}
+
+/* Notes from each person's menu, when highlighted or hidden (CV-16). */
+.conv-menu-notes {
+  margin-top: 0.75rem;
+}
+.conv-menu-notes h2 {
+  margin: 0 0 0.3rem;
+  font-size: 0.6rem;
+}
+.conv-menu-notes ul {
+  margin: 0;
+  padding: 0 0 0 0.75rem;
+  list-style: none;
+  border-left: var(--px) solid var(--c-mist);
+}
+.conv-menu-notes.highlight {
+  padding: 0.5rem 0.75rem;
+  background: #eefcfd;
+  border: 2px solid var(--c-cyan);
+}
+.conv-menu-notes.highlight ul {
+  border-left-color: var(--c-cyan);
+  font-size: 1.2rem;
+}
+.conv-menu-notes-hidden {
+  margin: 0.75rem 0 0;
+}
+.conv-menu-notes-hidden button {
+  font-family: var(--font-body);
+  font-size: 1.1rem;
+  text-transform: none;
+  letter-spacing: normal;
+  border-style: dashed;
+  box-shadow: none;
+}

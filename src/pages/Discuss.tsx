@@ -15,7 +15,7 @@ import { Link } from "react-router-dom";
 import { track } from "../analytics";
 import { platform } from "../platform";
 import { COMPARE_VALUE_LABELS, compareValueClass } from "../components/MenuItemCompare";
-import { GROUND_RULES, OUTCOMES, Outcome, Topic, TOPIC_KINDS } from "../discussion";
+import { GROUND_RULES, OUTCOMES, Outcome, Topic, topicLabel } from "../discussion";
 import {
   Conversation,
   TopicEntry,
@@ -29,6 +29,7 @@ import {
   partsWithTopics,
   saveCoachGuide,
   setParts,
+  settingsOf,
   setTitle,
   suggestParts,
   unreadComments,
@@ -38,6 +39,7 @@ import {
 import { tipFor, tipsIn } from "../conversation-tips";
 import { AreaPanel, Comments, DictationHint, TipCard, TipsPanel, WhoAmI } from "../components/ConversationParts";
 import { LivePanel } from "../live/LivePanel";
+import { AgendaSettings, MenuNotes, hasMenuNotes } from "../components/AgendaSettings";
 import type { Live } from "../live/useLive";
 
 type View = { kind: "intro" } | { kind: "topic"; part: number; index: number } | { kind: "summary" };
@@ -91,9 +93,13 @@ export const DiscussPage = ({
   const heading = useRef<HTMLHeadingElement>(null);
   const record = conversation;
 
-  const agenda = useMemo(() => conversationAgenda(conversation), [conversation.menus]); // eslint-disable-line react-hooks/exhaustive-deps
+  const agenda = useMemo(() => conversationAgenda(conversation), [conversation.menus, conversation.settings]); // eslint-disable-line react-hooks/exhaustive-deps
   // Until someone changes the plan, it's the suggested one (saved with the first change).
-  const suggested = useMemo(() => suggestParts(agenda, 6, conversation.createdAt), [agenda, conversation.createdAt]);
+  const settings = settingsOf(conversation);
+  const suggested = useMemo(
+    () => suggestParts(agenda, 6, conversation.createdAt, undefined, settings.order),
+    [agenda, conversation.createdAt, settings.order]
+  );
   const plan = conversation.parts.length > 0 ? conversation.parts : suggested;
   const parts = useMemo(() => partsWithTopics(plan, agenda), [plan, agenda]);
   const areas = useMemo(() => agendaAreas(conversation, agenda), [conversation.menus, agenda]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -165,7 +171,13 @@ export const DiscussPage = ({
     return (
       <div className="discuss-page">
         <h1>Talk it through</h1>
-        <p>There's nothing to discuss: you agree on everything you've both answered. Enjoy that.</p>
+        <p>
+          Nothing is on the agenda.{" "}
+          {settings.updatedAt === 0
+            ? "You agree on everything you've both answered. Enjoy that, or add what you share below."
+            : "Choose what to talk about below."}
+        </p>
+        <AgendaSettings conversation={conversation} planSaved={conversation.parts.length > 0} onChange={onChange} defaultOpen />
         <Link className="button" to={compareLink}>
           Back to the comparison
         </Link>
@@ -174,9 +186,10 @@ export const DiscussPage = ({
   }
 
   if (view.kind === "intro") {
-    const byKind = Object.entries(TOPIC_KINDS)
-      .map(([kind, info]) => ({ ...info, count: agenda.filter((t) => t.kind === kind).length }))
-      .filter((k) => k.count > 0);
+    const byKind = [...new Set(agenda.map(topicLabel))].map((info) => ({
+      ...info,
+      count: agenda.filter((t) => topicLabel(t) === info).length,
+    }));
     const next = firstOpen();
     return (
       <div className="discuss-page">
@@ -191,8 +204,11 @@ export const DiscussPage = ({
         <p className="discuss-lead">
           {names.join(" & ")}: {agenda.length} topic{agenda.length === 1 ? "" : "s"}
           {parts.length > 1 ? ` in ${parts.filter((p) => p.part).length} parts` : ""}, about{" "}
-          {Math.max(5, agenda.length * 3)} minutes in all. Start with something you share, then work towards
-          the harder ones. You can stop any time; everything is saved in this browser.
+          {Math.max(5, agenda.length * 3)} minutes in all.{" "}
+          {settings.order === "hardest"
+            ? "Start with the hardest, while you're fresh, and end on what you share."
+            : "Start with something you share, then work towards the harder ones."}{" "}
+          You can stop any time; everything is saved in this browser.
         </p>
         <div className="conv-header-row">
           <label className="conv-title">
@@ -248,6 +264,8 @@ export const DiscussPage = ({
             Back to the comparison
           </Link>
         </div>
+
+        <AgendaSettings conversation={conversation} planSaved={conversation.parts.length > 0} onChange={onChange} />
 
         <h2>The plan</h2>
         <p className="conv-hint">
@@ -315,6 +333,12 @@ export const DiscussPage = ({
                     <li key={t.key}>
                       <span className={`swatch-dot kind-${t.kind}`} aria-hidden="true" /> {t.item}{" "}
                       <span className="discuss-summary-group">· {t.group}</span>
+                      {settings.menuNotes === "highlight" && hasMenuNotes(t) && (
+                        <span className="conv-has-notes" title="Someone wrote a note on their menu">
+                          {" "}
+                          ✎<span className="sr-only"> has menu notes</span>
+                        </span>
+                      )}
                       {parts.filter((x) => x.part).length > 1 && (
                         <select
                           aria-label={`Move "${t.item}" to another part`}
@@ -552,7 +576,7 @@ export const DiscussPage = ({
 
       <article className={`discuss-card kind-${topic.kind}`}>
         <p className="discuss-kind">
-          {TOPIC_KINDS[topic.kind].label} · {topic.group}
+          {topicLabel(topic).label} · {topic.group}
         </p>
         <h1 tabIndex={-1} ref={heading}>
           {topic.item}
@@ -564,10 +588,15 @@ export const DiscussPage = ({
               <span>
                 <strong>{names[i]}</strong>: {COMPARE_VALUE_LABELS[compareValueClass(v)]}
               </span>
-              {topic.notes?.[i] && <span className="discuss-their-note">"{topic.notes[i]}"</span>}
+              {settings.menuNotes === "show" && topic.notes?.[i] && (
+                <span className="discuss-their-note">"{topic.notes[i]}"</span>
+              )}
             </li>
           ))}
         </ul>
+        {settings.menuNotes !== "show" && (
+          <MenuNotes key={topic.key} topic={topic} names={names} view={settings.menuNotes} />
+        )}
 
         {record.coach?.topics[topic.key] && (
           <section className="discuss-coach" aria-label="Suggested by the AI coach">
@@ -580,12 +609,16 @@ export const DiscussPage = ({
             </ul>
           </section>
         )}
-        <h2>{record.coach?.topics[topic.key] ? "More to talk about" : "Talk about"}</h2>
-        <ul className="discuss-prompts">
-          {topic.prompts.map((p) => (
-            <li key={p}>{p}</li>
-          ))}
-        </ul>
+        {settings.prompts && (
+          <>
+            <h2>{record.coach?.topics[topic.key] ? "More to talk about" : "Talk about"}</h2>
+            <ul className="discuss-prompts">
+              {topic.prompts.map((p) => (
+                <li key={p}>{p}</li>
+              ))}
+            </ul>
+          </>
+        )}
         <TipCard tip={tipFor(topic.kind, topic.key)} />
 
         <label className="discuss-field">

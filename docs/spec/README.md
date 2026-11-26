@@ -352,6 +352,10 @@ sequenceDiagram
 | CV-12 | The summary (copy, download) has outcomes first, then each part and area with everyone's area notes, topic notes, next steps and comments. | Test |
 | CV-13 | Tips for hard conversations by stage (before, opening, listening, when heated, Off limits and boundaries, closing, between conversations), each with its sources, adapted from the Gottman Institute, PREP, Imago Dialogue, NVC, EFT, DBT skills and consent education ([evidence notes](conversation-tips.md)). Each topic shows one tip fitting its kind. No statistics, no therapy claims, nothing that nudges anyone off an Off limits answer. | Test |
 | CV-14 | Every text box is a plain field, so the device's own dictation works in it; each view says how to dictate on this device (keyboard microphone, Fn twice on a Mac, Windows + H, Search + D on a Chromebook). Nothing is recorded or transcribed by the app. | Test |
+| CV-15 | **Shape the agenda:** include or leave out each kind of item, with how many there are: Conflict, Talk about it, Not answered yet, Want it in different amounts, and what you agree on (Everyone wants it, Everyone's unsure, Shared limit); with "Everyone wants it" left out, choose how many to warm up with (0–3). Agreed items get their own label and prompts ("Both unsure", "Shared limit"). The defaults give exactly the agenda conversations had before settings existed. | [Unit](../../src/discussion.test.ts), Test |
+| CV-16 | **Notes from each person's menu** on a topic can be shown under each answer, highlighted (set apart on the topic, and marked ✎ in the plan), or hidden until someone presses "Show what … wrote". | Test |
+| CV-17 | **Order and prompts:** easiest areas first (shared ground first) or hardest first (conflicts first, ending on what you share), for both the agenda and the suggested parts; suggested questions can be turned off (the AI coach's suggestions still show if you asked for them). | [Unit](../../src/conversation.test.ts), Test |
+| CV-18 | The settings belong to the conversation: they travel in its link and merge like the rest (the newer change wins, CV-8), so everyone sees the same agenda. Once the parts have been changed by hand, topics a setting adds go to "Not planned yet" and topics it removes leave their parts. Anything malformed is reset to the default (CV-9). | [Property](../../src/__props__/conversation.props.test.ts), Unit |
 
 Live sharing through the server, with push notifications for comments, is proposed in [notifications.md](notifications.md) (NT-1…NT-62).
 
@@ -459,7 +463,7 @@ flowchart LR
 | Comparing | CP-1…CP-5, CP-12, CP-14 | Property (against a naive reference) | compare props |
 | Comparing | CP-22, CP-24, CP-25, CP-30…CP-34 | Property + Test | [`insights-discussion.props`](../../src/__props__/insights-discussion.props.test.ts), `compare-insights.test.ts`, `Compare.test.tsx`, `e2e/discuss.spec.ts` |
 | Discussing | DS-1…DS-8 | Property (DS-2, DS-3) + Test | `discussion.test.ts`, `Discuss.test.tsx`, `e2e/discuss.spec.ts` |
-| Conversations | CV-1…CV-14 | Property (CV-8, CV-9) + Test | `__props__/conversation.props.test.ts`, `conversation.test.ts`, `Talk.test.tsx`, `Discuss.test.tsx`, `ConversationList.test.tsx`, `e2e/conversation.spec.ts` |
+| Conversations | CV-1…CV-18 | Property (CV-8, CV-9) + Test | `__props__/conversation.props.test.ts`, `conversation.test.ts`, `Talk.test.tsx`, `Discuss.test.tsx`, `ConversationList.test.tsx`, `e2e/conversation.spec.ts` |
 | Just for fun | IN-1…IN-13 | Property (IN-2, IN-3, IN-4, IN-6, IN-7, IN-10…IN-13) + Test; Review (IN-1, IN-8) | [`menu-insights.props`](../../src/__props__/menu-insights.props.test.ts), [`menu-loot.props`](../../src/__props__/menu-loot.props.test.ts), `menu-insights.test.ts`, `menu-loot.test.ts`, `MenuInsights.test.tsx` |
 | Comparing | CP-13 | Test (e2e) | `e2e/` |
 | Pages, privacy, accessibility | NV, PR, AX | Test / Review | see each table |

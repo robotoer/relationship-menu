@@ -51,6 +51,7 @@ Google Analytics is loaded only on `wantsandwonts.com` (until November 2026, `re
 | `conversation_comment_added` | A comment was left for later | `target`: `topic`, `area` |
 | `conversation_part_done` | A part of a conversation was marked done | `part_count` |
 | `conversation_tips_opened` | The conversation tips were opened | — |
+| `conversation_settings_changed` | A conversation's agenda is shaped (CV-15…CV-17) | `setting`: `include`, `order`, `menu_notes`, `prompts` |
 | `conversation_deleted` | A conversation was deleted from the Library | — |
 | `live_shared` | A supporter started sharing a conversation live | — |
 | `live_joined` | Someone opened a live invite | `outcome`: `ok`, `expired`, `full`, `gone`, `offline`, `failed` |
@@ -90,6 +91,7 @@ GA only shows event parameters in reports after they're registered.
    - `template_id`, `link_type`, `source`, `filter`, `group_name`, `sort`, `reason`, `has_person`, `own_menu`, `opened_as_copy`, `percent_answered`
    - `button_id`, `edit_kind`, `error_type`, `error_source`, `metric_name`, `from`, `plan`
    - `how`, `method` (supporter sync: how sync was turned on, and how a device joined)
+   - `setting` (which conversation setting was changed)
 
    Then, on the **Custom metrics** tab, add `item_count`, `menu_count`, `conflict_count`, `metric_value` and `amount_usd` (unit: Standard).
 

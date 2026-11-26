@@ -10,9 +10,12 @@ import {
   newConversation,
   parseConversation,
   partsWithTopics,
+  settingsOf,
   suggestParts,
   updateAreaNotes,
+  updateSettings,
   updateTopic,
+  mergeConversations,
 } from "./conversation";
 import { dictationHint } from "./dictation";
 import { TIPS, TIP_SOURCES, tipFor } from "./conversation-tips";
@@ -136,5 +139,46 @@ describe("conversation tips (CV-13)", () => {
   it("each kind of topic gets a fitting tip, the same one each time", () => {
     expect(tipFor("conflict", "a").stage).toMatch(/boundaries|heated/);
     expect(tipFor("explore", "k")).toBe(tipFor("explore", "k"));
+  });
+});
+
+describe("conversation settings (CV-15…CV-18)", () => {
+  const c = newConversation([ana, ben], 1000, "AAAAAAAAAAAAAAAAAAAAAA");
+
+  it("start as the agenda conversations have always had, until someone changes them", () => {
+    expect(c.settings).toBeUndefined();
+    expect(settingsOf(c)).toMatchObject({ menuNotes: "show", prompts: true, order: "gentle", warmUp: 2 });
+    // Two shared wants to start, then every difference, conflict and open item.
+    const items = conversationAgenda(c).map((t) => t.item);
+    expect(items.slice(0, 2)).toEqual(["Hugs", "Walks"]);
+    expect(items).toEqual(expect.arrayContaining(["Thing 0", "Kids", "Moving"]));
+  });
+
+  it("change what's on the agenda, including what you agree on", () => {
+    const noWarmUp = updateSettings(c, { warmUp: 0 }, 2000);
+    expect(conversationAgenda(noWarmUp).map((t) => t.item)).not.toContain("Hugs");
+    const withWants = updateSettings(noWarmUp, { include: { ...settingsOf(c).include, "shared-want": true } }, 2001);
+    expect(conversationAgenda(withWants).map((t) => t.item)).toEqual(expect.arrayContaining(["Hugs", "Walks"]));
+    const noDifferences = updateSettings(c, { include: { ...settingsOf(c).include, talk: false, degree: false } }, 2000);
+    expect(conversationAgenda(noDifferences).every((t) => t.kind !== "explore")).toBe(true);
+    expect(withWants.updatedAt).toBe(2001);
+  });
+
+  it("put the hardest areas first when asked", () => {
+    let n = 0;
+    const hardest = updateSettings(c, { order: "hardest" }, 2000);
+    const parts = suggestParts(conversationAgenda(hardest), 6, 1, () => `p${n++}`.padEnd(22, "x"), "hardest");
+    const agenda = conversationAgenda(hardest);
+    expect(agenda.find((t) => t.key === parts[0].topicKeys[0])!.group).toBe("Hard");
+  });
+
+  it("travel with the conversation, are cleaned when read, and the newer change wins a merge", () => {
+    const mine = updateSettings(c, { menuNotes: "hide" }, 2000);
+    const theirs = updateSettings(c, { prompts: false }, 3000);
+    expect(settingsOf(mergeConversations(mine, theirs))).toMatchObject({ prompts: false, menuNotes: "show" });
+    expect(mergeConversations(mine, theirs)).toEqual(mergeConversations(theirs, mine));
+    const read = parseConversation(JSON.parse(JSON.stringify({ ...mine, settings: { ...mine.settings, menuNotes: "shout", warmUp: 99, include: { conflict: "yes", "shared-no": true } } })))!;
+    expect(read.settings).toMatchObject({ menuNotes: "show", warmUp: 5, include: { conflict: true, "shared-no": true } });
+    expect(parseConversation(JSON.parse(JSON.stringify(mine)))!.settings).toEqual(mine.settings);
   });
 });
