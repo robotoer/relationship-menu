@@ -22,6 +22,7 @@ import { track } from "../analytics";
 import { Link } from "react-router-dom";
 import { useAfterSave } from "../persistence";
 import { HomeScreenHint } from "../components/HomeScreenHint";
+import { platform } from "../platform";
 
 /**
  * Renders an input element for the menu title.
@@ -475,9 +476,9 @@ export const MenuPage = ({
         <ShareDialog
           title={title}
           personName={person?.name?.trim() || undefined}
-          menuUrl={`${window.location.origin}/menu?encoded=${encodeURIComponent(menuEncoded)}`}
+          menuUrl={`${platform().publicOrigin}/menu?encoded=${encodeURIComponent(menuEncoded)}`}
           menuEncoded={menuEncoded}
-          templateUrl={`${window.location.origin}/menu?encoded=${encodeURIComponent(templateEncoded)}`}
+          templateUrl={`${platform().publicOrigin}/menu?encoded=${encodeURIComponent(templateEncoded)}`}
           templateEncoded={templateEncoded}
           onClose={() => setShareOpen(false)}
         />

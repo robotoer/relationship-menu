@@ -8,6 +8,7 @@ import "./Landing.css";
 import { MENU_TEMPLATES } from "../templates";
 import { LandingButton, track } from "../analytics";
 import { HomeScreenHint } from "../components/HomeScreenHint";
+import { platform } from "../platform";
 
 /** Analytics: which landing page button was used. */
 const clicked = (button_id: LandingButton) => () => track("landing_button_clicked", { button_id });
@@ -226,6 +227,7 @@ export const LandingPage = ({ savedCount = 0 }: { savedCount?: number }) => {
         </p>
       </section>
 
+      {platform().support && (
       <section className="landing-section" aria-labelledby="support">
         <h2 id="support">Free, private, and kept that way by supporters</h2>
         <p>
@@ -237,6 +239,7 @@ export const LandingPage = ({ savedCount = 0 }: { savedCount?: number }) => {
           . Supporters will get encrypted sync between devices as thanks.
         </p>
       </section>
+      )}
 
       <section className="landing-cta">
         <h2>Ready, player one?</h2>

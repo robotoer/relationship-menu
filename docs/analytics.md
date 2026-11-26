@@ -45,6 +45,13 @@ Google Analytics is loaded only on `wantsandwonts.com` (until November 2026, `re
 | `discussion_summary_exported` | The summary is copied, downloaded or printed | `method`: `copy`, `download`, `print` |
 | `coach_requested` | Everyone agreed and "Prepare questions" was pressed (AI coach) | `topic_count`, `people` |
 | `coach_result` | The AI coach answered | `outcome`: `ok`, `unavailable`, `not_supporter`, `quota`, `busy`, `declined`, `failed` |
+| `conversation_saved` | A conversation was saved to the Library | `source`: `compare`, `talk` |
+| `conversation_shared` | Someone sent a conversation link | `method`: `share`, `copy` |
+| `conversation_merged` | A conversation link was opened and merged into this browser's copy | `comments`, `notes`, `menus`: how many were new |
+| `conversation_comment_added` | A comment was left for later | `target`: `topic`, `area` |
+| `conversation_part_done` | A part of a conversation was marked done | `part_count` |
+| `conversation_tips_opened` | The conversation tips were opened | — |
+| `conversation_deleted` | A conversation was deleted from the Library | — |
 | `ai_prep_interest` | "Prepare this conversation with AI (coming soon)" is clicked: measures interest, nothing is sent | |
 | `library_searched` | The Library is searched (once per visit; never the text) | |
 | `library_sorted` | The Library sort is changed | `sort`: `edited`, `created`, `title` |

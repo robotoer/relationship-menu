@@ -36,14 +36,15 @@ import {
   trackOnce,
 } from "./analytics";
 import { SupportPage } from "./pages/Support";
+import { platform } from "./platform";
+import { TalkRoute } from "./pages/Talk";
+import { SaveComparison } from "./components/SaveComparison";
 import { SyncSettingsRoute } from "./pages/SyncSettingsRoute";
 import { PairPage } from "./pages/Pair";
-import { DiscussPage } from "./pages/Discuss";
 import { createCoachClient } from "./coach";
 import { sameMenuContent } from "./storage";
 import { isSupporter, useSync } from "./sync/context";
 import { useSyncRuntime } from "./providers/Sync";
-import { buildAgenda, discussionKey } from "./discussion";
 import { ImportPage } from "./pages/Import";
 import { uniqueTitle } from "./menu-titles";
 import { OLD_ORIGIN } from "./handoff/origins";
@@ -679,6 +680,7 @@ const WrappedComparePage = () => {
       onChangeCompared={updateEntries}
       onCompare={() => setCompareClicked(true)}
       discussLink={canCompare ? `/discuss?${menuParams(encodedList)}` : undefined}
+      saveControls={canCompare ? <SaveComparison entries={encodedList} /> : undefined}
     />
   );
 };
@@ -692,20 +694,11 @@ const menuParams = (entries: string[]) => {
   return params.toString();
 };
 
-/** The guided discussion of the menus in the link (spec §7b). */
-const WrappedDiscussPage = () => {
-  const [params] = useSearchParams();
-  const entries = useMemo(() => params.getAll("encoded"), [params]);
-  const valid = useMemo(
-    () => entries.map((e) => decodeCompareSlug(e)).filter((d): d is DecodedCompareSlug => d !== null),
-    [entries]
-  );
-  const agenda = useMemo(
-    () => (valid.length >= 2 ? buildAgenda(compareMenus(valid.map((d) => d.menu))) : []),
-    [valid]
-  );
-  const compareLink = `/compare?${menuParams(entries)}`;
-  // The AI coach is for supporters (docs/spec/coach.md): it signs its requests with sync's keys.
+/**
+ * Conversations and "Talk it through" (spec §7b, §7c), with the AI coach for
+ * supporters (docs/spec/coach.md): it signs its requests with sync's keys.
+ */
+const WrappedTalkRoute = () => {
   const { state } = useSync();
   const runtime = useSyncRuntime();
   // Recomputed whenever sync's state changes, which includes the moment the runtime
@@ -714,26 +707,7 @@ const WrappedDiscussPage = () => {
     const authorize = isSupporter(state) ? runtime?.authorizer() : null;
     return authorize ? createCoachClient({ origin: "", authorize }) : undefined;
   }, [state, runtime]);
-  if (valid.length < 2) {
-    return (
-      <div className="discuss-page">
-        <h1>Talk it through</h1>
-        <p>A discussion needs two or more menus. Add them on the Compare page first.</p>
-        <Link className="button" to={compareLink}>
-          Go to Compare
-        </Link>
-      </div>
-    );
-  }
-  return (
-    <DiscussPage
-      agenda={agenda}
-      names={valid.map((d) => d.person?.name || d.title || "Untitled menu")}
-      recordKey={discussionKey(valid)}
-      compareLink={compareLink}
-      coach={coach}
-    />
-  );
+  return <TalkRoute coach={coach} />;
 };
 
 /**
@@ -780,7 +754,7 @@ export const App = () => {
           { to: "/library", text: "Library" },
           { to: "/menu", text: "New menu" },
           { to: "/compare", text: "Compare" },
-          { to: "/support", text: "Support", state: { supportFrom: "nav" } },
+          ...(platform().support ? [{ to: "/support", text: "Support", state: { supportFrom: "nav" } }] : []),
         ]}
       />
       <Routes>
@@ -788,8 +762,9 @@ export const App = () => {
         <Route path="/library" element={libraryPage} />
         <Route path="/menu" element={menuPage} />
         <Route path="/compare" element={comparePage} />
-        <Route path="/discuss" element={<WrappedDiscussPage />} />
-        <Route path="/support" element={<SupportPage />} />
+        <Route path="/discuss" element={<WrappedTalkRoute />} />
+        <Route path="/talk" element={<WrappedTalkRoute />} />
+        {platform().support && <Route path="/support" element={<SupportPage />} />}
         <Route path="/sync" element={<SyncSettingsRoute />} />
         <Route path="/pair" element={<PairPage />} />
         <Route path="/import" element={<ImportPage />} />

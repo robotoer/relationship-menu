@@ -1,6 +1,8 @@
 .app {
   min-height: 100vh;
-  padding-bottom: 3rem;
+  /* Notches, rounded corners and the home indicator (viewport-fit=cover). */
+  padding: 0 var(--inset-right) calc(3rem + var(--inset-bottom))
+    var(--inset-left);
 }
 
 /* Page container used by every route. */

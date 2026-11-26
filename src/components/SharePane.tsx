@@ -1,5 +1,6 @@
 import { useState } from "react";
 import "./SharePane.css";
+import { platform } from "../platform";
 
 /**
  * Configuragle component representing the sharing of a single line of text.
@@ -41,7 +42,7 @@ export const SharePane = ({
           className="share-button"
           onClick={async () => {
             try {
-              await navigator.clipboard.writeText(value);
+              await platform().copyText(value);
               setCopied(true);
               onCopied?.();
               setTimeout(() => setCopied(false), 1500);

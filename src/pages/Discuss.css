@@ -297,3 +297,279 @@
     flex: 1 1 auto;
   }
 }
+
+/* ---- Conversations (spec §7c) ---- */
+.conv-hint {
+  color: var(--c-mist);
+}
+.conv-notice,
+.conv-unread,
+.conv-menu-updates {
+  padding: 0.6rem 0.9rem;
+  border: var(--px) solid var(--c-cyan);
+  background: var(--c-shade);
+}
+.conv-menu-updates p {
+  margin: 0.25rem 0;
+}
+.conv-header-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem 1.5rem;
+  margin: 1rem 0;
+}
+.conv-title {
+  display: grid;
+  gap: 0.25rem;
+  flex: 1 1 16rem;
+}
+.conv-title input {
+  width: 100%;
+}
+.conv-whoami select {
+  min-height: 40px;
+}
+
+.conv-parts {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+.conv-part {
+  padding: 0.75rem 1rem;
+  background: var(--c-shade);
+  border: var(--px) solid #000;
+  box-shadow: var(--drop);
+}
+.conv-part.done {
+  opacity: 0.8;
+  border-color: var(--c-green);
+}
+.conv-part-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 1rem;
+}
+.conv-part-title {
+  flex: 1 1 14rem;
+  font-weight: bold;
+}
+.conv-part-meta,
+.conv-part-label {
+  color: var(--c-mist);
+}
+.conv-part-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  margin-top: 0.5rem;
+}
+.conv-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 44px;
+}
+.conv-check input {
+  width: 22px;
+  height: 22px;
+}
+.conv-part-topics summary {
+  cursor: pointer;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+.conv-part-topics ul {
+  padding-left: 0.5rem;
+  list-style: none;
+}
+.conv-part-topics li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+  margin: 0.3rem 0;
+}
+.swatch-dot {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  background: var(--c-mist);
+}
+.swatch-dot.kind-celebrate { background: var(--pref-like-to-have); }
+.swatch-dot.kind-explore { background: var(--pref-maybe); }
+.swatch-dot.kind-conflict { background: var(--pref-off-limits); }
+
+.conv-share {
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: var(--px) dashed var(--c-shade);
+}
+
+/* An area: insights, everyone's notes, comments. */
+.conv-area {
+  margin: 1rem 0;
+  padding: 0.5rem 1rem;
+  background: var(--c-shade);
+  border: var(--px) solid #000;
+}
+.conv-area > summary {
+  cursor: pointer;
+  min-height: 44px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 1.2rem;
+}
+.conv-area-label {
+  font-family: var(--font-pixel);
+  font-size: 0.6rem;
+  color: var(--c-cyan);
+}
+.conv-area-status {
+  color: var(--c-mist);
+}
+.conv-insights {
+  padding-left: 1.25rem;
+}
+.conv-insights li {
+  margin: 0.3rem 0;
+}
+.conv-ai-insight {
+  padding: 0.5rem 0.75rem;
+  border-left: var(--px) solid var(--c-cyan);
+}
+.conv-people {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 0.75rem;
+}
+.conv-person-notes {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  border: 2px solid var(--c-slate);
+}
+.conv-person-notes legend {
+  font-weight: bold;
+  color: var(--c-yellow);
+}
+
+/* Comments for later. */
+.conv-comments {
+  margin-top: 1.25rem;
+}
+.conv-comments h3 {
+  margin: 0 0 0.5rem;
+}
+.conv-comments ul {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 0.5rem;
+}
+.conv-comments li {
+  padding: 0.4rem 0.6rem;
+  margin-bottom: 0.4rem;
+  border-left: var(--px) solid var(--c-slate);
+}
+.conv-comments li.conv-comment-new {
+  border-left-color: var(--c-cyan);
+}
+.conv-comment-meta {
+  margin: 0;
+  font-size: 0.95rem;
+  opacity: 0.85;
+}
+.conv-comment-text {
+  margin: 0.2rem 0 0;
+  white-space: pre-wrap;
+}
+.conv-new {
+  color: var(--c-cyan);
+}
+.conv-comments textarea {
+  width: 100%;
+}
+.conv-comment-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+}
+.conv-link-button {
+  margin-left: 0.5rem;
+  min-height: 32px;
+  padding: 0 0.4rem;
+  background: transparent;
+  box-shadow: none;
+  border: none;
+  text-decoration: underline;
+  color: inherit;
+}
+
+/* Tips. */
+.conv-tip {
+  margin: 1rem 0;
+  padding: 0.5rem 0.75rem;
+  border: 2px dashed var(--c-yellow);
+}
+.conv-tip p {
+  margin: 0;
+}
+.conv-tip details summary,
+.conv-tips > summary {
+  cursor: pointer;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+.conv-tip-sources {
+  font-size: 0.95rem;
+  opacity: 0.85;
+}
+.conv-tip-sources a {
+  color: inherit;
+}
+.conv-tips {
+  margin: 1rem 0;
+}
+.conv-tips > summary {
+  font-weight: bold;
+  color: var(--c-yellow);
+}
+.conv-tips ul {
+  padding-left: 1.25rem;
+}
+.conv-tips li {
+  margin: 0.5rem 0;
+}
+.conv-dictation {
+  font-size: 0.95rem;
+}
+.discuss-card .conv-hint,
+.discuss-card .conv-tip,
+.discuss-card .conv-comments li {
+  color: var(--c-ink);
+}
+.discuss-card .conv-tip {
+  border-color: var(--c-orange);
+}
+.discuss-summary-comments {
+  opacity: 0.85;
+}
+
+@media print {
+  .conv-share,
+  .conv-tips,
+  .conv-comment-actions,
+  .conv-comments textarea {
+    display: none;
+  }
+}

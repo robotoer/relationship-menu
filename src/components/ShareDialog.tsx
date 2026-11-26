@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { SharePane } from "./SharePane";
 import "./ShareDialog.css";
 import { openedFromState, track } from "../analytics";
+import { platform } from "../platform";
 
 /**
  * Share dialog for a menu, laid out in the order people actually use the links:
@@ -40,7 +41,7 @@ export const ShareDialog = ({
   };
   const name = title || "this menu";
   const invite = `I made a relationship menu${title ? ` ("${title}")` : ""} for us to fill in. Open this link, mark each item, then send me your menu link: ${templateUrl}`;
-  const canNativeShare = typeof navigator !== "undefined" && !!navigator.share;
+  const { shareText, support } = platform();
 
   // Focus the dialog, keep Tab inside it, close on Escape, restore focus on close.
   useEffect(() => {
@@ -125,7 +126,7 @@ export const ShareDialog = ({
               type="button"
               onClick={async () => {
                 try {
-                  await navigator.clipboard.writeText(invite);
+                  await platform().copyText(invite);
                   setInviteCopied(true);
                   onLinkCopied("invite");
                   setTimeout(() => setInviteCopied(false), 1500);
@@ -136,16 +137,16 @@ export const ShareDialog = ({
             >
               {inviteCopied ? "Copied!" : "Copy invite message"}
             </button>
-            {canNativeShare && (
+            {shareText && (
               <button
                 type="button"
                 onClick={() =>
-                  navigator
-                    .share({ title: "Relationship menu", text: invite })
-                    .then(() => {
-              track("native_share_used");
-              setShared(true);
-            })
+                  shareText({ title: "Relationship menu", text: invite })
+                    .then((done) => {
+                      if (!done) return;
+                      track("native_share_used");
+                      setShared(true);
+                    })
                     .catch(() => {})
                 }
               >
@@ -221,7 +222,7 @@ export const ShareDialog = ({
             />
           </div>
         </details>
-        {shared && (
+        {shared && support && (
           <p className="support-nudge">
             Enjoying Wants &amp; Won'ts?{" "}
             <Link to="/support" state={{ supportFrom: "share" }}>
