@@ -61,6 +61,7 @@ The Chameleon 🦎 stands in when no theme has a score yet, and the Egg 🥚 whe
 | IN-11 | **Loot:** once hatched, an item named *style prefix + theme base + "of" + a quoted Must have* (else the phrase of the streak's theme, or of the animal's). Its lines: the top two themes' scores, up to two Must haves (+3), one Like to have (+1), one Maybe ("Unidentified"), and up to two Off limits ("Immune to", a boundary as armour, never a flaw). "Roll again" changes the words and which items are quoted, nothing else. | Test, [Property](../../src/__props__/menu-loot.props.test.ts) |
 | IN-12 | **Quoting:** only item text is ever quoted, never notes, titles or names. Never a sensitive item: template items flagged in `SENSITIVE_ITEMS` (sex and sexual health, kids, other partners and veto, marriage, past relationships, politics), or own items matching `SENSITIVE_KEYWORDS`. Quotes are cut to 40 characters. The panel is only ever shown in this browser. Phase 3's share card will add a preview before anything leaves it. | Test, [Property](../../src/__props__/menu-loot.props.test.ts) |
 | IN-13 | Level and rarity depend only on *how many* items are answered, never on which answers. Rarity: Common, Uncommon from 40% of items answered, Rare from 70%, Epic from 90%, Legendary when every item of a menu of 10 or more is answered. | [Property](../../src/__props__/menu-loot.props.test.ts), Test |
+| IN-14 | **The card:** the animal, character sheet and loot are one collectible card, in an original trading-card layout (not any existing game's): a name bar with the level, an art window with the animal (and the streak's animal in a corner), a type line with the class and a rarity gem, a text box with the blurb, stats and loot, and the class's flavor text. The frame takes the animal's theme colour; Rare and up shine, and Legendary's shine moves unless reduced motion is asked for. Colours are decorative: the level, class, rarity and every value are written out. While hatching, the card is face down. Badges sit beside it on wide screens and below it on narrow ones. | Test |
 
 ### Badges
 
@@ -107,7 +108,7 @@ Unwavering Weighted Blanket of Holding hands        ★ Epic
 
 | Phase | What | Notes |
 | --- | --- | --- |
-| 1 | Scoring, animal, stats, badges in the editor | This prototype. Emoji stand in for art. |
+| 1 | Scoring, animal, stats, badges in the editor | Emoji stand in for art. Since IN-14, shown as one collectible card. |
 | 2 | **RPG sheet and loot** (built): class, level and stats, and a generated item whose lines quote the menu's own items (IN-10…IN-13). | Sensitive items are never quoted. Own items are quoted in the panel, which only this browser shows, unless they match the sensitive keywords. |
 | 3 | **Share card:** drawn in the browser (SVG to PNG), shared with the system share sheet or downloaded. Shows the animal, class and stats, never answers; loot lines that quote items only after a preview with each quote removable. | Analytics may count that a card was shared (no parameters), never which animal (PR-2). |
 | 4 | **Compare "party":** each person's animal side by side, with a party description ("a tank and a rogue"). Pair badges (Shared Must-Haves, Talked It Through, Full Party) are only ever awarded, never shown as missing. | No compatibility score or verdict (CO-6). |
