@@ -29,7 +29,7 @@ export const SUPPORT_OPTIONS: SupportOption[] = [
   { amount: 30, plan: "lifetime", checkoutPlan: "supporter_30_lifetime", label: "$30 once", note: "Lifetime supporter" },
 ];
 
-const SUPPORT_FROM: readonly SupportFrom[] = ["nav", "share", "compare", "landing"];
+const SUPPORT_FROM: readonly SupportFrom[] = ["nav", "share", "compare", "landing", "live"];
 
 const optionFor = (plan: CheckoutPlan | null | undefined) => SUPPORT_OPTIONS.find((o) => o.checkoutPlan === plan);
 
@@ -340,7 +340,7 @@ export const SupportPage = ({
 
   return (
     <div className="support-page">
-      <h1>Support Relationship Menu</h1>
+      <h1>Support Wants &amp; Won'ts</h1>
 
       {returned && (
         <div className="support-notice support-return" role="status" tabIndex={-1} ref={returnNotice}>

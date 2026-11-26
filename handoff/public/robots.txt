@@ -1,0 +1,6 @@
+# Relationship Menu is now Wants & Won'ts, at https://wantsandwonts.com.
+# Every page here forwards to the same page there.
+User-agent: *
+Disallow:
+
+Sitemap: https://wantsandwonts.com/sitemap.xml

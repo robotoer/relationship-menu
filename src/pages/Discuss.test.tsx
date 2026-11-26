@@ -1,24 +1,50 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
+import { useState } from "react";
 import { MemoryRouter } from "react-router-dom";
-import { compareMenus } from "../data-comparer";
-import { buildAgenda, loadDiscussion } from "../discussion";
 import { CoachError } from "../coach";
+import { encodeMenuSlug } from "../compare-slug";
+import { Conversation, loadConversation, newConversation, saveConversation } from "../conversation";
 import { DiscussPage } from "./Discuss";
 
-const agenda = buildAgenda(
-  compareMenus([
+const MENUS = [
+  encodeMenuSlug(
+    "Ana's",
     { G: [{ item: "Kissing", value: "must-have" }, { item: "Kids", value: "must-have", note: "two, someday" }, { item: "Pets", value: "like-to-have" }] },
-    { G: [{ item: "Kissing", value: "must-have" }, { item: "Kids", value: "off-limits" }, { item: "Pets", value: "maybe" }] },
-  ])
-);
-const KEY = "discussion:test";
+    { name: "Ana" }
+  ),
+  encodeMenuSlug("Ben's", { G: [{ item: "Kissing", value: "must-have" }, { item: "Kids", value: "off-limits" }, { item: "Pets", value: "maybe" }] }, { name: "Ben" }),
+];
+const ID = "TestConversationId0000";
+const saved = () => loadConversation(ID)!;
 
-const renderPage = (coach?: Parameters<typeof DiscussPage>[0]["coach"]) =>
+/** The page with its state saved like the real route does. */
+const Harness = ({ coach, seen = 0 }: { coach?: Parameters<typeof DiscussPage>[0]["coach"]; seen?: number }) => {
+  const [c, setC] = useState<Conversation>(() => loadConversation(ID) ?? newConversation(MENUS, 1000, ID));
+  const [me, setMe] = useState<number | null>(null);
+  return (
+    <DiscussPage
+      conversation={c}
+      onChange={(next) => {
+        saveConversation(next);
+        setC(next);
+      }}
+      names={["Ana", "Ben"]}
+      compareLink="/compare?x"
+      coach={coach}
+      me={me}
+      onMe={setMe}
+      seen={seen}
+    />
+  );
+};
+
+const renderPage = (coach?: Parameters<typeof DiscussPage>[0]["coach"], seen?: number) =>
   render(
     <MemoryRouter>
-      <DiscussPage agenda={agenda} names={["Ana", "Ben"]} recordKey={KEY} compareLink="/compare?x" coach={coach} />
+      <Harness coach={coach} seen={seen} />
     </MemoryRouter>
   );
+const answers = () => within(document.querySelector(".discuss-answers") as HTMLElement);
 
 describe("DiscussPage (DS-1..DS-8)", () => {
   const gtag = vi.fn();
@@ -35,7 +61,7 @@ describe("DiscussPage (DS-1..DS-8)", () => {
     renderPage();
     expect(screen.getByRole("heading", { level: 1, name: "Talk it through" })).toBeInTheDocument();
     expect(screen.getByText(/Ana & Ben: 3 topics/)).toBeInTheDocument();
-    expect(screen.getByText(/Take turns/)).toBeInTheDocument();
+    expect(within(document.querySelector(".discuss-rules") as HTMLElement).getByText(/Take turns/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Back to the comparison" })).toHaveAttribute("href", "/compare?x");
   });
 
@@ -51,14 +77,15 @@ describe("DiscussPage (DS-1..DS-8)", () => {
     expect(screen.getByRole("heading", { level: 1, name: "Pets" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Skip for now/ }));
     expect(screen.getByRole("heading", { level: 1, name: "Kids" })).toBeInTheDocument();
-    expect(screen.getByText(/Ana/).closest("li")).toHaveTextContent('Ana: Must Have"two, someday"');
+    expect(answers().getByText(/Ana/).closest("li")).toHaveTextContent('Ana: Must Have"two, someday"');
     expect(screen.getByText("Talk about").nextElementSibling?.querySelectorAll("li").length).toBeGreaterThan(1);
 
     fireEvent.change(screen.getByRole("textbox", { name: "What came up?" }), { target: { value: "Ben is sure" } });
     fireEvent.click(screen.getByRole("radio", { name: /Boundary/ }));
     fireEvent.change(screen.getByRole("textbox", { name: "Next step (optional)" }), { target: { value: "Revisit in a year" } });
-    const saved = loadDiscussion(KEY)!;
-    expect(Object.values(saved.topics)).toEqual([{ note: "Ben is sure", outcome: "boundary", followUp: "Revisit in a year" }]);
+    expect(Object.values(saved().topics)).toEqual([
+      expect.objectContaining({ note: "Ben is sure", outcome: "boundary", followUp: "Revisit in a year", comments: [] }),
+    ]);
 
     // Finish shows the summary, grouped by outcome.
     fireEvent.click(screen.getByRole("button", { name: /Finish/ }));
@@ -141,7 +168,7 @@ describe("DiscussPage (DS-1..DS-8)", () => {
       fireEvent.click(screen.getByRole("checkbox", { name: /Everyone taking part agrees/ }));
       fireEvent.click(screen.getByRole("button", { name: "Prepare questions" }));
       await screen.findByText("You both chose to have this talk.");
-      expect(loadDiscussion(KEY)?.coach?.opening).toBe("You both chose to have this talk.");
+      expect(saved().coach?.opening).toBe("You both chose to have this talk.");
 
       fireEvent.click(screen.getByRole("button", { name: "▶ Start" }));
       fireEvent.click(screen.getByRole("button", { name: /Skip for now/ }));
@@ -167,6 +194,85 @@ describe("DiscussPage (DS-1..DS-8)", () => {
       expect(await screen.findByRole("alert")).toHaveTextContent("You've used today's AI preparations");
       expect(gtag).toHaveBeenCalledWith("event", "coach_result", { outcome: "quota" });
       expect(screen.getByRole("button", { name: "Prepare questions" })).toBeEnabled();
+    });
+  });
+
+  describe("conversations (CV-3, CV-4, CV-5, CV-11, CV-13, CV-14)", () => {
+    it("shows the plan in parts and saves it with the first change", () => {
+      renderPage();
+      const plan = screen.getByRole("heading", { name: "The plan" }).nextElementSibling!.nextElementSibling as HTMLElement;
+      expect(within(plan).getByRole("textbox", { name: "Name of part 1" })).toHaveValue("G");
+      expect(within(plan).getByText(/3 topics · about 12 min · 0 done/)).toBeInTheDocument();
+      expect(loadConversation(ID)).toBeNull(); // nothing written yet
+      fireEvent.change(within(plan).getByRole("textbox", { name: "Name of part 1" }), { target: { value: "Saturday" } });
+      expect(saved().parts.map((p) => p.title)).toEqual(["Saturday"]);
+      expect(saved().parts[0].topicKeys).toHaveLength(3);
+    });
+
+    it("each area shows insights and takes notes from each person", () => {
+      renderPage();
+      fireEvent.click(screen.getByRole("button", { name: "▶ Start" }));
+      const area = screen.getByRole("region", { name: "About G" });
+      expect(area).toHaveTextContent("You agree on 1 of the 3 items everyone answered here.");
+      expect(area).toHaveTextContent(/1 conflict \(someone marked it Off limits\): Kids/);
+      expect(area).toHaveTextContent(/Off limits is a complete answer/);
+      fireEvent.change(within(area).getByRole("textbox", { name: "Ben: What matters most to me here" }), {
+        target: { value: "Being heard" },
+      });
+      expect(saved().areas.G.people["1"].matters).toBe("Being heard");
+      expect(area.closest("details")!.querySelector("summary")).toHaveTextContent("notes from 1 of 2");
+      expect(area).toHaveTextContent(/dictat/);
+    });
+
+    it("comments are signed by the person using this device and marked new for the others", () => {
+      renderPage();
+      fireEvent.click(screen.getByRole("button", { name: "▶ Start" }));
+      const comments = screen.getByRole("region", { name: "Comments on Kissing" });
+      fireEvent.change(within(comments).getByRole("textbox", { name: "Add a comment" }), { target: { value: "Love this one" } });
+      fireEvent.change(within(comments).getByRole("combobox", { name: "Posting as" }), { target: { value: "0" } });
+      fireEvent.click(within(comments).getByRole("button", { name: "Add comment" }));
+      expect(within(comments).getByText("Love this one")).toBeInTheDocument();
+      expect(within(comments).getByText("Ana", { selector: "strong" })).toBeInTheDocument();
+      expect(saved().topics[Object.keys(saved().topics)[0]].comments[0]).toMatchObject({ by: 0, text: "Love this one" });
+      expect(gtag).toHaveBeenCalledWith("event", "conversation_comment_added", { target: "topic" });
+      // Ana can delete her own comment.
+      fireEvent.click(within(comments).getByRole("button", { name: /Delete your comment/ }));
+      expect(within(comments).queryByText("Love this one")).not.toBeInTheDocument();
+
+      // Ben, on his phone, sees Ana's newer comments as new.
+      document.body.innerHTML = "";
+      localStorage.clear();
+      const c = newConversation(MENUS, 1000, ID);
+      saveConversation({ ...c, areas: Object.assign(Object.create(null), { G: { people: Object.create(null), comments: [{ id: "c".repeat(22), by: 0, text: "Can we talk Sunday?", at: 5000 }] } }) });
+      renderPage(undefined, 2000);
+      expect(screen.getByText(/1 new comment since you last looked/)).toBeInTheDocument();
+    });
+
+    it("has tips for hard conversations, with their sources, and one fitting each topic", () => {
+      renderPage();
+      const tips = screen.getByText("💡 Tips for hard conversations").closest("details")!;
+      for (const stage of ["Before you start", "Opening", "Listening", "When it gets heated", "Off limits and boundaries", "Closing", "Between conversations"]) {
+        expect(within(tips).getByRole("region", { name: stage })).toBeInTheDocument();
+      }
+      expect(within(tips).getAllByRole("link").length).toBeGreaterThan(20);
+      fireEvent.click(screen.getByRole("button", { name: "▶ Start" }));
+      expect(document.querySelector(".discuss-card .conv-tip")).toHaveTextContent(/Tip:/);
+    });
+
+    it("says how to dictate with the device's own dictation", () => {
+      renderPage();
+      fireEvent.click(screen.getByRole("button", { name: "▶ Start" }));
+      expect(document.querySelector(".discuss-card")).toHaveTextContent(/To dictate|dictation/);
+    });
+
+    it("sends the conversation as a link with everything in its #hash (CV-6)", async () => {
+      const writeText = vi.fn().mockResolvedValue(undefined);
+      Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+      renderPage();
+      fireEvent.click(screen.getByRole("button", { name: "Copy link" }));
+      await screen.findByRole("button", { name: "Copied!" });
+      expect(writeText.mock.calls[0][0]).toMatch(/^http:\/\/localhost(:\d+)?\/talk#c=/);
+      expect(gtag).toHaveBeenCalledWith("event", "conversation_shared", { method: "copy" });
     });
   });
 });

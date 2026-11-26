@@ -2,13 +2,13 @@
   "name": "wantsandwonts-sync",
   "private": true,
   "license": "MIT",
-  "description": "Encrypted sync and supporter billing for Wants & Won'ts (Cloudflare Worker + D1). See docs/spec/sync.md.",
+  "description": "The Wants & Won'ts Worker: serves the app, plus encrypted sync and supporter billing (Cloudflare Worker + D1). See docs/spec/sync.md.",
   "type": "module",
   "scripts": {
     "dev": "wrangler dev --env test",
-    "test": "vitest run",
+    "test": "vitest run && vitest run --config vitest.node.config.ts",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p test-node",
     "migrate:test": "wrangler d1 migrations apply menu-sync-test --env test --remote",
     "deploy:test": "wrangler deploy --env test"
   },
@@ -16,6 +16,7 @@
   "devDependencies": {
     "@cloudflare/vitest-plugin": "^1.9.2",
     "@cloudflare/workers-types": "^5.20261125.1",
+    "@types/node": "^22",
     "typescript": "^5.9.3",
     "vite": "^8.3.8",
     "vitest": "^5.1.2",

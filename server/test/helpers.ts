@@ -1,11 +1,12 @@
 /**
- * Test helpers. `Device` signs requests exactly as the app will (SY-6), so these
+ * Test helpers. `Device` signs requests exactly as the app will (SY-6), and
+ * `BoxDevice` signs live-sharing box requests (notifications.md §7a), so these
  * tests double as the reference for the client's implementation.
  */
 
 import { env } from "cloudflare:workers";
 import { vi } from "vitest";
-import { PROTOCOL, canonicalRequest } from "../src/auth";
+import { PROTOCOL, canonicalBoxRequest, canonicalRequest } from "../src/auth";
 import { concat, sha256, toBase64Url, toHex, utf8 } from "../src/bytes";
 import { handleRequest } from "../src/index";
 import type { Env } from "../src/env";
@@ -49,6 +50,98 @@ export class Device {
     return options.env ? handleRequest(request, options.env) : call(request);
   }
 }
+
+/**
+ * A device's box key (NT-12): its own Ed25519 key pair, separate from any sync
+ * code. It signs every member request with
+ *
+ *   Authorization: MenuBox v1 box=<boxId>, key=<base64url public key>, ts=<seconds>, sig=<base64url signature>
+ *
+ * where sig is Ed25519 over `menu-box/v1`, METHOD, path with query, ts and
+ * base64url(SHA-256(body)), joined by "\n".
+ */
+export class BoxDevice {
+  private constructor(
+    readonly keys: CryptoKeyPair,
+    readonly publicKey: Uint8Array,
+    /** base64url(first 16 bytes of SHA-256(public key)). */
+    readonly memberId: string
+  ) {}
+
+  static async create(): Promise<BoxDevice> {
+    const keys = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;
+    const publicKey = new Uint8Array((await crypto.subtle.exportKey("raw", keys.publicKey)) as ArrayBuffer);
+    const memberId = toBase64Url((await sha256(publicKey)).slice(0, 16));
+    return new BoxDevice(keys, publicKey, memberId);
+  }
+
+  get key(): string {
+    return toBase64Url(this.publicKey);
+  }
+
+  async authorization(
+    method: string,
+    pathAndQuery: string,
+    boxId: string,
+    body: Uint8Array,
+    ts = Math.floor(Date.now() / 1000)
+  ) {
+    const message = canonicalBoxRequest(method, pathAndQuery, ts, toBase64Url(await sha256(body)));
+    const sig = toBase64Url(new Uint8Array(await crypto.subtle.sign({ name: "Ed25519" }, this.keys.privateKey, utf8(message))));
+    return `MenuBox v1 box=${boxId}, key=${this.key}, ts=${ts}, sig=${sig}`;
+  }
+
+  /** Sends a signed request; the box is the one in the path unless `boxId` says otherwise. */
+  async fetch(
+    method: string,
+    pathAndQuery: string,
+    options: { body?: Uint8Array | string | object; headers?: Record<string, string>; ts?: number; boxId?: string; env?: Env } = {}
+  ): Promise<Response> {
+    const body = toBody(options.body);
+    const boxId = options.boxId ?? pathAndQuery.match(/^\/v1\/boxes\/([^/?]+)/)?.[1] ?? "";
+    const headers = new Headers(options.headers);
+    headers.set("authorization", await this.authorization(method, pathAndQuery, boxId, body, options.ts));
+    const request = new Request(`https://sync.test${pathAndQuery}`, { method, headers, body: body.length ? body : undefined });
+    return options.env ? handleRequest(request, options.env) : call(request);
+  }
+
+  /**
+   * Joins with the box's join secret J (unsigned, NT-12). Joins are limited per
+   * IP (NT-52), so each comes from a random test address unless `ip` is given.
+   */
+  join(boxId: string, join: Uint8Array, ip = `10.${crypto.getRandomValues(new Uint8Array(3)).join(".")}`) {
+    return call(
+      new Request(`https://sync.test/v1/boxes/${boxId}/members`, {
+        method: "POST",
+        headers: { "cf-connecting-ip": ip },
+        body: JSON.stringify({ key: this.key, join: toBase64Url(join) }),
+      })
+    );
+  }
+
+  /** PUT this device's copy. */
+  putCopy(boxId: string, ciphertext: Uint8Array, precondition: { version?: number } = {}, headers: Record<string, string> = {}) {
+    return this.fetch("PUT", `/v1/boxes/${boxId}/copies/${this.memberId}`, {
+      body: ciphertext,
+      headers: {
+        ...(precondition.version === undefined ? { "if-none-match": "*" } : { "if-match": `"${precondition.version}"` }),
+        "content-type": "application/octet-stream",
+        ...headers,
+      },
+    });
+  }
+}
+
+/** A supporter shares a conversation live (NT-10): a new box, with its host device. */
+export const shareLive = async (account: Device, options: { boxId?: string; join?: Uint8Array; host?: BoxDevice } = {}) => {
+  const boxId = options.boxId ?? newId();
+  const join = options.join ?? crypto.getRandomValues(new Uint8Array(32));
+  const host = options.host ?? (await BoxDevice.create());
+  const response = await account.fetch("POST", "/v1/boxes", {
+    body: { boxId, joinHash: toBase64Url(await sha256(join)), hostKey: host.key },
+  });
+  return { boxId, join, host, response };
+};
 
 const toBody = (body: Uint8Array | string | object | undefined): Uint8Array => {
   if (body === undefined) return new Uint8Array();

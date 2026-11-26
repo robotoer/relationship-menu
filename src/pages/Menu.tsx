@@ -31,6 +31,7 @@ import { track } from "../analytics";
 import { Link } from "react-router-dom";
 import { useAfterSave } from "../persistence";
 import { HomeScreenHint } from "../components/HomeScreenHint";
+import { platform } from "../platform";
 
 /** "Just for fun" (docs/spec/insights.md), downloaded on its own so the main bundle stays small. */
 const MenuInsights = lazy(() =>
@@ -489,9 +490,9 @@ export const MenuPage = ({
         <ShareDialog
           title={title}
           personName={person?.name?.trim() || undefined}
-          menuUrl={`${window.location.origin}/menu?encoded=${encodeURIComponent(menuEncoded)}`}
+          menuUrl={`${platform().publicOrigin}/menu?encoded=${encodeURIComponent(menuEncoded)}`}
           menuEncoded={menuEncoded}
-          templateUrl={`${window.location.origin}/menu?encoded=${encodeURIComponent(templateEncoded)}`}
+          templateUrl={`${platform().publicOrigin}/menu?encoded=${encodeURIComponent(templateEncoded)}`}
           templateEncoded={templateEncoded}
           onClose={() => setShareOpen(false)}
         />

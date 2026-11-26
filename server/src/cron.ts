@@ -1,5 +1,6 @@
-/** The daily clean-up (SY-45, SY-67). Deletes only what the rules say has expired. */
+/** The daily clean-up (SY-45, SY-67, NT-53). Deletes only what the rules say has expired. */
 
+import { deleteBoxesWhere } from "./boxes";
 import { DAY_MS, PURGE_AFTER_MS, TOMBSTONE_TTL_MS, type Env } from "./env";
 import { log } from "./log";
 
@@ -12,6 +13,13 @@ export const runDailyPurge = async (env: Env, nowMs = Date.now()) => {
       "DELETE FROM menus WHERE account_id IN (SELECT account_id FROM accounts WHERE status = 'lapsed' AND lapsed_at < ?)"
     ).bind(lapsedBefore),
     env.DB.prepare("DELETE FROM accounts WHERE status = 'lapsed' AND lapsed_at < ?").bind(lapsedBefore),
+    // NT-16, NT-53: boxes go with their host's account (here: any box whose host
+    // account no longer exists), with every member and copy.
+    ...deleteBoxesWhere(env.DB, "NOT EXISTS (SELECT 1 FROM accounts a WHERE a.account_id = boxes.host_account)"),
+    // NT-13, NT-53: expired invites lose their join hash, so the link can't be used.
+    env.DB.prepare(
+      "UPDATE boxes SET join_hash = NULL WHERE join_hash IS NOT NULL AND invite_expires_at <= ?"
+    ).bind(nowMs),
     // SY-23: forget tombstones after 180 days; remember the newest forgotten seq so
     // devices with an older cursor know to resync.
     env.DB.prepare(
@@ -33,10 +41,12 @@ export const runDailyPurge = async (env: Env, nowMs = Date.now()) => {
   const counts = {
     purgedMenus: results[0]?.meta.changes ?? 0,
     purgedAccounts: results[1]?.meta.changes ?? 0,
-    tombstones: results[3]?.meta.changes ?? 0,
-    pairings: results[4]?.meta.changes ?? 0,
-    events: results[5]?.meta.changes ?? 0,
-    coachCounters: results[6]?.meta.changes ?? 0,
+    purgedBoxes: results[4]?.meta.changes ?? 0,
+    expiredInvites: results[5]?.meta.changes ?? 0,
+    tombstones: results[7]?.meta.changes ?? 0,
+    pairings: results[8]?.meta.changes ?? 0,
+    events: results[9]?.meta.changes ?? 0,
+    coachCounters: results[10]?.meta.changes ?? 0,
   };
   log({ route: "cron daily", status: 200, code: "purged", ...counts });
   return counts;

@@ -4,7 +4,7 @@ import { exportFileName, exportMenus, exportText } from "./export-menus";
 import { RelationshipMenuDocument } from "./model/menu";
 import { BrowserInfo } from "./persistence";
 
-const ORIGIN = "https://relationship-menu.vercel.app";
+const ORIGIN = "https://wantsandwonts.com";
 // 25 November 2026, midday local time.
 const NOW = new Date(2026, 10, 25, 12).getTime();
 
@@ -57,7 +57,7 @@ describe("Export all menus (SV-13)", () => {
     expect(opened[2]?.menu).toEqual({ Fun: [{ item: "Dancing", value: "maybe", note: "slow ones" }] });
     expect(opened[2]?.person).toEqual({ name: "Zed", pronouns: "he/him" });
     expect(opened[0]?.menu.Commitment).toEqual([{ item: "Kids", value: "off-limits" }]);
-    expect(exportFileName(NOW)).toBe("relationship-menus-2026-11-25.txt");
+    expect(exportFileName(NOW)).toBe("wants-and-wonts-menus-2026-11-25.txt");
   });
 
   it("SV-13: a single menu reads naturally", () => {
@@ -90,7 +90,7 @@ describe("Export all menus (SV-13)", () => {
       const outcome = await exportMenus(MENUS, { origin: ORIGIN, now: NOW, browser: DESKTOP });
       expect(outcome).toBe("downloaded");
       expect(clicked).toHaveLength(1);
-      expect(clicked[0].download).toBe("relationship-menus-2026-11-25.txt");
+      expect(clicked[0].download).toBe("wants-and-wonts-menus-2026-11-25.txt");
       expect(clicked[0].href).toBe("blob:local-file");
       expect(await created[0].text()).toBe(exportText(MENUS, ORIGIN, NOW));
       expect(fetchSpy).not.toHaveBeenCalled();
@@ -102,7 +102,7 @@ describe("Export all menus (SV-13)", () => {
       const outcome = await exportMenus(MENUS, { origin: ORIGIN, now: NOW, browser: IPHONE, nav });
       expect(outcome).toBe("shared");
       const file: File = share.mock.calls[0][0].files[0];
-      expect(file.name).toBe("relationship-menus-2026-11-25.txt");
+      expect(file.name).toBe("wants-and-wonts-menus-2026-11-25.txt");
       expect(await file.text()).toBe(exportText(MENUS, ORIGIN, NOW));
       expect(clicked).toHaveLength(0);
     });

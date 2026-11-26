@@ -19,6 +19,7 @@
 
 import { useEffect, useState } from "react";
 import { track } from "./analytics";
+import { platform } from "./platform";
 
 /** Set once `navigator.storage.persist()` has been asked for in this browser. */
 export const PERSIST_REQUESTED_KEY = "storage-persist-requested";
@@ -125,6 +126,7 @@ export const appleMobileDevice = (browser: BrowserInfo): "iPhone" | "iPad" | nul
  * out: the tip's steps are Safari's.
  */
 export const homeScreenDevice = (browser: BrowserInfo): "iPhone" | "iPad" | null => {
+  if (!platform().homeScreenHint) return null;
   const ua = browser.userAgent;
   if (browser.standalone === true || browser.displayModeStandalone) return null;
   if (!/Safari\//.test(ua) || /CriOS|FxiOS|EdgiOS|OPiOS|OPT\/|YaBrowser|GSA\//.test(ua)) return null;

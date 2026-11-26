@@ -1,19 +1,19 @@
-# Relationship Menu
+# Wants & Won'ts
 
-> Relationship Menu (https://relationship-menu.vercel.app) is a free web app for building a "relationship menu": a list of things a relationship could include (communication, affection, commitment, living arrangements, other partners and so on). Each person marks every item Must have, Like to have, Maybe or Off limits; then partners compare answers side by side. There are no accounts and no server database: menus are saved in the browser, and a share link carries the whole menu inside the URL.
+> Wants & Won'ts (https://wantsandwonts.com; formerly Relationship Menu at relationship-menu.vercel.app) is a free web app for building a "relationship menu": a list of things a relationship could include (communication, affection, commitment, living arrangements, other partners and so on). Each person marks every item Must have, Like to have, Maybe or Off limits; then partners compare answers side by side. There are no accounts and no server database: menus are saved in the browser, and a share link carries the whole menu inside the URL.
 
 Typical use: one person builds a menu (often from a template), sends the template link (items with no answers) to a partner or friend, each fills it in privately, they swap menu links (with answers), and paste both into Compare to see agreements and conflicts.
 
 ## Pages
 
-- [Home](https://relationship-menu.vercel.app/): What a relationship menu is, why to use one, how the app works, and what each link is for.
-- [New menu](https://relationship-menu.vercel.app/menu): Editor. An empty menu offers templates: Romantic Relationship Starter, Relationship Anarchy Smorgasbord, Polyamory & Open Agreements, Close Friendship, Early Dating, and Co-living & Practical Partnership. Keyboard controls: press ? in the editor.
-- [Library](https://relationship-menu.vercel.app/library): Menus saved in this browser, with who each is for, item counts, progress and dates. "Export all menus" saves a backup text file with each menu's title and menu link, made in the browser and never uploaded.
-- [Compare](https://relationship-menu.vercel.app/compare): Paste two or more menu links or slugs, press Compare, and filter by Agree, All want, Conflicts, Talk about it, Unanswered or Not on every menu.
+- [Home](https://wantsandwonts.com/): What a relationship menu is, why to use one, how the app works, and what each link is for.
+- [New menu](https://wantsandwonts.com/menu): Editor. An empty menu offers templates: Romantic Relationship Starter, Relationship Anarchy Smorgasbord, Polyamory & Open Agreements, Close Friendship, Early Dating, and Co-living & Practical Partnership. Keyboard controls: press ? in the editor.
+- [Library](https://wantsandwonts.com/library): Menus saved in this browser, with who each is for, item counts, progress and dates. "Export all menus" saves a backup text file with each menu's title and menu link, made in the browser and never uploaded.
+- [Compare](https://wantsandwonts.com/compare): Paste two or more menu links or slugs, press Compare, and filter by Agree, All want, Conflicts, Talk about it, Unanswered or Not on every menu.
 
 ## Link format
 
-A menu link is `https://relationship-menu.vercel.app/menu?encoded=<slug>` (URL-encode the slug). A compare link repeats the parameter: `/compare?encoded=<slug1>&encoded=<slug2>`.
+A menu link is `https://wantsandwonts.com/menu?encoded=<slug>` (URL-encode the slug). A compare link repeats the parameter: `/compare?encoded=<slug1>&encoded=<slug2>`. Links on the old address, `https://relationship-menu.vercel.app/…`, still work: they forward to the same path on the new one, and Compare accepts either.
 
 A slug is `<title>:<menu>` or `<title>:<menu>:<person>`, where each part is `base64(zlib_deflate(utf8(JSON)))` (standard base64 with padding; the same as pako `deflate` in JavaScript or Python `base64.b64encode(zlib.compress(json.dumps(x).encode()))`).
 
@@ -31,4 +31,4 @@ A template link is the same menu with every `value` and `note` removed and no `p
 
 ## Optional
 
-- [Source code](https://github.com/robotoer/relationship-menu): React + TypeScript app. Menus are stored in the browser's localStorage; there is no server.
+- [Source code](https://github.com/robotoer/relationship-menu): React + TypeScript app. Menus are stored in the browser's localStorage; there is no server database.

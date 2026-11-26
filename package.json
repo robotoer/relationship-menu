@@ -17,6 +17,8 @@
   "scripts": {
     "start": "vite",
     "build": "tsc -p . && vite build",
+    "start:handoff": "vite --config vite.handoff.config.mts",
+    "build:handoff": "tsc -p . && vite build --config vite.handoff.config.mts",
     "preview": "vite preview",
     "test": "vitest",
     "test:e2e": "playwright test --workers=1",

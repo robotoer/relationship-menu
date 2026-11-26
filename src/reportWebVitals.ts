@@ -8,7 +8,9 @@ const reportWebVitals = (onPerfEntry?: (metric: MetricType) => void) => {
       onFCP(onPerfEntry);
       onLCP(onPerfEntry);
       onTTFB(onPerfEntry);
-    });
+    // Leaving the page while it loads (as /import does at once) cancels the import:
+    // nothing to report.
+    }, () => {});
   }
 };
 

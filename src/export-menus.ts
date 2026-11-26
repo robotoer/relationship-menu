@@ -10,6 +10,7 @@ import { RelationshipMenuDocument } from "./model/menu";
 import { encodeMenuSlug } from "./compare-slug";
 import { sortMenus } from "./library-info";
 import { appleMobileDevice, currentBrowser } from "./persistence";
+import { platform, SaveOutcome } from "./platform";
 
 /** The menu link for a saved menu, the same as the Share dialog's. */
 export const menuLink = (origin: string, doc: RelationshipMenuDocument) =>
@@ -22,8 +23,8 @@ const localDate = (now: number) => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 };
 
-/** The export's file name, like `relationship-menus-2026-11-25.txt`. */
-export const exportFileName = (now = Date.now()) => `relationship-menus-${localDate(now)}.txt`;
+/** The export's file name, like `wants-and-wonts-menus-2026-11-25.txt`. */
+export const exportFileName = (now = Date.now()) => `wants-and-wonts-menus-${localDate(now)}.txt`;
 
 /** The export's text: a short header, then each menu's title and link, by title. */
 export const exportText = (
@@ -33,7 +34,7 @@ export const exportText = (
 ): string => {
   const count = `${menus.length} menu${menus.length === 1 ? "" : "s"}`;
   const lines = [
-    `Relationship Menu: ${count} saved in this browser, exported ${localDate(now)}.`,
+    `Wants & Won'ts: ${count} saved in this browser, exported ${localDate(now)}.`,
     "Open a link to bring that menu back. Each link holds the whole menu, answers,",
     "notes and name included, so keep this file private.",
   ];
@@ -43,32 +44,18 @@ export const exportText = (
   return lines.join("\n") + "\n";
 };
 
-export type ExportOutcome = "downloaded" | "shared" | "cancelled";
-
-/** Starts a download of `file` (a link to a local blob; nothing leaves the browser). */
-const download = (file: File) => {
-  const url = URL.createObjectURL(file);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = file.name;
-  a.rel = "noopener";
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  // Give the browser time to start the download before the blob goes away.
-  setTimeout(() => URL.revokeObjectURL(url), 60_000);
-};
+export type ExportOutcome = SaveOutcome;
 
 /**
  * Saves every menu to one file. Call it straight from a click (the share sheet needs
  * one). On iPhone and iPad the share sheet is used when it takes files, since
  * downloads are awkward there (especially in a Home Screen app); everywhere else, and
- * if sharing fails, the file is downloaded.
+ * if sharing fails, the file is downloaded. A host app saves it its own way.
  */
 export const exportMenus = async (
   menus: RelationshipMenuDocument[],
   {
-    origin = window.location.origin,
+    origin = platform().publicOrigin,
     now = Date.now(),
     nav = navigator,
     browser = currentBrowser(),
@@ -77,7 +64,7 @@ export const exportMenus = async (
   const file = new File([exportText(menus, origin, now)], exportFileName(now), {
     type: "text/plain",
   });
-  if (appleMobileDevice(browser) && nav.canShare?.({ files: [file] }) && nav.share) {
+  if (platform().kind === "web" && appleMobileDevice(browser) && nav.canShare?.({ files: [file] }) && nav.share) {
     try {
       await nav.share({ files: [file] });
       return "shared";
@@ -86,6 +73,5 @@ export const exportMenus = async (
       // Sharing failed for another reason: download instead.
     }
   }
-  download(file);
-  return "downloaded";
+  return platform().saveFile(file);
 };

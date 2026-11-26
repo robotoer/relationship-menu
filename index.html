@@ -6,33 +6,34 @@
     <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48 64x64" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.json" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#1a1c2c" />
     <meta
       name="description"
       content="Build a relationship menu, mark each item Must have, Like to have, Maybe or Off limits, and compare answers with your partner. Free, no account, menus stay in your browser and share as links."
     />
-    <link rel="canonical" href="https://relationship-menu.vercel.app/" />
+    <link rel="canonical" href="https://wantsandwonts.com/" />
     <!-- Plain-text description of the app and its link format, for AI agents. -->
     <link rel="alternate" type="text/plain" title="llms.txt" href="/llms.txt" />
 
     <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="Relationship Menu" />
-    <meta property="og:title" content="Relationship Menu" />
+    <meta property="og:site_name" content="Wants &amp; Won'ts" />
+    <meta property="og:title" content="Wants &amp; Won'ts: a relationship menu" />
     <meta
       property="og:description"
       content="Say what you want from a relationship, compare answers with your partner, and see where you match."
     />
-    <meta property="og:url" content="https://relationship-menu.vercel.app/" />
-    <meta property="og:image" content="https://relationship-menu.vercel.app/og-image.png" />
+    <meta property="og:url" content="https://wantsandwonts.com/" />
+    <!-- The image still says "Relationship Menu"; to be redrawn with the new name. -->
+    <meta property="og:image" content="https://wantsandwonts.com/og-image.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta
       property="og:image:alt"
-      content="Relationship Menu: two people's answers shown side by side as colored squares"
+      content="Two people's answers shown side by side as colored squares"
     />
     <meta name="twitter:card" content="summary_large_image" />
-    <title>Relationship Menu</title>
+    <title>Wants &amp; Won'ts: a relationship menu</title>
     <!-- Google tag (gtag.js) -->
     <script>
       window.dataLayer = window.dataLayer || [];
@@ -53,11 +54,11 @@
       } catch (e) {}
       gtag('config', 'G-JGP1J62LL4', analyticsConfig);
 
-      // Only production reports. Local runs, Vercel previews, other copies and automated
+      // Only production reports. Local runs, preview URLs, other copies and automated
       // browsers (the e2e tests, in CI and locally) once made up almost all GA "users".
       // Everywhere else events just queue up in window.dataLayer, where the e2e privacy
       // test reads them; nothing is sent.
-      if (location.hostname === 'relationship-menu.vercel.app' && !navigator.webdriver) {
+      if (location.hostname === 'wantsandwonts.com' && !navigator.webdriver) {
         var gtagScript = document.createElement('script');
         gtagScript.async = true;
         gtagScript.src = 'https://www.googletagmanager.com/gtag/js?id=G-JGP1J62LL4';

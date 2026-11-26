@@ -13,7 +13,7 @@ Events carry only fixed values: template ids, link kinds, filter ids, counts and
 
 ### Only production reports
 
-Google Analytics is loaded only on `relationship-menu.vercel.app`, and not in automated browsers (`navigator.webdriver`). Localhost, Vercel preview deployments, other copies of the site and the e2e tests (in CI and locally) never send anything: their events only queue up in `window.dataLayer`, which is where `e2e/analytics.spec.ts` reads them, and that test also fails if any request reaches Google. Until November 2026 the e2e runs did report, as one new "user" per test on `localhost`; filter on Hostname = `relationship-menu.vercel.app` when looking at older data. DebugView (step 6 below) therefore only works on the production site, with the `analytics_debug` flag set.
+Google Analytics is loaded only on `wantsandwonts.com` (until November 2026, `relationship-menu.vercel.app`, which now serves only a hand-off page without analytics), and not in automated browsers (`navigator.webdriver`). Localhost, preview URLs, other copies of the site and the e2e tests (in CI and locally) never send anything: their events only queue up in `window.dataLayer`, which is where `e2e/analytics.spec.ts` reads them, and that test also fails if any request reaches Google. Until November 2026 the e2e runs did report, as one new "user" per test on `localhost`; filter on Hostname = `relationship-menu.vercel.app` when looking at older data. DebugView (step 6 below) therefore only works on the production site, with the `analytics_debug` flag set.
 
 ## Events
 
@@ -45,6 +45,17 @@ Google Analytics is loaded only on `relationship-menu.vercel.app`, and not in au
 | `discussion_summary_exported` | The summary is copied, downloaded or printed | `method`: `copy`, `download`, `print` |
 | `coach_requested` | Everyone agreed and "Prepare questions" was pressed (AI coach) | `topic_count`, `people` |
 | `coach_result` | The AI coach answered | `outcome`: `ok`, `unavailable`, `not_supporter`, `quota`, `busy`, `declined`, `failed` |
+| `conversation_saved` | A conversation was saved to the Library | `source`: `compare`, `talk` |
+| `conversation_shared` | Someone sent a conversation link | `method`: `share`, `copy` |
+| `conversation_merged` | A conversation link was opened and merged into this browser's copy | `comments`, `notes`, `menus`: how many were new |
+| `conversation_comment_added` | A comment was left for later | `target`: `topic`, `area` |
+| `conversation_part_done` | A part of a conversation was marked done | `part_count` |
+| `conversation_tips_opened` | The conversation tips were opened | — |
+| `conversation_deleted` | A conversation was deleted from the Library | — |
+| `live_shared` | A supporter started sharing a conversation live | — |
+| `live_joined` | Someone opened a live invite | `outcome`: `ok`, `expired`, `full`, `gone`, `offline`, `failed` |
+| `live_left` | A member left a live conversation | — |
+| `live_stopped` | The host stopped sharing live | — |
 | `ai_prep_interest` | "Prepare this conversation with AI (coming soon)" is clicked: measures interest, nothing is sent | |
 | `library_searched` | The Library is searched (once per visit; never the text) | |
 | `library_sorted` | The Library sort is changed | `sort`: `edited`, `created`, `title` |
@@ -54,7 +65,7 @@ Google Analytics is loaded only on `relationship-menu.vercel.app`, and not in au
 | `home_screen_hint_shown` | The Home Screen tip appears (iPhone/iPad Safari only; once per page load) | |
 | `home_screen_hint_dismissed` | The Home Screen tip is dismissed (it then stays hidden in that browser) | |
 | `save_failed` | A save fails | |
-| `support_viewed` | The Support page is opened | `from`: `nav`, `share` (after sharing), `compare` (under results), `landing`, `direct` |
+| `support_viewed` | The Support page is opened | `from`: `nav`, `share` (after sharing), `compare` (under results), `landing`, `live` (the Share live panel), `direct` |
 | `checkout_started` | Leaving for Stripe Checkout from the Support page | `amount_usd` (6, 12, 24, 30), `plan` (`yearly`, `lifetime`) |
 | `checkout_completed` | Back from Checkout, once the server confirms the supporter status | `amount_usd`, `plan` |
 | `checkout_cancelled` | Back from Checkout without paying | `amount_usd`, `plan` |
@@ -94,6 +105,6 @@ GA only shows event parameters in reports after they're registered.
 
 5. **Answer "where are all these users coming from?"** In **Reports → Acquisition → Traffic acquisition**, look at *Session source / medium*. Then compare that with `shared_link_opened` in **Reports → Engagement → Events**. A big share of `shared_link_opened` means growth is word of mouth (people sending links). Sudden traffic from one referrer usually means the site was posted somewhere.
 
-6. **Check events as they arrive.** On https://relationship-menu.vercel.app (the only site that reports), in your own browser's console, run `localStorage.analytics_debug = "1"` and reload. Your events then show up live in **Admin → Data display → DebugView**. Remove the flag with `localStorage.removeItem("analytics_debug")`.
+6. **Check events as they arrive.** On https://wantsandwonts.com (the only site that reports), in your own browser's console, run `localStorage.analytics_debug = "1"` and reload. Your events then show up live in **Admin → Data display → DebugView**. Remove the flag with `localStorage.removeItem("analytics_debug")`.
 
 Registered dimensions only fill in from the moment they're created, so do step 1 first.

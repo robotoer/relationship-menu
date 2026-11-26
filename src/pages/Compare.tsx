@@ -14,11 +14,12 @@ import {
 } from "../components/MenuItemCompare";
 import { MenuComparison } from "../model/compare";
 import { CompareSection } from "../components/CompareSection";
-import { useMemo, useState } from "react";
+import { ReactNode, useMemo, useState } from "react";
 import { COMPARE_FILTERS, CompareFilter, matchesFilter } from "../compare-filters";
 import { byDifference, compareInsights, flattenComparison, matchesQuery } from "../compare-insights";
 import { buildAgenda } from "../discussion";
 import { CompareOverview } from "../components/CompareOverview";
+import { platform } from "../platform";
 
 type CompareSort = "menu" | "difference";
 
@@ -60,6 +61,7 @@ export const ComparePage = ({
   onChangeCompared,
   onCompare,
   discussLink,
+  saveControls,
 }: {
   titles: string[];
   encoded: string[];
@@ -72,6 +74,8 @@ export const ComparePage = ({
   onCompare: () => void;
   /** Link to the guided discussion of these menus. */
   discussLink?: string;
+  /** Saving and sharing this comparison as a conversation (spec CV-1). */
+  saveControls?: ReactNode;
 }) => {
   const columnTitles = (legendTitles ?? titles).map(
     (title, index) => title || `Menu ${index + 1}`
@@ -138,6 +142,7 @@ export const ComparePage = ({
               }}
               discussLink={discussLink}
               topicCount={topicCount}
+              actions={saveControls}
             />
           )}
           <CompareColorKey />
@@ -241,13 +246,15 @@ export const ComparePage = ({
               </MenuGroup>
             ))}
           </div>
+          {platform().support && (
           <p className="support-nudge">
             Did this help you two talk?{" "}
             <Link to="/support" state={{ supportFrom: "compare" }}>
-              Support Relationship Menu
+              Support Wants &amp; Won'ts
             </Link>{" "}
             to keep it free and private.
           </p>
+          )}
         </>
       )}
     </div>

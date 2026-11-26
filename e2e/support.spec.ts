@@ -94,7 +94,7 @@ test.describe("Support the project", () => {
     await page.goto("/");
     await page.getByRole("link", { name: "Support", exact: true }).click();
     await expect(page).toHaveURL(/\/support$/);
-    await expect(page.getByRole("heading", { level: 1, name: "Support Relationship Menu" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Support Wants & Won'ts" })).toBeVisible();
 
     await expect(page.getByRole("group", { name: "Pay what you like" })).toHaveAccessibleDescription(
       /turns on sync in this browser and creates your sync code, which you'll see after paying/
@@ -189,7 +189,7 @@ test.describe("Support the project", () => {
     await expect(page.getByRole("link", { name: "Support the project" })).toHaveCount(0);
     await page.getByRole("button", { name: "Copy template link" }).click();
     await page.getByRole("link", { name: "Support the project" }).click();
-    await expect(page.getByRole("heading", { level: 1, name: "Support Relationship Menu" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Support Wants & Won'ts" })).toBeVisible();
     await expect
       .poll(() => events(page))
       .toEqual(expect.arrayContaining([{ name: "support_viewed", params: { from: "share" } }]));
@@ -201,6 +201,6 @@ test.describe("Support the project", () => {
     const a = `${encode("A")}:${encode({ G: [{ item: "Kissing", value: "must-have" }] })}`;
     const b = `${encode("B")}:${encode({ G: [{ item: "Kissing", value: "maybe" }] })}`;
     await page.goto(`/compare?encoded=${encodeURIComponent(a)}&encoded=${encodeURIComponent(b)}`);
-    await expect(page.getByRole("link", { name: "Support Relationship Menu" })).toHaveAttribute("href", "/support");
+    await expect(page.getByRole("link", { name: "Support Wants & Won'ts" })).toHaveAttribute("href", "/support");
   });
 });
