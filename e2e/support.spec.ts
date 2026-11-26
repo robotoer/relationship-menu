@@ -65,8 +65,6 @@ const recordEvents = async (page: Page) => {
 const stubServer = async (page: Page) => {
   let status: "none" | "active" = "none";
   const checkouts: unknown[] = [];
-  let stripeRequested!: () => void;
-  const atStripe = new Promise<void>((resolve) => (stripeRequested = resolve));
 
   await page.route(/\/v1\//, async (route: Route) => {
     const { pathname } = new URL(route.request().url());
@@ -82,11 +80,10 @@ const stubServer = async (page: Page) => {
     }
     return reply({ error: "not_supporter" }, 402);
   });
-  await page.route("https://checkout.stripe.com/**", async (route) => {
-    stripeRequested();
-    await route.fulfill({ contentType: "text/html", body: "<title>Stripe Checkout (stub)</title><p>Stub</p>" });
-  });
-  return { checkouts, atStripe, paid: () => (status = "active") };
+  await page.route("https://checkout.stripe.com/**", (route) =>
+    route.fulfill({ contentType: "text/html", body: "<title>Stripe Checkout (stub)</title><p>Stub</p>" })
+  );
+  return { checkouts, paid: () => (status = "active") };
 };
 
 test.describe("Support the project", () => {
@@ -116,30 +113,17 @@ test.describe("Support the project", () => {
   }) => {
     const server = await stubServer(page);
     const recorded = await recordEvents(page);
-    const v1Requests: string[] = [];
-    page.on("request", (request) => {
-      if (/\/v1\//.test(new URL(request.url()).pathname)) v1Requests.push(request.url());
-    });
     await page.goto("/support");
     await page.getByRole("button", { name: /\$12 \/ year/ }).click();
 
-    // Until the sync runtime is mounted (src/providers/Sync.tsx in src/index.tsx), the
-    // page has no sync and says checkout isn't available. This test then has nothing
-    // to drive; it runs once the runtime is there.
-    const unavailable = page.getByRole("alert").filter({ hasText: "Checkout isn't available here right now" });
-    const outcome = await Promise.race([
-      server.atStripe.then(() => "stripe" as const),
-      unavailable.waitFor().then(
-        () => "no runtime" as const,
-        () => "timed out" as const
-      ),
-    ]);
-    test.skip(outcome === "no runtime" && v1Requests.length === 0, "The sync runtime isn't mounted yet.");
-
-    // checkout_started is recorded before leaving, with fixed values only.
+    // Sync was off, so the runtime turned it on with a new code first, as the page
+    // said it would; checkout_started is recorded before leaving.
     await expect(page).toHaveURL(STRIPE_CHECKOUT);
     expect(recorded).toEqual(
-      expect.arrayContaining([{ name: "checkout_started", params: { amount_usd: 12, plan: "yearly" } }])
+      expect.arrayContaining([
+        { name: "sync_enabled", params: { how: "new" } },
+        { name: "checkout_started", params: { amount_usd: 12, plan: "yearly" } },
+      ])
     );
     expect(server.checkouts).toEqual([{ plan: "supporter_12_yearly" }]);
 
