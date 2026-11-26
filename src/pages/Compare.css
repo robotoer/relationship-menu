@@ -111,3 +111,37 @@
     font-size: 0.55rem;
   }
 }
+
+/* ---- Search, group and order ---- */
+.compare-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem 1rem;
+  margin-top: 1rem;
+}
+.compare-toolbar label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.compare-toolbar label > span {
+  font-family: var(--font-pixel);
+  font-size: 0.55rem;
+  text-transform: uppercase;
+}
+.compare-toolbar input[type="search"] {
+  min-width: 14rem;
+}
+.menu-item-compare-group {
+  color: var(--c-slate);
+  font-size: 1rem;
+}
+@media (max-width: 640px) {
+  .compare-toolbar label,
+  .compare-toolbar input[type="search"],
+  .compare-toolbar select {
+    width: 100%;
+    min-width: 0;
+  }
+}

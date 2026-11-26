@@ -37,8 +37,11 @@ export const MenuItemCompare = ({
   menuItems,
   titles = [],
   notes = [],
+  group,
 }: {
   item: string;
+  /** Shown as a small caption, for lists that mix groups (e.g. sorted by difference). */
+  group?: string;
   menuItems: ComparedMenuItemValue[];
   titles?: string[];
   /** Each person's note on this item (same order as `menuItems`), if any. */
@@ -63,7 +66,10 @@ export const MenuItemCompare = ({
           ></div>
         );
       })}
-      <div className="menu-item">{item}</div>
+      <div className="menu-item">
+        {item}
+        {group && <span className="menu-item-compare-group"> · {group}</span>}
+      </div>
       {withNotes.length > 0 && (
         <ul className="compare-notes" aria-label={`Notes on ${item}`}>
           {withNotes.map(({ note, who }) => (
