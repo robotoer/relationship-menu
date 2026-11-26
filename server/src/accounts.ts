@@ -1,6 +1,7 @@
 /** Supporter accounts: status, limits and the account endpoints (SY-8, SY-63, SY-66…SY-68). */
 
 import { PROTOCOL, accountIdForKey, verifyEd25519, type Caller } from "./auth";
+import { deleteBoxesWhere } from "./boxes";
 import { coachUsageKeys } from "./coach-usage";
 import { fromBase64Url, utf8 } from "./bytes";
 import { LIMITS, PURGE_AFTER_MS, PURGE_WARNING_MS, type Env } from "./env";
@@ -74,7 +75,10 @@ export const getAccountStatus = async (env: Env, caller: Caller): Promise<Respon
   });
 };
 
-/** DELETE /v1/account (SY-68): cancel billing, then delete every synced menu and the account. */
+/**
+ * DELETE /v1/account (SY-68): cancel billing, then delete every synced menu, every
+ * box the account hosts (with their members and copies, NT-16) and the account.
+ */
 export const deleteAccount = async (env: Env, caller: Caller): Promise<Response> => {
   const account = await getAccount(env.DB, caller.accountId);
   if (!account) return noContent();
@@ -84,6 +88,7 @@ export const deleteAccount = async (env: Env, caller: Caller): Promise<Response>
   }
   await env.DB.batch([
     env.DB.prepare("DELETE FROM menus WHERE account_id = ?").bind(caller.accountId),
+    ...deleteBoxesWhere(env.DB, "host_account = ?", caller.accountId),
     env.DB.prepare("DELETE FROM accounts WHERE account_id = ?").bind(caller.accountId),
     env.DB.prepare("DELETE FROM coach_usage WHERE key IN (?1, ?2)").bind(
       coachUsageKeys(caller.accountId).day,
@@ -101,7 +106,8 @@ export const rotationMessage = (oldAccountId: string, newAccountId: string, ts: 
  * POST /v1/account/rotate (SY-8). Body: { key, proof }. Signed by the old key; `proof`
  * is the new key's signature over rotationMessage(). Moves the supporter status to
  * the new account and deletes the old account's synced data; the device then
- * uploads its menus again under the new code.
+ * uploads its menus again under the new code. Hosted boxes move to the new
+ * account (§7a): they hold no data tied to the sync code.
  */
 /**
  * A rotation commits within this long of reaching the Worker, or not at all. Its
@@ -137,6 +143,7 @@ export const rotateAccount = async (env: Env, caller: Caller, body: Uint8Array):
          created_at, ?3, 0, 0 FROM accounts WHERE account_id = ?1`
     ).bind(caller.accountId, newAccountId, now),
     env.DB.prepare("DELETE FROM menus WHERE account_id = ?").bind(caller.accountId),
+    env.DB.prepare("UPDATE boxes SET host_account = ?2 WHERE host_account = ?1").bind(caller.accountId, newAccountId),
     env.DB.prepare("DELETE FROM accounts WHERE account_id = ?").bind(caller.accountId),
     // The AI coach's use so far moves with it: a new code is not a new allowance (CO-8).
     env.DB.prepare("UPDATE coach_usage SET key = ?2 WHERE key = ?1").bind(

@@ -52,6 +52,10 @@ Google Analytics is loaded only on `wantsandwonts.com` (until November 2026, `re
 | `conversation_part_done` | A part of a conversation was marked done | `part_count` |
 | `conversation_tips_opened` | The conversation tips were opened | — |
 | `conversation_deleted` | A conversation was deleted from the Library | — |
+| `live_shared` | A supporter started sharing a conversation live | — |
+| `live_joined` | Someone opened a live invite | `outcome`: `ok`, `expired`, `full`, `gone`, `offline`, `failed` |
+| `live_left` | A member left a live conversation | — |
+| `live_stopped` | The host stopped sharing live | — |
 | `ai_prep_interest` | "Prepare this conversation with AI (coming soon)" is clicked: measures interest, nothing is sent | |
 | `library_searched` | The Library is searched (once per visit; never the text) | |
 | `library_sorted` | The Library sort is changed | `sort`: `edited`, `created`, `title` |
@@ -61,7 +65,7 @@ Google Analytics is loaded only on `wantsandwonts.com` (until November 2026, `re
 | `home_screen_hint_shown` | The Home Screen tip appears (iPhone/iPad Safari only; once per page load) | |
 | `home_screen_hint_dismissed` | The Home Screen tip is dismissed (it then stays hidden in that browser) | |
 | `save_failed` | A save fails | |
-| `support_viewed` | The Support page is opened | `from`: `nav`, `share` (after sharing), `compare` (under results), `landing`, `direct` |
+| `support_viewed` | The Support page is opened | `from`: `nav`, `share` (after sharing), `compare` (under results), `landing`, `live` (the Share live panel), `direct` |
 | `checkout_started` | Leaving for Stripe Checkout from the Support page | `amount_usd` (6, 12, 24, 30), `plan` (`yearly`, `lifetime`) |
 | `checkout_completed` | Back from Checkout, once the server confirms the supporter status | `amount_usd`, `plan` |
 | `checkout_cancelled` | Back from Checkout without paying | `amount_usd`, `plan` |

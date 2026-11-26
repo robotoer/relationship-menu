@@ -37,6 +37,8 @@ import {
 } from "../conversation";
 import { tipFor, tipsIn } from "../conversation-tips";
 import { AreaPanel, Comments, DictationHint, TipCard, TipsPanel, WhoAmI } from "../components/ConversationParts";
+import { LivePanel } from "../live/LivePanel";
+import type { Live } from "../live/useLive";
 
 type View = { kind: "intro" } | { kind: "topic"; part: number; index: number } | { kind: "summary" };
 
@@ -64,6 +66,7 @@ export const DiscussPage = ({
   menuUpdates = [],
   onUseMenu,
   notice,
+  live,
 }: {
   conversation: Conversation;
   onChange: (next: Conversation) => void;
@@ -80,6 +83,8 @@ export const DiscussPage = ({
   onUseMenu?: (update: MenuUpdate) => void;
   /** A message about what just happened (e.g. someone's link was merged). */
   notice?: ReactNode;
+  /** Live sharing (docs/spec/notifications.md), when this page has it. */
+  live?: Live;
 }) => {
   const [view, setView] = useState<View>({ kind: "intro" });
   const [copied, setCopied] = useState<"summary" | "link" | null>(null);
@@ -345,8 +350,10 @@ export const DiscussPage = ({
           ))}
         </ol>
 
+        {live && <LivePanel live={live} />}
+
         <section className="conv-share" aria-labelledby="conv-share-title">
-          <h2 id="conv-share-title">Not in the same room?</h2>
+          <h2 id="conv-share-title">{live?.entry ? "Send a copy instead" : "Not in the same room?"}</h2>
           <p>
             Take turns from your own phones. Send this conversation; when they open the link, it's added to their
             copy (or saved, if they don't have one), with your notes and comments. They add theirs and send it back.

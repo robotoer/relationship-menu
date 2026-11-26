@@ -1,13 +1,15 @@
 /**
  * Wants & Won'ts supporter sync: a small Worker in front of D1 and Stripe.
- * Rules live in docs/spec/sync.md; each handler names the rules it implements.
+ * Rules live in docs/spec/sync.md (and, for live-sharing boxes,
+ * docs/spec/notifications.md); each handler names the rules it implements.
  */
 
 import { deleteAccount, getAccountStatus, rotateAccount } from "./accounts";
-import { authenticate, type Caller } from "./auth";
+import { authenticate, authenticateMember, type Caller } from "./auth";
 import { handleWebhook, openPortal, startCheckout } from "./billing";
+import { createBox, deleteBox, joinBox, leaveBox, listCopies, loadMember, newInvite, putCopy, type Member } from "./boxes";
 import { runDailyPurge } from "./cron";
-import { LIMITS, type Env } from "./env";
+import { BOX_LIMITS, LIMITS, type Env } from "./env";
 import { HttpError, errorResponse, readBody, text } from "./http";
 import { enforce } from "./limits";
 import { log } from "./log";
@@ -24,14 +26,24 @@ type Route = {
   path: RegExp;
   /** Largest accepted body, in bytes. */
   maxBody: number;
-  /** "signed": Ed25519-signed (SY-6). "sensitive": also the stricter per-account limit. */
-  auth: "none" | "signed" | "sensitive";
-  handle: (ctx: Context, body: Uint8Array, caller: Caller | null) => Promise<Response>;
+  /**
+   * "signed": Ed25519-signed by a sync account (SY-6). "sensitive": also the
+   * stricter per-account limit. "member": signed with a box key by a member of
+   * the box in the path (notifications.md §7a, NT-12); the first path parameter
+   * is the box id.
+   */
+  auth: "none" | "signed" | "sensitive" | "member";
+  handle: (ctx: Context, body: Uint8Array, caller: Caller | null, member: Member | null) => Promise<Response>;
 };
 
 const signed = (caller: Caller | null): Caller => {
   if (!caller) throw new HttpError(401, "unauthorized");
   return caller;
+};
+
+const asMember = (member: Member | null): Member => {
+  if (!member) throw new HttpError(401, "unauthorized");
+  return member;
 };
 
 const ROUTES: Route[] = [
@@ -89,6 +101,40 @@ const ROUTES: Route[] = [
       return takePairing(env, params[0] ?? "");
     },
   },
+  // Live-sharing boxes (docs/spec/notifications.md §7a).
+  {
+    pattern: "POST /v1/boxes", method: "POST", path: /^\/v1\/boxes$/, maxBody: LIMITS.jsonBytes, auth: "sensitive",
+    handle: ({ env }, body, caller) => createBox(env, signed(caller), body),
+  },
+  {
+    pattern: "POST /v1/boxes/:id/members", method: "POST", path: /^\/v1\/boxes\/([^/]+)\/members$/, maxBody: LIMITS.jsonBytes, auth: "none",
+    handle: async ({ env, request, params }, body) => {
+      // NT-52: joins are unauthenticated, so they're limited per IP, apart from
+      // pairing reads. The address is only a rate-limit key; it isn't logged or stored.
+      await enforce(env.RL_IP, `join:${request.headers.get("cf-connecting-ip") ?? "unknown"}`);
+      return joinBox(env, params[0] ?? "", body);
+    },
+  },
+  {
+    pattern: "DELETE /v1/boxes/:id/members/me", method: "DELETE", path: /^\/v1\/boxes\/([^/]+)\/members\/me$/, maxBody: 0, auth: "member",
+    handle: ({ env }, _b, _c, member) => leaveBox(env, asMember(member)),
+  },
+  {
+    pattern: "POST /v1/boxes/:id/invite", method: "POST", path: /^\/v1\/boxes\/([^/]+)\/invite$/, maxBody: LIMITS.jsonBytes, auth: "member",
+    handle: ({ env }, body, _c, member) => newInvite(env, asMember(member), body),
+  },
+  {
+    pattern: "GET /v1/boxes/:id/copies", method: "GET", path: /^\/v1\/boxes\/([^/]+)\/copies$/, maxBody: 0, auth: "member",
+    handle: ({ env, url }, _b, _c, member) => listCopies(env, asMember(member), url),
+  },
+  {
+    pattern: "PUT /v1/boxes/:id/copies/:memberId", method: "PUT", path: /^\/v1\/boxes\/([^/]+)\/copies\/([^/]+)$/, maxBody: BOX_LIMITS.copyBytes, auth: "member",
+    handle: ({ env, request, params }, body, _c, member) => putCopy(env, asMember(member), request, params[1] ?? "", body),
+  },
+  {
+    pattern: "DELETE /v1/boxes/:id", method: "DELETE", path: /^\/v1\/boxes\/([^/]+)$/, maxBody: 0, auth: "member",
+    handle: ({ env }, _b, _c, member) => deleteBox(env, asMember(member)),
+  },
 ];
 
 /** Finds the route, or throws 404 / 405 (SY-40). */
@@ -110,12 +156,19 @@ export const handleRequest = async (request: Request, env: Env): Promise<Respons
     pattern = route.pattern;
     const body = await readBody(request, route.maxBody);
     let caller: Caller | null = null;
-    if (route.auth !== "none") {
+    let member: Member | null = null;
+    if (route.auth === "member") {
+      const boxCaller = await authenticateMember(request, body, params[0] ?? "");
+      // NT-52: per member device, in its own key space (member ids and account
+      // ids are both key hashes, but of different keys).
+      await enforce(env.RL_ACCOUNT, `box:${boxCaller.boxId}:${boxCaller.memberId}`);
+      member = await loadMember(env, boxCaller);
+    } else if (route.auth !== "none") {
       caller = await authenticate(request, body);
       await enforce(env.RL_ACCOUNT, caller.accountId);
       if (route.auth === "sensitive") await enforce(env.RL_SENSITIVE, caller.accountId);
     }
-    return await route.handle({ env, request, url, params }, body, caller);
+    return await route.handle({ env, request, url, params }, body, caller, member);
   } catch (error) {
     if (error instanceof HttpError) {
       if (error.status >= 500 || error.status === 429) log({ route: pattern, status: error.status, code: error.code });

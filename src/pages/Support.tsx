@@ -29,7 +29,7 @@ export const SUPPORT_OPTIONS: SupportOption[] = [
   { amount: 30, plan: "lifetime", checkoutPlan: "supporter_30_lifetime", label: "$30 once", note: "Lifetime supporter" },
 ];
 
-const SUPPORT_FROM: readonly SupportFrom[] = ["nav", "share", "compare", "landing"];
+const SUPPORT_FROM: readonly SupportFrom[] = ["nav", "share", "compare", "landing", "live"];
 
 const optionFor = (plan: CheckoutPlan | null | undefined) => SUPPORT_OPTIONS.find((o) => o.checkoutPlan === plan);
 
