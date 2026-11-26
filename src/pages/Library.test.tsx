@@ -159,9 +159,16 @@ describe("LibraryPage", () => {
 describe("LibraryPage: keeping menus", () => {
   const IPHONE_SAFARI =
     "Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Mobile/15E148 Safari/604.1";
+  // `id` is the menu's storage id and `link` the slug its tile opens; neither is
+  // used for the export, which builds each link from the menu itself.
   const menus = [
-    { title: "Alpha", id: "a", encoded: encodeData({ G: [{ item: "Hiking", value: "maybe" as const }] }) },
-    { title: "Beta", id: "b", encoded: encodeData({ G: [{ item: "Trust" }] }) },
+    {
+      title: "Alpha",
+      id: "menu-id-alpha",
+      link: "tile-link-alpha",
+      encoded: encodeData({ G: [{ item: "Hiking", value: "maybe" as const }] }),
+    },
+    { title: "Beta", id: "menu-id-beta", link: "tile-link-beta", encoded: encodeData({ G: [{ item: "Trust" }] }) },
   ];
   let gtag: ReturnType<typeof vi.fn>;
   beforeEach(() => {
@@ -199,6 +206,9 @@ describe("LibraryPage: keeping menus", () => {
     const text = await files[0].text();
     expect(text).toContain("1. Alpha");
     expect(text).toContain("2. Beta");
+    // Each link is the menu itself; storage ids never go into the file.
+    expect(text).not.toContain("menu-id-");
+    expect(text).not.toContain("tile-link-");
     // Only that it happened: no titles, no count.
     expect(gtag).toHaveBeenCalledWith("event", "menus_exported", {});
   });
