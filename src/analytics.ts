@@ -13,14 +13,7 @@ import { LibrarySort } from "./library-info";
 
 type LinkKind = "menu" | "template" | "invite" | "menu_slug" | "template_slug";
 /** Where someone opened the Support page from. */
-export type SupportFrom =
-  | "nav"
-  | "share"
-  | "compare"
-  | "landing"
-  | "live"
-  | "coach"
-  | "direct";
+export type SupportFrom = "nav" | "share" | "compare" | "landing" | "live" | "coach" | "direct";
 export type SupportPlan = "yearly" | "lifetime";
 /** The Support page's amounts, in US dollars. */
 export type SupportAmount = 6 | 12 | 24 | 30;
@@ -72,19 +65,10 @@ const KNOWN_ERROR_NAMES = [
  * name, `non_error` when something other than an Error was thrown, and `unknown`
  * when the browser hid the error (e.g. a cross-origin script's "Script error.").
  */
-export type ErrorType =
-  | (typeof KNOWN_ERROR_NAMES)[number]
-  | "other_error"
-  | "non_error"
-  | "unknown";
+export type ErrorType = (typeof KNOWN_ERROR_NAMES)[number] | "other_error" | "non_error" | "unknown";
 
 /** Buttons on the landing page: where they are, and where they go. */
-export type LandingButton =
-  | "hero_start"
-  | "hero_compare"
-  | "hero_library"
-  | "footer_start"
-  | "footer_compare";
+export type LandingButton = "hero_start" | "hero_compare" | "hero_library" | "footer_start" | "footer_compare";
 
 /** Kinds of change people make to a menu's structure (not answers). */
 export type MenuEditKind =
@@ -106,10 +90,7 @@ export type AnalyticsEvent =
   | { name: "reorder_mode_opened"; params?: undefined }
   | { name: "ready_made_group_added"; params: { group_name: string } }
   // Filling it in
-  | {
-      name: "menu_progress";
-      params: { percent_answered: 25 | 50 | 75 | 100; item_count: number };
-    }
+  | { name: "menu_progress"; params: { percent_answered: 25 | 50 | 75 | 100; item_count: number } }
   | { name: "note_added"; params?: undefined }
   | { name: "item_made_group"; params?: undefined }
   | { name: "person_info_added"; params?: undefined }
@@ -131,10 +112,7 @@ export type AnalyticsEvent =
       };
     }
   | { name: "link_open_failed"; params: { reason: "unreadable" | "not_found" } }
-  | {
-      name: "library_menu_opened";
-      params: { item_count: number; percent_answered: 0 | 25 | 50 | 75 | 100 };
-    }
+  | { name: "library_menu_opened"; params: { item_count: number; percent_answered: 0 | 25 | 50 | 75 | 100 } }
   // Comparing
   | {
       name: "comparison_shown";
@@ -149,10 +127,7 @@ export type AnalyticsEvent =
   | { name: "compare_searched"; params?: undefined }
   | { name: "compare_sorted"; params: { sort: "menu" | "difference" } }
   // Guided discussion
-  | {
-      name: "discussion_started";
-      params: { topic_count: number; menu_count: number; resumed: boolean };
-    }
+  | { name: "discussion_started"; params: { topic_count: number; menu_count: number; resumed: boolean } }
   | {
       name: "discussion_summary_viewed";
       params: {
@@ -165,49 +140,26 @@ export type AnalyticsEvent =
         boundary: number;
       };
     }
-  | {
-      name: "discussion_summary_exported";
-      params: { method: "copy" | "download" | "print" };
-    }
+  | { name: "discussion_summary_exported"; params: { method: "copy" | "download" | "print" } }
   | { name: "ai_prep_interest"; params?: undefined }
   // AI coach: never the topics or questions, only counts and outcomes
   | { name: "coach_requested"; params: { topic_count: number; people: number } }
   | {
       name: "coach_result";
-      params: {
-        outcome:
-          | "ok"
-          | "unavailable"
-          | "not_supporter"
-          | "quota"
-          | "busy"
-          | "declined"
-          | "failed";
-      };
+      params: { outcome: "ok" | "unavailable" | "not_supporter" | "quota" | "busy" | "declined" | "failed" };
     }
   // Conversations (spec §7c): counts and choices only, never what anyone wrote
   | { name: "conversation_saved"; params: { source: "compare" | "talk" } }
   | { name: "conversation_shared"; params: { method: "share" | "copy" } }
-  | {
-      name: "conversation_merged";
-      params: { comments: number; notes: number; menus: number };
-    }
+  | { name: "conversation_merged"; params: { comments: number; notes: number; menus: number } }
   | { name: "conversation_comment_added"; params: { target: "topic" | "area" } }
   | { name: "conversation_part_done"; params: { part_count: number } }
   | { name: "conversation_tips_opened"; params?: undefined }
-  | {
-      name: "conversation_settings_changed";
-      params: { setting: "include" | "order" | "menu_notes" | "prompts" };
-    }
+  | { name: "conversation_settings_changed"; params: { setting: "include" | "order" | "menu_notes" | "prompts" } }
   | { name: "conversation_deleted"; params?: undefined }
   // Live sharing (docs/spec/notifications.md): counts only, never ids
   | { name: "live_shared"; params?: undefined }
-  | {
-      name: "live_joined";
-      params: {
-        outcome: "ok" | "expired" | "full" | "gone" | "offline" | "failed";
-      };
-    }
+  | { name: "live_joined"; params: { outcome: "ok" | "expired" | "full" | "gone" | "offline" | "failed" } }
   | { name: "live_left"; params?: undefined }
   | { name: "live_stopped"; params?: undefined }
   | { name: "notifications_enabled"; params: { channel: "webpush" } }
@@ -227,46 +179,24 @@ export type AnalyticsEvent =
   // Supporting the project
   | { name: "support_viewed"; params: { from: SupportFrom } }
   // Supporter sync (docs/spec/sync.md §9). Never account ids, codes, words, menu ids, Stripe ids or URLs (SY-75).
-  | {
-      name: "checkout_started";
-      params: { amount_usd: SupportAmount; plan: SupportPlan };
-    }
-  | {
-      name: "checkout_completed";
-      params: { amount_usd: SupportAmount; plan: SupportPlan };
-    }
-  | {
-      name: "checkout_cancelled";
-      params: { amount_usd: SupportAmount; plan: SupportPlan };
-    }
+  | { name: "checkout_started"; params: { amount_usd: SupportAmount; plan: SupportPlan } }
+  | { name: "checkout_completed"; params: { amount_usd: SupportAmount; plan: SupportPlan } }
+  | { name: "checkout_cancelled"; params: { amount_usd: SupportAmount; plan: SupportPlan } }
   | { name: "sync_enabled"; params: { how: "new" | "restored" } }
   | { name: "device_paired"; params: { method: "qr" | "words" } }
   // Problems
   | { name: "save_failed"; params?: undefined }
-  | {
-      name: "app_error";
-      params: { error_type: ErrorType; error_source: ErrorSource };
-    }
+  | { name: "app_error"; params: { error_type: ErrorType; error_source: ErrorSource } }
   // Performance
-  | {
-      name: "web_vital";
-      params: { metric_name: WebVitalName; metric_value: number };
-    };
+  | { name: "web_vital"; params: { metric_name: WebVitalName; metric_value: number } };
 
 type EventName = AnalyticsEvent["name"];
-type ParamsOf<N extends EventName> = Extract<
-  AnalyticsEvent,
-  { name: N }
->["params"];
+type ParamsOf<N extends EventName> = Extract<AnalyticsEvent, { name: N }>["params"];
 /** Events without parameters take none; the others require exactly theirs. */
-type ParamArgs<N extends EventName> =
-  undefined extends ParamsOf<N> ? [] : [ParamsOf<N>];
+type ParamArgs<N extends EventName> = undefined extends ParamsOf<N> ? [] : [ParamsOf<N>];
 
 /** Sends one event to Google Analytics, if it's loaded. Never throws. */
-export const track = <N extends EventName>(
-  name: N,
-  ...params: ParamArgs<N>
-) => {
+export const track = <N extends EventName>(name: N, ...params: ParamArgs<N>) => {
   try {
     const gtag = (window as { gtag?: (...args: unknown[]) => void }).gtag;
     gtag?.("event", name, params[0] ?? {});
@@ -277,21 +207,14 @@ export const track = <N extends EventName>(
 
 /** Like `track`, but at most once per `key` per page load (e.g. once per menu). */
 const sent = new Set<string>();
-export const trackOnce = <N extends EventName>(
-  key: string,
-  name: N,
-  ...params: ParamArgs<N>
-) => {
+export const trackOnce = <N extends EventName>(key: string, name: N, ...params: ParamArgs<N>) => {
   if (sent.has(key)) return;
   sent.add(key);
   track(name, ...params);
 };
 
 /** The 25/50/75/100% milestone reached by `answered` of `total` items, if any. */
-export const progressMilestone = (
-  answered: number,
-  total: number,
-): 25 | 50 | 75 | 100 | null => {
+export const progressMilestone = (answered: number, total: number): 25 | 50 | 75 | 100 | null => {
   if (total <= 0 || answered <= 0) return null;
   const share = answered / total;
   if (share >= 1) return 100;
@@ -316,20 +239,12 @@ export const openedFrom = (state: unknown): OpenedFrom | undefined => {
 };
 
 /** Like `progressMilestone`, but 0 below 25% (for events that report every open). */
-export const answeredBucket = (
-  answered: number,
-  total: number,
-): 0 | 25 | 50 | 75 | 100 => progressMilestone(answered, total) ?? 0;
+export const answeredBucket = (answered: number, total: number): 0 | 25 | 50 | 75 | 100 =>
+  progressMilestone(answered, total) ?? 0;
 
 // ---- Core Web Vitals ----
 
-const WEB_VITALS: readonly WebVitalName[] = [
-  "CLS",
-  "FCP",
-  "INP",
-  "LCP",
-  "TTFB",
-];
+const WEB_VITALS: readonly WebVitalName[] = ["CLS", "FCP", "INP", "LCP", "TTFB"];
 
 /**
  * Reports one Core Web Vital: its name and rounded value only (milliseconds, or CLS
@@ -342,9 +257,7 @@ export const trackWebVital = (metric: { name: string; value: number }) => {
     const name = metric.name as WebVitalName;
     track("web_vital", {
       metric_name: name,
-      metric_value: Math.round(
-        name === "CLS" ? metric.value * 1000 : metric.value,
-      ),
+      metric_value: Math.round(name === "CLS" ? metric.value * 1000 : metric.value),
     });
   } catch {
     // Analytics must never break the app.
@@ -401,9 +314,7 @@ export const trackError = (error: unknown, source: ErrorSource) => {
 /** Reports uncaught errors and unhandled promise rejections (see `trackError`). */
 export const trackUncaughtErrors = (target: Window = window) => {
   target.addEventListener("error", (e) => trackError(e.error, "error"));
-  target.addEventListener("unhandledrejection", (e) =>
-    trackError(e.reason, "unhandledrejection"),
-  );
+  target.addEventListener("unhandledrejection", (e) => trackError(e.reason, "unhandledrejection"));
 };
 
 /** For tests: forget which errors were reported. */

@@ -23,47 +23,15 @@ export type SupportOption = {
 
 /** Pay-what-you-want options (SY-60). Amounts are in US dollars. */
 export const SUPPORT_OPTIONS: SupportOption[] = [
-  {
-    amount: 6,
-    plan: "yearly",
-    checkoutPlan: "supporter_6_yearly",
-    label: "$6 / year",
-    note: "Covers a few people's sync",
-  },
-  {
-    amount: 12,
-    plan: "yearly",
-    checkoutPlan: "supporter_12_yearly",
-    label: "$12 / year",
-    note: "Suggested",
-  },
-  {
-    amount: 24,
-    plan: "yearly",
-    checkoutPlan: "supporter_24_yearly",
-    label: "$24 / year",
-    note: "Keeps it free for others",
-  },
-  {
-    amount: 30,
-    plan: "lifetime",
-    checkoutPlan: "supporter_30_lifetime",
-    label: "$30 once",
-    note: "Lifetime supporter",
-  },
+  { amount: 6, plan: "yearly", checkoutPlan: "supporter_6_yearly", label: "$6 / year", note: "Covers a few people's sync" },
+  { amount: 12, plan: "yearly", checkoutPlan: "supporter_12_yearly", label: "$12 / year", note: "Suggested" },
+  { amount: 24, plan: "yearly", checkoutPlan: "supporter_24_yearly", label: "$24 / year", note: "Keeps it free for others" },
+  { amount: 30, plan: "lifetime", checkoutPlan: "supporter_30_lifetime", label: "$30 once", note: "Lifetime supporter" },
 ];
 
-const SUPPORT_FROM: readonly SupportFrom[] = [
-  "nav",
-  "share",
-  "compare",
-  "landing",
-  "live",
-  "coach",
-];
+const SUPPORT_FROM: readonly SupportFrom[] = ["nav", "share", "compare", "landing", "live", "coach"];
 
-const optionFor = (plan: CheckoutPlan | null | undefined) =>
-  SUPPORT_OPTIONS.find((o) => o.checkoutPlan === plan);
+const optionFor = (plan: CheckoutPlan | null | undefined) => SUPPORT_OPTIONS.find((o) => o.checkoutPlan === plan);
 
 /**
  * The plan chosen before leaving for Checkout, kept for this tab only: the return
@@ -97,8 +65,7 @@ const takeRememberedPlan = (): SupportOption | undefined => {
  */
 export const CONFIRM_BACKOFF_MS = [1000, 2000, 4000, 8000, 15000, 15000, 15000];
 
-const reasonOf = (error: unknown): SyncErrorReason =>
-  error instanceof SyncError ? error.reason : "failed";
+const reasonOf = (error: unknown): SyncErrorReason => (error instanceof SyncError ? error.reason : "failed");
 
 /** Plain words for a Checkout that couldn't start (SY-61). Nothing was charged in any of these. */
 const checkoutErrorText = (reason: SyncErrorReason): string => {
@@ -131,8 +98,7 @@ const portalErrorText = (reason: SyncErrorReason): string => {
   }
 };
 
-const formatDate = (ms: number) =>
-  new Date(ms).toLocaleDateString(undefined, { dateStyle: "long" });
+const formatDate = (ms: number) => new Date(ms).toLocaleDateString(undefined, { dateStyle: "long" });
 
 /** What the supporter sees instead of the amounts (SY-64): their plan, its date, and the portal. */
 const SupporterStatus = ({
@@ -145,9 +111,7 @@ const SupporterStatus = ({
   busy: boolean;
 }) => {
   if (account.status === "lifetime") {
-    return (
-      <p>You're a lifetime supporter. There's nothing to renew. Thank you!</p>
-    );
+    return <p>You're a lifetime supporter. There's nothing to renew. Thank you!</p>;
   }
   const option = optionFor(account.plan);
   // TODO(sync interface): `renewsAt` is the renewal date, or the end date if the plan
@@ -156,29 +120,17 @@ const SupporterStatus = ({
   return (
     <>
       <p>
-        You're supporting at{" "}
-        {option ? `$${option.amount} a year` : "a yearly amount"}.
-        {account.renewsAt !== null && (
-          <> Paid through {formatDate(account.renewsAt)}.</>
-        )}
+        You're supporting at {option ? `$${option.amount} a year` : "a yearly amount"}.
+        {account.renewsAt !== null && <> Paid through {formatDate(account.renewsAt)}.</>}
       </p>
       {account.status === "past_due" && (
         <p>
-          Your last payment didn't go through. Stripe will try again, and sync
-          keeps working meanwhile. You can update your card under Manage
-          subscription.
+          Your last payment didn't go through. Stripe will try again, and sync keeps working
+          meanwhile. You can update your card under Manage subscription.
         </p>
       )}
-      <p>
-        Change the amount, update your card, see receipts or cancel in Stripe's
-        portal.
-      </p>
-      <button
-        type="button"
-        className="button-primary"
-        onClick={onManage}
-        disabled={busy}
-      >
+      <p>Change the amount, update your card, see receipts or cancel in Stripe's portal.</p>
+      <button type="button" className="button-primary" onClick={onManage} disabled={busy}>
         {busy ? "Opening…" : "Manage subscription"}
       </button>
     </>
@@ -215,12 +167,9 @@ export const SupportPage = ({
   });
 
   // Where the visitor came from (set by the links that lead here), for analytics.
-  const from = (location.state as { supportFrom?: SupportFrom } | null)
-    ?.supportFrom;
+  const from = (location.state as { supportFrom?: SupportFrom } | null)?.supportFrom;
   useEffect(() => {
-    track("support_viewed", {
-      from: from && SUPPORT_FROM.includes(from) ? from : "direct",
-    });
+    track("support_viewed", { from: from && SUPPORT_FROM.includes(from) ? from : "direct" });
     // Once per visit to the page.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -234,9 +183,7 @@ export const SupportPage = ({
   const [confirmation, setConfirmation] = useState<Confirmation>("waiting");
   const [round, setRound] = useState(0);
   /** The account as the server last told this page, when it's fresher than `state` (after a return or a 409). */
-  const [fetchedAccount, setFetchedAccount] = useState<SyncAccount | null>(
-    null,
-  );
+  const [fetchedAccount, setFetchedAccount] = useState<SyncAccount | null>(null);
   const completedSent = useRef(false);
   const returnNotice = useRef<HTMLDivElement>(null);
 
@@ -247,12 +194,8 @@ export const SupportPage = ({
     params.delete("checkout");
     const search = params.toString();
     navigate(
-      {
-        pathname: location.pathname,
-        search: search ? `?${search}` : "",
-        hash: location.hash,
-      },
-      { replace: true, state: location.state },
+      { pathname: location.pathname, search: search ? `?${search}` : "", hash: location.hash },
+      { replace: true, state: location.state }
     );
     // Once, on arrival.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -261,11 +204,7 @@ export const SupportPage = ({
   useEffect(() => {
     if (returned === "cancelled") {
       const option = takeRememberedPlan();
-      if (option)
-        track("checkout_cancelled", {
-          amount_usd: option.amount,
-          plan: option.plan,
-        });
+      if (option) track("checkout_cancelled", { amount_usd: option.amount, plan: option.plan });
     } else if (returned === "done") {
       // The server's plan is the one that counts now.
       takeRememberedPlan();
@@ -279,10 +218,7 @@ export const SupportPage = ({
     const option = optionFor(account.plan);
     if (option && !completedSent.current) {
       completedSent.current = true;
-      track("checkout_completed", {
-        amount_usd: option.amount,
-        plan: option.plan,
-      });
+      track("checkout_completed", { amount_usd: option.amount, plan: option.plan });
     }
   };
 
@@ -306,8 +242,7 @@ export const SupportPage = ({
         // Offline or rate limited: try again on the next step.
       }
       if (stopped) return;
-      if (account && SUPPORTER_STATUSES.includes(account.status))
-        return confirm(account);
+      if (account && SUPPORTER_STATUSES.includes(account.status)) return confirm(account);
       if (attempt >= CONFIRM_BACKOFF_MS.length) return setConfirmation("slow");
       timer = setTimeout(check, CONFIRM_BACKOFF_MS[attempt++]);
     };
@@ -328,8 +263,7 @@ export const SupportPage = ({
     } catch {
       // Same as not confirmed yet.
     }
-    if (account && SUPPORTER_STATUSES.includes(account.status))
-      confirm(account);
+    if (account && SUPPORTER_STATUSES.includes(account.status)) confirm(account);
     else setConfirmation("slow");
   };
 
@@ -409,23 +343,16 @@ export const SupportPage = ({
       <h1>Support Wants &amp; Won'ts</h1>
 
       {returned && (
-        <div
-          className="support-notice support-return"
-          role="status"
-          tabIndex={-1}
-          ref={returnNotice}
-        >
+        <div className="support-notice support-return" role="status" tabIndex={-1} ref={returnNotice}>
           {returned === "cancelled" && (
             <p>
-              Checkout was cancelled, and nothing was charged. You're welcome to
-              pick an amount whenever you like, or not at all: everything here
-              stays free.
+              Checkout was cancelled, and nothing was charged. You're welcome to pick an amount
+              whenever you like, or not at all: everything here stays free.
             </p>
           )}
-          {returned === "done" &&
-            (confirmation === "waiting" || confirmation === "checking") && (
-              <p>Waiting for Stripe to confirm…</p>
-            )}
+          {returned === "done" && (confirmation === "waiting" || confirmation === "checking") && (
+            <p>Waiting for Stripe to confirm…</p>
+          )}
           {returned === "done" && confirmation === "confirmed" && (
             <p>
               <strong>Thank you, you're a supporter!</strong>
@@ -434,8 +361,8 @@ export const SupportPage = ({
           {returned === "done" && confirmation === "slow" && (
             <>
               <p>
-                Stripe hasn't confirmed your payment yet. It can take a few
-                minutes, and you don't need to pay again.
+                Stripe hasn't confirmed your payment yet. It can take a few minutes, and you
+                don't need to pay again.
               </p>
               <button type="button" onClick={checkAgain}>
                 Check again
@@ -444,48 +371,43 @@ export const SupportPage = ({
           )}
           {returned === "done" && confirmation === "no_sync" && (
             <p>
-              Sync isn't on in this browser, so we can't check your supporter
-              status here. Your support is linked to the sync code that was on
-              when you paid: turn on sync with that code in{" "}
-              <Link to="/sync">sync settings</Link>.
+              Sync isn't on in this browser, so we can't check your supporter status here. Your
+              support is linked to the sync code that was on when you paid: turn on sync with that
+              code in <Link to="/sync">sync settings</Link>.
             </p>
           )}
-          {returned === "done" &&
-            (confirmation === "confirmed" || confirmation === "slow") && (
-              <p>
-                Next, save your sync code. It's the only key to your synced
-                menus, and we can't recover it.{" "}
-                <Link to="/sync">Show my sync code</Link>
-              </p>
-            )}
+          {returned === "done" && (confirmation === "confirmed" || confirmation === "slow") && (
+            <p>
+              Next, save your sync code. It's the only key to your synced menus, and we can't
+              recover it. <Link to="/sync">Show my sync code</Link>
+            </p>
+          )}
         </div>
       )}
 
       <p className="support-lead">
-        No ads, no sign-up, no tracking of what you write. Your menus stay in
-        your browser unless you share them or turn on sync, and{" "}
-        <strong>everything here stays free</strong>.
+        No ads, no sign-up, no tracking of what you write. Your menus stay in your browser
+        unless you share them or turn on sync, and <strong>everything here stays free</strong>.
       </p>
       <p className="support-lead">
-        If it's helped a conversation, you can chip in to keep it running. As
-        thanks, supporters get a few conveniences:
+        If it's helped a conversation, you can chip in to keep it running. As thanks,
+        supporters get a few conveniences:
       </p>
 
       <ul className="support-perks">
         <li>
           <span className="support-perk-name">Sync across your devices</span>
-          Start a menu on your laptop, answer it on your phone. Menus are
-          encrypted on your device before they're sent, so even we can't read
-          them.
+          Start a menu on your laptop, answer it on your phone. Menus are encrypted on your
+          device before they're sent, so even we can't read them.
         </li>
         <li>
-          <span className="support-perk-name">Encrypted backup</span>A new phone
-          or a cleared browser doesn't mean starting over: your sync code brings
+          <span className="support-perk-name">Encrypted backup</span>
+          A new phone or a cleared browser doesn't mean starting over: your sync code brings
           your menus back.
         </li>
         <li>
-          <span className="support-perk-name">A supporter heart</span>A small
-          pixel heart in the menu bar, and our thanks.
+          <span className="support-perk-name">A supporter heart</span>
+          A small pixel heart in the menu bar, and our thanks.
         </li>
       </ul>
 
@@ -493,11 +415,7 @@ export const SupportPage = ({
         <>
           <h2>Your support</h2>
           <div className="support-status">
-            <SupporterStatus
-              account={supporterAccount}
-              onManage={manage}
-              busy={portalBusy}
-            />
+            <SupporterStatus account={supporterAccount} onManage={manage} busy={portalBusy} />
           </div>
         </>
       ) : confirming ? null : (
@@ -506,36 +424,33 @@ export const SupportPage = ({
           {state.kind === "unsupported" && (
             <div className="support-notice" id="support-checkout-note">
               <p>
-                This browser can't sync, so supporter checkout can't start here:
-                sync needs encryption that this browser doesn't have. Everything
-                else in the app works as usual.
+                This browser can't sync, so supporter checkout can't start here: sync needs
+                encryption that this browser doesn't have. Everything else in the app works as
+                usual.
               </p>
               <p>
-                To support, open this page in a recent browser: Chrome or Edge
-                137 or later, Firefox 129 or later, or Safari 17 or later.
+                To support, open this page in a recent browser: Chrome or Edge 137 or later,
+                Firefox 129 or later, or Safari 17 or later.
               </p>
             </div>
           )}
           {state.kind === "off" && (
             <p className="support-checkout-note" id="support-checkout-note">
-              Choosing an amount turns on sync in this browser and creates your
-              sync code, which you'll see after paying. Payment is handled by
-              Stripe.
+              Choosing an amount turns on sync in this browser and creates your sync code, which
+              you'll see after paying. Payment is handled by Stripe.
             </p>
           )}
           {state.kind === "on" && (
             <p className="support-checkout-note" id="support-checkout-note">
-              Sync is already on in this browser, so your support goes to its
-              sync code. Payment is handled by Stripe.
+              Sync is already on in this browser, so your support goes to its sync code. Payment
+              is handled by Stripe.
             </p>
           )}
           <div
             className="support-options"
             role="group"
             aria-labelledby="support-amount"
-            aria-describedby={
-              state.kind === "loading" ? undefined : "support-checkout-note"
-            }
+            aria-describedby={state.kind === "loading" ? undefined : "support-checkout-note"}
             aria-busy={pending !== null}
           >
             {SUPPORT_OPTIONS.map((option) => (
@@ -543,18 +458,14 @@ export const SupportPage = ({
                 key={option.label}
                 type="button"
                 className={
-                  option.note === "Suggested"
-                    ? "support-option support-option-suggested"
-                    : "support-option"
+                  option.note === "Suggested" ? "support-option support-option-suggested" : "support-option"
                 }
                 disabled={!canCheckout || pending !== null}
                 onClick={() => void choose(option)}
               >
                 <span className="support-option-amount">{option.label}</span>
                 <span className="support-option-note">
-                  {pending === option.checkoutPlan
-                    ? "Opening checkout…"
-                    : option.note}
+                  {pending === option.checkoutPlan ? "Opening checkout…" : option.note}
                 </span>
               </button>
             ))}
@@ -564,20 +475,12 @@ export const SupportPage = ({
 
       {alreadySupporter && (
         <div className="support-notice" role="status">
-          <p>
-            This sync code is already a supporter, so nothing was charged. Thank
-            you!
-          </p>
+          <p>This sync code is already a supporter, so nothing was charged. Thank you!</p>
         </div>
       )}
 
       {error && (
-        <div
-          className="support-notice support-error"
-          role="alert"
-          tabIndex={-1}
-          ref={errorNotice}
-        >
+        <div className="support-notice support-error" role="alert" tabIndex={-1} ref={errorNotice}>
           <p>{error}</p>
         </div>
       )}
@@ -585,16 +488,11 @@ export const SupportPage = ({
       <h2>Other ways to help</h2>
       <ul className="support-other">
         <li>
-          Send a <Link to="/menu">menu</Link> to someone, or tell a friend about
-          it.
+          Send a <Link to="/menu">menu</Link> to someone, or tell a friend about it.
         </li>
         <li>
           Report bugs or ideas, or star the project, on{" "}
-          <a
-            href="https://github.com/robotoer/relationship-menu"
-            target="_blank"
-            rel="noreferrer"
-          >
+          <a href="https://github.com/robotoer/relationship-menu" target="_blank" rel="noreferrer">
             GitHub
           </a>
           .
