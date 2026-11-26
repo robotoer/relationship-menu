@@ -8,13 +8,24 @@ import reportWebVitals from "./reportWebVitals";
 import { BrowserRouter } from "react-router-dom";
 import { StorageProvider } from "./providers/Storage";
 import { createIpfsStorage } from "./ipfs";
+import { trackError, trackUncaughtErrors, trackWebVital } from "./analytics";
+
+// Analytics: uncaught errors (their kind only) and Core Web Vitals.
+trackUncaughtErrors();
 
 // Create storage promise at module scope to prevent multiple Helia nodes
 const storagePromise = createIpfsStorage();
 
-const root = ReactDOM.createRoot(
-  document.getElementById("root") as HTMLElement
-);
+const root = ReactDOM.createRoot(document.getElementById("root") as HTMLElement, {
+  // A render error with no error boundary blanks the page: report it as a "react"
+  // error, then hand it on as React would by default (reportError logs it; the
+  // window listener above knows it's already been reported).
+  onUncaughtError: (error) => {
+    trackError(error, "react");
+    if (typeof window.reportError === "function") window.reportError(error);
+    else console.error(error);
+  },
+});
 root.render(
   <React.StrictMode>
     <BrowserRouter>
@@ -25,7 +36,5 @@ root.render(
   </React.StrictMode>
 );
 
-// If you want to start measuring performance in your app, pass a function
-// to log results (for example: reportWebVitals(console.log))
-// or send to an analytics endpoint. Learn more: https://bit.ly/CRA-vitals
-reportWebVitals();
+// Core Web Vitals: each metric's name and rounded value (see src/analytics.ts).
+reportWebVitals(trackWebVital);

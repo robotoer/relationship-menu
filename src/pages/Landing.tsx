@@ -6,6 +6,10 @@
 import { Link } from "react-router-dom";
 import "./Landing.css";
 import { MENU_TEMPLATES } from "../templates";
+import { LandingButton, track } from "../analytics";
+
+/** Analytics: which landing page button was used. */
+const clicked = (button_id: LandingButton) => () => track("landing_button_clicked", { button_id });
 
 const ANSWERS: { className: string; label: string; meaning: string }[] = [
   { className: "must-have", label: "Must have", meaning: "I need this to be happy." },
@@ -40,14 +44,14 @@ export const LandingPage = ({ savedCount = 0 }: { savedCount?: number }) => {
           include, so you can each say what you actually want, then see where you match.
         </p>
         <div className="landing-actions">
-          <Link className="button button-primary" to="/menu">
+          <Link className="button button-primary" to="/menu" onClick={clicked("hero_start")}>
             ▶ Start a menu
           </Link>
-          <Link className="button" to="/compare">
+          <Link className="button" to="/compare" onClick={clicked("hero_compare")}>
             Compare menus
           </Link>
           {savedCount > 0 && (
-            <Link className="button" to="/library">
+            <Link className="button" to="/library" onClick={clicked("hero_library")}>
               My menus ({savedCount})
             </Link>
           )}
@@ -230,10 +234,10 @@ export const LandingPage = ({ savedCount = 0 }: { savedCount?: number }) => {
       <section className="landing-cta">
         <h2>Ready, player one?</h2>
         <div className="landing-actions">
-          <Link className="button button-primary" to="/menu">
+          <Link className="button button-primary" to="/menu" onClick={clicked("footer_start")}>
             ▶ Start
           </Link>
-          <Link className="button" to="/compare">
+          <Link className="button" to="/compare" onClick={clicked("footer_compare")}>
             Compare menus
           </Link>
         </div>
