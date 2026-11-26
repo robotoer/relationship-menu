@@ -287,6 +287,14 @@ ALTER TABLE push_subs ADD COLUMN platform TEXT CHECK (platform IS NULL OR platfo
 -- FCM rows keep the token in `endpoint`; p256dh and auth are empty.
 ```
 
+**As built** (`server/src/fcm.ts`):
+- The service account must have a plain project id and an RSA key of at least 2048 bits.
+- A 401 also drops the cached access token.
+- A failed token request waits for the cron: it's a retry when unreachable, 429 or 5xx, and logged as `push_auth` otherwise.
+- `INVALID_ARGUMENT` deletes the subscription only when FCM names the token as the bad field, so a mistake in our own message can't wipe every subscription. Any other one is dropped like other 4xx.
+- The subscription route takes bodies up to 8 KiB, so a 4,096-character token fits.
+- When only one channel is configured, the other channel's subscriptions keep their changes waiting until its credentials are back.
+
 **On the device:** the app host passes a native push implementation to the web app through `setPlatform({ nativePush })` (`src/platform.ts`). With it, "Notify me" asks the operating system for permission and an FCM token instead of using web push. A tap on a notification opens the conversation that box belongs to (`conversationForBox` in `src/live/live-store.ts`).
 
 ---

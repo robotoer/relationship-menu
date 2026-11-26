@@ -9,7 +9,7 @@ import { authenticate, authenticateMember, type Caller } from "./auth";
 import { handleWebhook, openPortal, startCheckout } from "./billing";
 import { createBox, deleteBox, joinBox, leaveBox, listCopies, loadMember, newInvite, putCopy, type Background, type Member } from "./boxes";
 import { runCron } from "./cron";
-import { BOX_LIMITS, LIMITS, type Env } from "./env";
+import { BOX_LIMITS, LIMITS, PUSH_LIMITS, type Env } from "./env";
 import { HttpError, errorResponse, readBody, text } from "./http";
 import { enforce } from "./limits";
 import { log } from "./log";
@@ -144,13 +144,13 @@ const ROUTES: Route[] = [
     pattern: "DELETE /v1/boxes/:id", method: "DELETE", path: /^\/v1\/boxes\/([^/]+)$/, maxBody: 0, auth: "member",
     handle: ({ env }, _b, _c, member) => deleteBox(env, asMember(member)),
   },
-  // Web push (docs/spec/notifications.md §7b).
+  // Push: web push, and FCM for the store apps (docs/spec/notifications.md §7b, §7c).
   {
     pattern: "GET /v1/push/key", method: "GET", path: /^\/v1\/push\/key$/, maxBody: 0, auth: "none",
     handle: async ({ env }) => getPushKey(env),
   },
   {
-    pattern: "POST /v1/boxes/:id/subscriptions", method: "POST", path: /^\/v1\/boxes\/([^/]+)\/subscriptions$/, maxBody: LIMITS.jsonBytes, auth: "member",
+    pattern: "POST /v1/boxes/:id/subscriptions", method: "POST", path: /^\/v1\/boxes\/([^/]+)\/subscriptions$/, maxBody: PUSH_LIMITS.bodyBytes, auth: "member",
     handle: ({ env }, body, _c, member) => createSubscription(env, asMember(member), body),
   },
   {

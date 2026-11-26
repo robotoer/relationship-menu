@@ -34,6 +34,13 @@ export interface Env {
   VAPID_PRIVATE_KEY?: string;
   /** A project `mailto:` or `https:` contact for push services, never a person's address. */
   VAPID_SUBJECT?: string;
+  /**
+   * Store-app push (docs/spec/notifications.md §7c, NT-40): a Google service
+   * account's JSON key (project_id, client_email, private_key) for Firebase
+   * Cloud Messaging HTTP v1. Without it (or if it's malformed) FCM subscriptions
+   * answer 503 push_unavailable; web push is unaffected.
+   */
+  FCM_SERVICE_ACCOUNT?: string;
   /** Tests only: overrides ROTATION_COMMIT_MS (accounts.ts). */
   ROTATION_COMMIT_MS?: string;
 }
@@ -72,10 +79,12 @@ export const BOX_LIMITS = {
 /** How long an invite (join secret) works (NT-13). */
 export const INVITE_TTL_MS = 7 * DAY_MS;
 
-/** Web push subscriptions (docs/spec/notifications.md §7b). */
+/** Push subscriptions, web push and FCM (docs/spec/notifications.md §7b, §7c). */
 export const PUSH_LIMITS = {
-  /** Subscriptions per member device per box. */
+  /** Subscriptions per member device per box, of both kinds together. */
   subscriptions: 5,
+  /** Largest subscription body: room for a 4,096-character FCM token (§7c). */
+  bodyBytes: 8 * 1024,
   /** Waiting subscriptions the 5-minute cron sends to per run. */
   flushBatch: 500,
 } as const;

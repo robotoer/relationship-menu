@@ -421,7 +421,8 @@ describe("POST /v1/boxes/:id/subscriptions", () => {
       { ...subscription, p256dh: "not base64url!" },
       { ...subscription, auth: toBase64Url(new Uint8Array(15)) },
       { ...subscription, auth: toBase64Url(new Uint8Array(17)) },
-      { ...subscription, kind: "fcm" },
+      { ...subscription, kind: "apns" },
+      { ...subscription, kind: null },
     ]) {
       const response = await subscribe(box.host, box.boxId, body);
       expect(response.status, JSON.stringify(body)).toBe(400);
