@@ -17,7 +17,7 @@ import {
   sortMenus,
 } from "../library-info";
 import { RandomAvatar } from "react-random-avatars";
-import { track, trackOnce } from "../analytics";
+import { openedFromState, track, trackOnce } from "../analytics";
 
 /**
  * Renders the Library page, displaying a list of relationship menus.
@@ -116,6 +116,8 @@ export const LibraryPage = ({
                   <RandomAvatar name={menu.person?.name || menu.title} size={56} />
                 }
                 link={`/menu?encoded=${encodeURIComponent(menu.id)}`}
+                // So reopening a saved menu isn't counted as a shared link (analytics).
+                linkState={openedFromState("library")}
               >
                 <dl className="menu-tile-details">
                   {menu.person?.name && (

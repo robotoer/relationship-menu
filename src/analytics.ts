@@ -16,8 +16,72 @@ type LinkKind = "menu" | "template" | "invite" | "menu_slug" | "template_slug";
 export type SupportFrom = "nav" | "share" | "compare" | "landing" | "direct";
 export type SupportPlan = "yearly" | "lifetime";
 
+/** Core Web Vitals reported by `web-vitals` (see reportWebVitals.ts). */
+export type WebVitalName = "CLS" | "FCP" | "INP" | "LCP" | "TTFB";
+
+/** Where an uncaught error was caught. */
+export type ErrorSource = "error" | "unhandledrejection" | "react";
+
+/**
+ * Error names that may be reported. Only these fixed names are sent, so nothing an
+ * error carries (its message, stack, or a name some code set from data) can leak.
+ */
+const KNOWN_ERROR_NAMES = [
+  "Error",
+  "TypeError",
+  "RangeError",
+  "ReferenceError",
+  "SyntaxError",
+  "EvalError",
+  "URIError",
+  "AggregateError",
+  "ChunkLoadError",
+  "AbortError",
+  "TimeoutError",
+  "NetworkError",
+  "NotAllowedError",
+  "NotFoundError",
+  "NotSupportedError",
+  "NotReadableError",
+  "InvalidStateError",
+  "InvalidAccessError",
+  "InvalidCharacterError",
+  "QuotaExceededError",
+  "SecurityError",
+  "DataCloneError",
+  "DataError",
+  "ConstraintError",
+  "TransactionInactiveError",
+  "ReadOnlyError",
+  "VersionError",
+  "UnknownError",
+  "OperationError",
+] as const;
+
+/**
+ * An error's kind: a known error name, `other_error` for an Error with any other
+ * name, `non_error` when something other than an Error was thrown, and `unknown`
+ * when the browser hid the error (e.g. a cross-origin script's "Script error.").
+ */
+export type ErrorType = (typeof KNOWN_ERROR_NAMES)[number] | "other_error" | "non_error" | "unknown";
+
+/** Buttons on the landing page: where they are, and where they go. */
+export type LandingButton = "hero_start" | "hero_compare" | "hero_library" | "footer_start" | "footer_compare";
+
+/** Kinds of change people make to a menu's structure (not answers). */
+export type MenuEditKind =
+  | "item_added"
+  | "item_edited"
+  | "item_deleted"
+  | "group_added"
+  | "group_renamed"
+  | "group_deleted"
+  | "reordered";
+
 /** Every event the app sends, with its allowed parameters. */
 export type AnalyticsEvent =
+  // Landing page
+  | { name: "landing_button_clicked"; params: { button_id: LandingButton } }
   // Starting a menu
   | { name: "template_chosen"; params: { template_id: string } }
   | { name: "blank_menu_started"; params?: undefined }
@@ -28,6 +92,7 @@ export type AnalyticsEvent =
   | { name: "item_made_group"; params?: undefined }
   | { name: "person_info_added"; params?: undefined }
   | { name: "keyboard_help_opened"; params?: undefined }
+  | { name: "menu_customized"; params: { edit_kind: MenuEditKind } }
   // Sharing
   | { name: "share_dialog_opened"; params?: undefined }
   | { name: "link_copied"; params: { link_type: LinkKind } }
@@ -44,8 +109,17 @@ export type AnalyticsEvent =
       };
     }
   | { name: "link_open_failed"; params: { reason: "unreadable" | "not_found" } }
+  | { name: "library_menu_opened"; params: { item_count: number; percent_answered: 0 | 25 | 50 | 75 | 100 } }
   // Comparing
-  | { name: "comparison_shown"; params: { menu_count: number; source: "link" | "button"; item_count: number; conflict_count: number } }
+  | {
+      name: "comparison_shown";
+      params: {
+        menu_count: number;
+        source: "link" | "button" | "share_dialog";
+        item_count: number;
+        conflict_count: number;
+      };
+    }
   | { name: "compare_filter_used"; params: { filter: CompareFilter } }
   // Library
   | { name: "library_searched"; params?: undefined }
@@ -55,7 +129,10 @@ export type AnalyticsEvent =
   | { name: "support_viewed"; params: { from: SupportFrom } }
   | { name: "support_option_chosen"; params: { amount_usd: 6 | 12 | 24 | 30; plan: SupportPlan } }
   // Problems
-  | { name: "save_failed"; params?: undefined };
+  | { name: "save_failed"; params?: undefined }
+  | { name: "app_error"; params: { error_type: ErrorType; error_source: ErrorSource } }
+  // Performance
+  | { name: "web_vital"; params: { metric_name: WebVitalName; metric_value: number } };
 
 type EventName = AnalyticsEvent["name"];
 type ParamsOf<N extends EventName> = Extract<AnalyticsEvent, { name: N }>["params"];
@@ -89,4 +166,103 @@ export const progressMilestone = (answered: number, total: number): 25 | 50 | 75
   if (share >= 0.5) return 50;
   if (share >= 0.25) return 25;
   return null;
+};
+
+// ---- Where a page was opened from ----
+
+/** In-app links that open a page carry router state saying where they came from. */
+export type OpenedFrom = "library" | "share_dialog";
+
+/** Router state for a link opened from `from` (read back with `openedFrom`). */
+export const openedFromState = (from: OpenedFrom) => ({ openedFrom: from });
+
+/** Where the current page was opened from, if an in-app link said so. */
+export const openedFrom = (state: unknown): OpenedFrom | undefined => {
+  const from = (state as { openedFrom?: unknown } | null)?.openedFrom;
+  return from === "library" || from === "share_dialog" ? from : undefined;
+};
+
+/** Like `progressMilestone`, but 0 below 25% (for events that report every open). */
+export const answeredBucket = (answered: number, total: number): 0 | 25 | 50 | 75 | 100 =>
+  progressMilestone(answered, total) ?? 0;
+
+// ---- Core Web Vitals ----
+
+const WEB_VITALS: readonly WebVitalName[] = ["CLS", "FCP", "INP", "LCP", "TTFB"];
+
+/**
+ * Reports one Core Web Vital: its name and rounded value only (milliseconds, or CLS
+ * × 1000), never its id, attribution or the page it was measured on.
+ */
+export const trackWebVital = (metric: { name: string; value: number }) => {
+  try {
+    if (!(WEB_VITALS as readonly string[]).includes(metric.name)) return;
+    if (!Number.isFinite(metric.value)) return;
+    const name = metric.name as WebVitalName;
+    track("web_vital", {
+      metric_name: name,
+      metric_value: Math.round(name === "CLS" ? metric.value * 1000 : metric.value),
+    });
+  } catch {
+    // Analytics must never break the app.
+  }
+};
+
+// ---- Uncaught errors ----
+
+/** The fixed kind of a thrown value (see `ErrorType`). Never reads its message. */
+export const errorType = (error: unknown): ErrorType => {
+  try {
+    if (error === null || error === undefined) return "unknown";
+    const isError =
+      error instanceof Error ||
+      (typeof DOMException !== "undefined" && error instanceof DOMException);
+    if (!isError) return "non_error";
+    const name = (error as Error).name;
+    return (KNOWN_ERROR_NAMES as readonly unknown[]).includes(name)
+      ? (name as ErrorType)
+      : "other_error";
+  } catch {
+    return "unknown";
+  }
+};
+
+/** At most this many `app_error` events per page load, so an error loop can't flood GA. */
+const MAX_ERRORS_PER_PAGE = 5;
+let errorsSent = 0;
+const errorsSeen = new Set<string>();
+// Errors already reported, so one passed on by React to `reportError` isn't counted twice.
+const reported = new WeakSet<object>();
+
+/**
+ * Reports an uncaught error as `app_error`: only its kind and where it was caught,
+ * once per kind and place per page load, and at most a few times per page load.
+ */
+export const trackError = (error: unknown, source: ErrorSource) => {
+  try {
+    if (error !== null && typeof error === "object") {
+      if (reported.has(error)) return;
+      reported.add(error);
+    }
+    const type = errorType(error);
+    const key = `${source}:${type}`;
+    if (errorsSeen.has(key) || errorsSent >= MAX_ERRORS_PER_PAGE) return;
+    errorsSeen.add(key);
+    errorsSent++;
+    track("app_error", { error_type: type, error_source: source });
+  } catch {
+    // Analytics must never break the app.
+  }
+};
+
+/** Reports uncaught errors and unhandled promise rejections (see `trackError`). */
+export const trackUncaughtErrors = (target: Window = window) => {
+  target.addEventListener("error", (e) => trackError(e.error, "error"));
+  target.addEventListener("unhandledrejection", (e) => trackError(e.reason, "unhandledrejection"));
+};
+
+/** For tests: forget which errors were reported. */
+export const resetErrorTracking = () => {
+  errorsSent = 0;
+  errorsSeen.clear();
 };

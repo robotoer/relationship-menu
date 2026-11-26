@@ -34,7 +34,6 @@
     <meta name="twitter:card" content="summary_large_image" />
     <title>Relationship Menu</title>
     <!-- Google tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-JGP1J62LL4"></script>
     <script>
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
@@ -48,11 +47,22 @@
         page_referrer: document.referrer ? document.referrer.split(/[?#]/)[0] : undefined,
       };
       // To watch your own events live in GA's DebugView, run this once in the
-      // browser console: localStorage.analytics_debug = "1"
+      // browser console on the live site: localStorage.analytics_debug = "1"
       try {
         if (localStorage.getItem('analytics_debug') === '1') analyticsConfig.debug_mode = true;
       } catch (e) {}
       gtag('config', 'G-JGP1J62LL4', analyticsConfig);
+
+      // Only production reports. Local runs, Vercel previews, other copies and automated
+      // browsers (the e2e tests, in CI and locally) once made up almost all GA "users".
+      // Everywhere else events just queue up in window.dataLayer, where the e2e privacy
+      // test reads them; nothing is sent.
+      if (location.hostname === 'relationship-menu.vercel.app' && !navigator.webdriver) {
+        var gtagScript = document.createElement('script');
+        gtagScript.async = true;
+        gtagScript.src = 'https://www.googletagmanager.com/gtag/js?id=G-JGP1J62LL4';
+        document.head.appendChild(gtagScript);
+      }
     </script>
   </head>
   <body>

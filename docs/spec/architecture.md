@@ -37,7 +37,7 @@ There is no server. A menu is saved in the browser's `localStorage`, and a share
 | Unit, component and property tests | Vitest + React Testing Library + fast-check |
 | End-to-end | Playwright |
 | Proofs | LemmaScript and Dafny (`yarn verify`), TLA+/TLC (in CI) |
-| Runtime dependencies | React, React DOM, React Router, pako, two pixel fonts, an avatar generator |
+| Runtime dependencies | React, React DOM, React Router, pako, web-vitals, two pixel fonts, an avatar generator |
 
 ## History: what was removed, and why (2026-11)
 

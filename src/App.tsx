@@ -24,7 +24,14 @@ import { compareMenus } from "./data-comparer";
 import { MenuChange, applyMenuChange } from "./menu-editing";
 import { useAutosave } from "./autosave";
 import { GROUP_TEMPLATES, templateMenu } from "./templates";
-import { progressMilestone, track, trackOnce } from "./analytics";
+import {
+  MenuEditKind,
+  answeredBucket,
+  openedFrom,
+  progressMilestone,
+  track,
+  trackOnce,
+} from "./analytics";
 import { SupportPage } from "./pages/Support";
 import { countByFilter } from "./compare-filters";
 import {
@@ -59,6 +66,26 @@ const stripMenuIds = (menu: RelationshipMenu): RelationshipMenu => {
     result[group] = menu[group].map(({ id: _, ...rest }) => rest);
   }
   return result;
+};
+
+/** Which kind of structural edit `change` made to `prev`, for analytics (if any). */
+const editKind = (prev: RelationshipMenu, change: MenuChange): MenuEditKind | null => {
+  switch (change.kind) {
+    case "item": {
+      if (!change.value) return "item_deleted";
+      const items = Object.prototype.hasOwnProperty.call(prev, change.group) ? prev[change.group] : [];
+      if (change.itemIndex >= items.length) return "item_added";
+      return "item" in change.value ? "item_edited" : null;
+    }
+    case "group":
+      if (change.oldGroup === undefined) return change.newGroup !== undefined ? "group_added" : null;
+      return change.newGroup === undefined ? "group_deleted" : "group_renamed";
+    case "move-item":
+    case "move-group":
+      return "reordered";
+    default:
+      return null;
+  }
 };
 
 /**
@@ -117,6 +144,8 @@ const WrappedMenuPage = () => {
   const redoStack = useRef<RelationshipMenu[]>([]);
   // The text field last edited, so a run of keystrokes in one field is one undo step.
   const lastTextEdit = useRef<string | null>(null);
+  // Items and groups added in this editor (analytics: see editMenu).
+  const createdHere = useRef(new Set<string>());
   /** Replaces the menu (e.g. when loading) without recording an undo step. */
   const setMenu = (next: RelationshipMenu) => {
     menuRef.current = next;
@@ -138,6 +167,24 @@ const WrappedMenuPage = () => {
     const prev = menuRef.current;
     const next = applyMenuChange(prev, change, generateItemId);
     if (next === prev) return;
+    // Analytics: whether people reshape menus or only answer them (once per kind per
+    // visit). Typing into an item or group just added here is part of adding it.
+    let kind = editKind(prev, change);
+    const created = createdHere.current;
+    if (kind === "item_added" && change.kind === "item" && change.value?.id) {
+      created.add(`item:${change.value.id}`);
+    } else if (kind === "item_edited" && change.kind === "item") {
+      const id = prev[change.group]?.[change.itemIndex]?.id;
+      if (id && created.has(`item:${id}`)) kind = null;
+    } else if (kind === "group_added" && change.kind === "group") {
+      created.add(`group:${change.newGroup}`);
+    } else if (kind === "group_renamed" && change.kind === "group") {
+      if (created.delete(`group:${change.oldGroup}`)) {
+        created.add(`group:${change.newGroup}`);
+        kind = null;
+      }
+    }
+    if (kind) trackOnce(`menu_customized:${kind}`, "menu_customized", { edit_kind: kind });
     const textEdit =
       change.kind === "item" && change.value && "item" in change.value
         ? `item:${change.group}:${change.itemIndex}`
@@ -178,6 +225,9 @@ const WrappedMenuPage = () => {
   // The link this page was opened with. Captured once: the URL is rewritten as the
   // menu is edited, and must not be read back as a new menu to load.
   const initialEncoded = useRef(params.get("encoded"));
+  // Whether an in-app link (the Library) opened it, for analytics. Also captured once.
+  const location = useLocation();
+  const fromLibrary = useRef(openedFrom(location.state) === "library");
   // False until the opened link (if any) has been loaded.
   const [loaded, setLoaded] = useState(!initialEncoded.current);
   const [notice, setNotice] = useState<string | null>(null);
@@ -240,9 +290,15 @@ const WrappedMenuPage = () => {
         ownedTitle.current = opened.title;
         createdAt.current = existing?.createdAt ?? null;
       }
-      if (raw.includes(":")) {
+      const items = Object.values(opened.menu).flat();
+      if (fromLibrary.current) {
+        // Reopened from the Library: coming back to a saved menu.
+        track("library_menu_opened", {
+          item_count: items.length,
+          percent_answered: answeredBucket(items.filter((i) => i.value).length, items.length),
+        });
+      } else if (raw.includes(":")) {
         // A full link (not a Library ID): someone shared it, or it's a bookmark.
-        const items = Object.values(opened.menu).flat();
         track("shared_link_opened", {
           link_type: items.some((i) => i.value) ? "menu" : "template",
           has_person: !!opened.person,
@@ -423,7 +479,7 @@ const MenuRoute = () => {
 const WrappedComparePage = () => {
   const [params] = useSearchParams();
   // Changes on every router navigation (but not on our own replaceState calls).
-  const { key: navigationKey } = useLocation();
+  const { key: navigationKey, state: navigationState } = useLocation();
   const paramEntries = useMemo(
     () => params.getAll("encoded").filter((e) => e.trim().length > 0),
     [params]
@@ -438,13 +494,23 @@ const WrappedComparePage = () => {
   const [compareClicked, setCompareClicked] = useState(() =>
     opensCompared(paramEntries)
   );
-  /** Whether the comparison about to appear came from a compare link (analytics). */
-  const openedFromLink = useRef(opensCompared(paramEntries));
+  /**
+   * Analytics: whether the comparison about to appear was opened by a link, and
+   * whether that was the Share dialog's Compare form or a compare link.
+   */
+  const linkSource = () =>
+    opensCompared(paramEntries)
+      ? openedFrom(navigationState) === "share_dialog"
+        ? ("share_dialog" as const)
+        : ("link" as const)
+      : null;
+  const openedFromLink = useRef(linkSource());
 
   useEffect(() => {
     setEncodedList(paramEntries);
     setCompareClicked(opensCompared(paramEntries));
-    openedFromLink.current = opensCompared(paramEntries);
+    openedFromLink.current = linkSource();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paramEntries, navigationKey]);
 
   const updateEntries = (entries: string[]) => {
@@ -513,11 +579,11 @@ const WrappedComparePage = () => {
     const items = Object.values(comparison).flat();
     track("comparison_shown", {
       menu_count: valid.length,
-      source: openedFromLink.current ? "link" : "button",
+      source: openedFromLink.current ?? "button",
       item_count: items.length,
       conflict_count: countByFilter(comparison).conflict,
     });
-    openedFromLink.current = false;
+    openedFromLink.current = null;
     // Only when it appears, not on every edit of the inputs.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showComparison]);
@@ -553,13 +619,24 @@ export const App = () => {
 
   const location = useLocation();
 
+  // The page before this one (origin + path), reported as this page's referrer.
+  const previousPage = useRef<string | null>(null);
   useEffect(() => {
     // Report the page path only. The query string holds the menu itself (including
     // the person's answers) and must never be sent to analytics.
+    const page = window.location.origin + location.pathname;
+    // Every later event reports this page, not the one the app was first loaded on
+    // (index.html's config). The first page keeps the referrer index.html set.
+    const referrer = previousPage.current;
+    window.gtag?.("set", {
+      page_location: page,
+      ...(referrer && referrer !== page ? { page_referrer: referrer } : {}),
+    });
     window.gtag?.("event", "page_view", {
       page_path: location.pathname,
-      page_location: window.location.origin + location.pathname,
+      page_location: page,
     });
+    previousPage.current = page;
   }, [location.pathname]);
 
   return (
