@@ -56,6 +56,11 @@ Google Analytics is loaded only on `relationship-menu.vercel.app`, and not in au
 | `save_failed` | A save fails | |
 | `support_viewed` | The Support page is opened | `from`: `nav`, `share` (after sharing), `compare` (under results), `landing`, `direct` |
 | `support_option_chosen` | An amount is picked on the Support page (checkout isn't open yet, so this measures interest) | `amount_usd` (6, 12, 24, 30), `plan` (`yearly`, `lifetime`) |
+| `checkout_started` | Leaving for Stripe Checkout from the Support page | `amount_usd` (6, 12, 24, 30), `plan` (`yearly`, `lifetime`) |
+| `checkout_completed` | Back from Checkout, once the server confirms the supporter status | `amount_usd`, `plan` |
+| `checkout_cancelled` | Back from Checkout without paying | `amount_usd`, `plan` |
+| `sync_enabled` | Sync is turned on on this device | `how`: `new` (a new sync code) or `restored` (an existing code, typed or from a pairing link) |
+| `device_paired` | A device joins an existing sync account | `method`: `qr` (pairing link) or `words` (typed sync code) |
 | `app_error` | An uncaught error (at most 5 per page load, each kind once) | `error_type`: a fixed error name (`TypeError`, `ChunkLoadError`, `QuotaExceededError`…; see `KNOWN_ERROR_NAMES` in `src/analytics.ts`), `other_error`, `non_error` (something other than an Error was thrown) or `unknown` (hidden by the browser); `error_source`: `error`, `unhandledrejection` or `react` (a render crash that blanked the page) |
 | `web_vital` | A Core Web Vital is measured (about once per page load each) | `metric_name` (`CLS`, `FCP`, `INP`, `LCP`, `TTFB`), `metric_value` (milliseconds, rounded; CLS × 1000) |
 

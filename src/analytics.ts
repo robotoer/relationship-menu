@@ -15,6 +15,8 @@ type LinkKind = "menu" | "template" | "invite" | "menu_slug" | "template_slug";
 /** Where someone opened the Support page from. */
 export type SupportFrom = "nav" | "share" | "compare" | "landing" | "direct";
 export type SupportPlan = "yearly" | "lifetime";
+/** The Support page's amounts, in US dollars. */
+export type SupportAmount = 6 | 12 | 24 | 30;
 
 /** Core Web Vitals reported by `web-vitals` (see reportWebVitals.ts). */
 export type WebVitalName = "CLS" | "FCP" | "INP" | "LCP" | "TTFB";
@@ -158,6 +160,12 @@ export type AnalyticsEvent =
   // Supporting the project
   | { name: "support_viewed"; params: { from: SupportFrom } }
   | { name: "support_option_chosen"; params: { amount_usd: 6 | 12 | 24 | 30; plan: SupportPlan } }
+  // Supporter sync (docs/spec/sync.md §9). Never account ids, codes, words, menu ids, Stripe ids or URLs (SY-75).
+  | { name: "checkout_started"; params: { amount_usd: SupportAmount; plan: SupportPlan } }
+  | { name: "checkout_completed"; params: { amount_usd: SupportAmount; plan: SupportPlan } }
+  | { name: "checkout_cancelled"; params: { amount_usd: SupportAmount; plan: SupportPlan } }
+  | { name: "sync_enabled"; params: { how: "new" | "restored" } }
+  | { name: "device_paired"; params: { method: "qr" | "words" } }
   // Problems
   | { name: "save_failed"; params?: undefined }
   | { name: "app_error"; params: { error_type: ErrorType; error_source: ErrorSource } }
