@@ -15,117 +15,341 @@
   margin: 0 0 0.35rem;
 }
 
-.insights-animal {
+/* The card on the left, badges beside it on wide screens (below it on narrow ones). */
+.fun-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.5rem 2rem;
+  align-items: start;
+}
+@media (min-width: 900px) {
+  .fun-layout {
+    grid-template-columns: minmax(0, 26rem) minmax(0, 1fr);
+  }
+  .fun-badges h3 {
+    margin-top: 0;
+  }
+}
+
+/* ---- The card (IN-14). Colours are decorative: everything is also written out. ---- */
+.fun-card {
+  /* Each theme sets its frame colour, the text on it, and the card's paper. */
+  --frame: var(--c-mist);
+  --frame-ink: var(--c-ink);
+  --paper: #eef3f6;
+  --art: var(--c-sky);
+  --gem: var(--c-slate);
+  --gem-ink: var(--c-white);
+  width: 100%;
+  max-width: 26rem;
+  margin: 0 auto;
+  padding: 0.6rem;
+  background: var(--frame);
+  border: var(--line);
+  box-shadow: var(--drop);
+  overflow-wrap: anywhere;
+}
+.fun-card.theme-closeness {
+  --frame: var(--c-red);
+  --frame-ink: var(--c-white);
+  --paper: #f7dde2;
+  --art: #e98a9b;
+}
+.fun-card.theme-talk {
+  --frame: var(--c-sky);
+  --paper: #dbeefd;
+  --art: var(--c-cyan);
+}
+.fun-card.theme-space {
+  --frame: var(--c-slate);
+  --frame-ink: var(--c-white);
+  --paper: #e1e8ee;
+  --art: var(--c-mist);
+}
+.fun-card.theme-roots {
+  --frame: var(--c-green);
+  --paper: #dcf3e2;
+  --art: var(--c-lime);
+}
+.fun-card.theme-spotlight {
+  --frame: var(--c-yellow);
+  --paper: #fff4d6;
+  --art: var(--c-orange);
+}
+.fun-card.theme-hearth {
+  --frame: var(--c-orange);
+  --paper: #fce3d9;
+  --art: var(--c-yellow);
+}
+.fun-card.theme-care {
+  --frame: var(--c-plum);
+  --frame-ink: var(--c-white);
+  --paper: #eedff0;
+  --art: #b77fb7;
+}
+.fun-card.theme-adventure {
+  --frame: var(--c-blue);
+  --frame-ink: var(--c-white);
+  --paper: #dde4f8;
+  --art: var(--c-sky);
+}
+.fun-card.theme-none {
+  --frame: var(--c-lime);
+  --paper: #eefbe4;
+  --art: var(--c-green);
+}
+
+.fun-card.rarity-uncommon {
+  --gem: var(--c-green);
+  --gem-ink: var(--c-ink);
+}
+.fun-card.rarity-rare {
+  --gem: var(--c-blue);
+}
+.fun-card.rarity-epic {
+  --gem: var(--c-plum);
+}
+.fun-card.rarity-legendary {
+  --gem: var(--c-orange);
+  --gem-ink: var(--c-ink);
+}
+
+.fun-card-frame {
   display: flex;
-  align-items: flex-start;
-  gap: 1rem;
-  padding: 0.75rem 1rem;
-  background: #fff3c4;
-  border: var(--px) dashed var(--c-ink);
+  flex-direction: column;
+  gap: 0.5rem;
+  color: var(--frame-ink);
 }
-.insights-animal h3 {
-  margin: 0 0 0.5rem;
-  font-size: 0.8rem;
-  line-height: 1.7;
+
+/* Name bar: the name on the left, the level on the right. */
+.fun-card-name {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.4rem 0.6rem;
+  color: var(--c-ink);
+  background: var(--paper);
+  border: calc(var(--px) / 2) solid var(--c-ink);
 }
-.insights-emoji {
-  flex: none;
-  font-size: 3.5rem;
-  line-height: 1;
+.menu-insights .fun-card-name h3 {
+  margin: 0;
+  font-size: 0.7rem;
+  line-height: 1.6;
 }
 .insights-streak {
+  display: block;
   font-family: var(--font-body);
-  font-size: 1.15rem;
-  white-space: normal;
+  font-size: 1.1rem;
+  line-height: 1.1;
+}
+.fun-card-level {
+  flex: none;
+  font-family: var(--font-pixel);
+  font-size: 0.5rem;
+  white-space: nowrap;
+}
+.fun-card-level b {
+  margin-left: 0.2rem;
+  font-size: 1rem;
+  font-weight: 400;
+}
+
+/* The art window: the animal on a pixel-checked backdrop in the theme's colour. */
+.fun-card-art {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 16 / 9;
+  background-color: var(--art);
+  background-image:
+    radial-gradient(
+      circle at 50% 60%,
+      rgba(244, 244, 244, 0.75) 0 28%,
+      transparent 29%
+    ),
+    conic-gradient(
+      rgba(26, 28, 44, 0.08) 25%,
+      transparent 0 50%,
+      rgba(26, 28, 44, 0.08) 0 75%,
+      transparent 0
+    );
+  background-size:
+    100% 100%,
+    16px 16px;
+  border: calc(var(--px) / 2) solid var(--c-ink);
+  box-shadow: inset 0 0 0 var(--px) rgba(244, 244, 244, 0.4);
+  overflow: hidden;
+}
+.fun-card-art > .fun-card-creature {
+  font-size: 4.5rem;
+  line-height: 1;
+}
+.fun-card-art > .fun-card-streak {
+  position: absolute;
+  right: 0.5rem;
+  bottom: 0.5rem;
+  display: grid;
+  place-items: center;
+  width: 2.6rem;
+  height: 2.6rem;
+  font-size: 1.5rem;
+  background: var(--c-white);
+  border: calc(var(--px) / 2) solid var(--c-ink);
+}
+/* Rare and up shine a little; Legendary sweeps a light across the art. */
+.fun-card.rarity-rare .fun-card-art::after,
+.fun-card.rarity-epic .fun-card-art::after,
+.fun-card.rarity-legendary .fun-card-art::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    115deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.45) 45%,
+    transparent 60%
+  );
+  pointer-events: none;
+}
+.fun-card.rarity-legendary .fun-card-art::after {
+  background: linear-gradient(
+    115deg,
+    transparent 20%,
+    rgba(115, 239, 247, 0.45) 35%,
+    rgba(255, 205, 117, 0.5) 45%,
+    rgba(167, 240, 112, 0.45) 55%,
+    transparent 70%
+  );
+  background-size: 250% 100%;
+  animation: fun-card-shine 4s linear infinite;
+}
+@keyframes fun-card-shine {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -150% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fun-card.rarity-legendary .fun-card-art::after {
+    animation: none;
+  }
+}
+
+/* Type line: class on the left, the rarity gem on the right. */
+.fun-card-type {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0.3rem 0.6rem;
+  color: var(--c-ink);
+  background: var(--paper);
+  border: calc(var(--px) / 2) solid var(--c-ink);
+}
+.menu-insights .fun-card-type {
+  margin: 0;
+}
+.fun-card-type strong {
+  font-family: var(--font-pixel);
+  font-size: 0.55rem;
+  font-weight: 400;
+  line-height: 1.8;
+}
+.insights-multiclass {
+  color: var(--c-slate);
+}
+.insights-rarity {
+  flex: none;
+  display: inline-block;
+  padding: 0.15rem 0.45rem;
+  color: var(--gem-ink);
+  background: var(--gem);
+  border: calc(var(--px) / 2) solid var(--c-ink);
+  font-family: var(--font-pixel);
+  font-size: 0.45rem;
+  text-transform: uppercase;
+}
+
+/* The text box: ability, stats and loot. */
+.fun-card-text {
+  padding: 0.6rem 0.75rem 0.75rem;
+  color: var(--c-ink);
+  background: var(--paper);
+  border: calc(var(--px) / 2) solid var(--c-ink);
+}
+.menu-insights .fun-card-text h4 {
+  margin: 0.75rem 0 0.35rem;
+  padding-top: 0.6rem;
+  font-family: var(--font-pixel);
+  font-size: 0.5rem;
+  font-weight: 400;
+  border-top: calc(var(--px) / 2) dashed rgba(26, 28, 44, 0.35);
 }
 .insights-blurb {
   font-size: 1.25rem;
+  line-height: 1.15;
 }
 .insights-style {
   color: var(--c-slate);
 }
-.insights-another {
-  margin-top: 0.5rem;
-}
-
-.insights-class {
-  margin-bottom: 0.75rem;
-}
-.insights-class strong {
-  font-family: var(--font-pixel);
-  font-size: 0.65rem;
-  font-weight: 400;
-}
-.insights-multiclass,
-.insights-class-flavor {
-  color: var(--c-slate);
+.fun-card-button {
+  margin-top: 0.35rem;
+  font-size: 0.5rem;
 }
 
 .insights-stats {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
-  gap: 0.35rem 1.5rem;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 9.25rem), 1fr));
+  gap: 0.3rem 0.9rem;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 .insights-stats li {
   display: grid;
-  grid-template-columns: 6.5rem minmax(0, 1fr) 2.5rem;
+  grid-template-columns: 4.4rem minmax(0, 1fr) 2.1rem;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.35rem;
 }
 .insights-stat-label {
   font-family: var(--font-pixel);
-  font-size: 0.55rem;
+  font-size: 0.45rem;
 }
 .insights-stat-bar {
-  height: 0.9rem;
-  background: var(--c-mist);
+  height: 0.7rem;
+  background: var(--c-white);
   border: calc(var(--px) / 2) solid var(--c-ink);
 }
 .insights-stat-bar > span {
   display: block;
   height: 100%;
+  background: var(--frame);
+}
+.fun-card.theme-spotlight .insights-stat-bar > span,
+.fun-card.theme-none .insights-stat-bar > span {
   background: var(--c-green);
 }
 .insights-stat-value {
   text-align: right;
+  white-space: nowrap;
 }
 
-/* Loot (IN-11). Rarity colours are decorative; the rarity is always written out. */
-.insights-loot {
-  --rarity: var(--c-slate);
-  --rarity-ink: var(--c-white);
-  padding: 0.75rem 1rem;
-  border: var(--px) solid var(--c-ink);
-  border-left: calc(var(--px) * 3) solid var(--rarity);
-  overflow-wrap: anywhere;
-}
-.insights-loot.rarity-uncommon { --rarity: var(--c-green); --rarity-ink: var(--c-ink); }
-.insights-loot.rarity-rare { --rarity: var(--c-blue); }
-.insights-loot.rarity-epic { --rarity: var(--c-plum); }
-.insights-loot.rarity-legendary { --rarity: var(--c-orange); --rarity-ink: var(--c-ink); }
+/* Loot (IN-11). */
 .insights-loot-name strong {
   font-family: var(--font-pixel);
-  font-size: 0.7rem;
+  font-size: 0.6rem;
   font-weight: 400;
   line-height: 1.7;
 }
-.insights-rarity {
-  display: inline-block;
-  padding: 0.1rem 0.5rem;
-  color: var(--rarity-ink);
-  background: var(--rarity);
-  font-family: var(--font-pixel);
-  font-size: 0.5rem;
-  text-transform: uppercase;
-}
 .insights-loot-themes {
-  font-size: 1.2rem;
+  font-size: 1.15rem;
 }
 .insights-loot-lines {
-  margin: 0.25rem 0 0.5rem;
+  margin: 0.25rem 0 0.4rem;
   padding: 0;
   list-style: none;
 }
@@ -140,18 +364,75 @@
   height: 0.6rem;
   border: calc(var(--px) / 2) solid var(--c-ink);
 }
-.line-must-have .insights-loot-mark { background: var(--pref-must-have); }
-.line-like-to-have .insights-loot-mark { background: var(--pref-like-to-have); }
-.line-maybe .insights-loot-mark { background: var(--pref-maybe); }
-.line-off-limits .insights-loot-mark { background: var(--pref-off-limits); }
+.line-must-have .insights-loot-mark {
+  background: var(--pref-must-have);
+}
+.line-like-to-have .insights-loot-mark {
+  background: var(--pref-like-to-have);
+}
+.line-maybe .insights-loot-mark {
+  background: var(--pref-maybe);
+}
+.line-off-limits .insights-loot-mark {
+  background: var(--pref-off-limits);
+}
 .insights-loot-flavor {
   color: var(--c-slate);
   font-style: italic;
 }
 
+/* Flavor text and the footer, on the frame itself. */
+.menu-insights .fun-card-flavor {
+  margin: 0;
+  padding: 0 0.25rem;
+  font-size: 1.15rem;
+  font-style: italic;
+  line-height: 1.15;
+}
+.fun-card-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0 0.25rem;
+  font-family: var(--font-pixel);
+  font-size: 0.4rem;
+  line-height: 1.6;
+  text-transform: uppercase;
+}
+
+/* Face down while hatching: a patterned back with the egg in the middle. */
+.fun-card-back {
+  --frame: var(--c-navy);
+  background-color: var(--c-navy);
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(115, 239, 247, 0.18) 0 8px,
+    transparent 8px 16px
+  );
+}
+.fun-card-back .fun-card-frame {
+  align-items: center;
+  justify-content: center;
+  min-height: 16rem;
+  padding: 1.5rem 1rem;
+  text-align: center;
+  color: var(--c-ink);
+  background: var(--c-white);
+  border: calc(var(--px) / 2) solid var(--c-ink);
+}
+.fun-card-back .insights-emoji {
+  font-size: 4rem;
+  line-height: 1;
+}
+.menu-insights .fun-card-back h3 {
+  margin: 0.5rem 0 0;
+  font-size: 0.7rem;
+}
+
+/* Badges. */
 .insights-badges {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 14rem), 1fr));
   gap: 0.5rem;
   margin: 0;
   padding: 0;
@@ -196,7 +477,10 @@
     margin-right: 0.75rem;
     padding: 0.75rem;
   }
-  .insights-emoji {
-    font-size: 2.5rem;
+  .fun-card {
+    padding: 0.45rem;
+  }
+  .fun-card-art > .fun-card-creature {
+    font-size: 3.5rem;
   }
 }

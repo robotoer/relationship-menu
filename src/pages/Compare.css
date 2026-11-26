@@ -100,11 +100,26 @@
 }
 
 /* Color hints matching the zone colors in the overview. */
-.compare-filter-conflict .compare-filter-count { background: var(--zone-conflict); }
-.compare-filter-talk .compare-filter-count { background: var(--zone-talk); color: var(--c-ink); }
-.compare-filter-open .compare-filter-count { background: var(--c-white); color: var(--c-ink); outline: 2px dashed var(--c-ink); outline-offset: -2px; }
-.compare-filter-quick .compare-filter-count { background: var(--zone-quick); color: var(--c-ink); }
-.compare-filter-aligned .compare-filter-count { background: var(--zone-aligned); }
+.compare-filter-conflict .compare-filter-count {
+  background: var(--zone-conflict);
+}
+.compare-filter-talk .compare-filter-count {
+  background: var(--zone-talk);
+  color: var(--c-ink);
+}
+.compare-filter-open .compare-filter-count {
+  background: var(--c-white);
+  color: var(--c-ink);
+  outline: 2px dashed var(--c-ink);
+  outline-offset: -2px;
+}
+.compare-filter-quick .compare-filter-count {
+  background: var(--zone-quick);
+  color: var(--c-ink);
+}
+.compare-filter-aligned .compare-filter-count {
+  background: var(--zone-aligned);
+}
 
 .compare-filter-description {
   margin: 0.75rem 0 0;
@@ -154,4 +169,68 @@
     width: 100%;
     min-width: 0;
   }
+}
+
+/* ---- "Biggest differences first" (CP-25): bands of tiles, not group cards ---- */
+.compare-page-grid.is-ranked {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 1.25rem;
+}
+.compare-ranked-key {
+  margin: 0;
+  color: var(--c-mist);
+}
+.compare-band {
+  --band: var(--zone-open);
+  padding-left: 0.75rem;
+  border-left: calc(var(--px) * 2) solid var(--band);
+}
+.compare-band.band-conflict {
+  --band: var(--zone-conflict);
+}
+.compare-band.band-far {
+  --band: var(--zone-talk);
+}
+.compare-band.band-step {
+  --band: var(--zone-quick);
+}
+.compare-band.band-same {
+  --band: var(--zone-aligned);
+}
+.compare-band h2 {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.6;
+}
+.compare-band-count {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0 0.4rem;
+  font-size: 0.55rem;
+  vertical-align: middle;
+  color: var(--c-ink);
+  background: var(--c-white);
+  border: calc(var(--px) / 2) solid var(--c-ink);
+}
+.compare-band-description {
+  margin: 0.15rem 0 0.6rem;
+  color: var(--c-mist);
+}
+.compare-band-items {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.compare-band-items > li {
+  display: flex;
+  min-width: 0;
+  color: var(--c-ink);
+  background: var(--c-white);
+  border: calc(var(--px) / 2) solid var(--c-ink);
+  box-shadow: 3px 3px 0 0 var(--c-navy);
 }

@@ -55,17 +55,31 @@
   border-left-width: 1px;
 }
 .zone-bar .zone-conflict,
-.zone-dot.zone-conflict { background: var(--zone-conflict); color: var(--c-white); }
+.zone-dot.zone-conflict {
+  background: var(--zone-conflict);
+  color: var(--c-white);
+}
 .zone-bar .zone-talk,
-.zone-dot.zone-talk { background: var(--zone-talk); }
+.zone-dot.zone-talk {
+  background: var(--zone-talk);
+}
 .zone-bar .zone-open,
 .zone-dot.zone-open {
-  background: repeating-linear-gradient(-45deg, var(--c-white) 0 4px, var(--zone-open) 4px 8px);
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--c-white) 0 4px,
+    var(--zone-open) 4px 8px
+  );
 }
 .zone-bar .zone-quick,
-.zone-dot.zone-quick { background: var(--zone-quick); }
+.zone-dot.zone-quick {
+  background: var(--zone-quick);
+}
 .zone-bar .zone-aligned,
-.zone-dot.zone-aligned { background: var(--zone-aligned); color: var(--c-white); }
+.zone-dot.zone-aligned {
+  background: var(--zone-aligned);
+  color: var(--c-white);
+}
 
 .zone-legend {
   display: flex;
@@ -243,11 +257,6 @@
   padding: 0.05rem 0.45rem;
   border: 2px solid var(--zone-aligned);
   background: #e6f3f3;
-}
-.overview-chips .overview-chip-more {
-  border-style: dashed;
-  background: transparent;
-  color: var(--c-slate);
 }
 
 /* By group */

@@ -44,7 +44,12 @@
   background: transparent;
   color: var(--c-cyan);
   border-style: dashed;
+  border-color: currentColor;
   box-shadow: none;
+}
+.discuss-ai-button:hover {
+  color: var(--c-ink);
+  background: var(--c-cyan);
 }
 
 .discuss-consent {
@@ -127,14 +132,22 @@
   border: 2px solid var(--c-mist);
   box-shadow: none;
 }
-.discuss-dot.done { background: var(--c-mist); }
+.discuss-dot.done {
+  background: var(--c-mist);
+}
 .discuss-dot[aria-current="step"] {
   outline: var(--px) solid var(--c-yellow);
   outline-offset: 2px;
 }
-.discuss-dot.kind-celebrate.done { background: var(--pref-like-to-have); }
-.discuss-dot.kind-explore.done { background: var(--pref-maybe); }
-.discuss-dot.kind-conflict.done { background: var(--pref-off-limits); }
+.discuss-dot.kind-celebrate.done {
+  background: var(--pref-like-to-have);
+}
+.discuss-dot.kind-explore.done {
+  background: var(--pref-maybe);
+}
+.discuss-dot.kind-conflict.done {
+  background: var(--pref-off-limits);
+}
 
 .discuss-card {
   padding: 1.25rem;
@@ -143,9 +156,15 @@
   border: var(--line);
   box-shadow: 6px 6px 0 0 var(--c-mist);
 }
-.discuss-card.kind-celebrate { box-shadow: 6px 6px 0 0 var(--pref-like-to-have); }
-.discuss-card.kind-explore { box-shadow: 6px 6px 0 0 var(--pref-maybe); }
-.discuss-card.kind-conflict { box-shadow: 6px 6px 0 0 var(--pref-off-limits); }
+.discuss-card.kind-celebrate {
+  box-shadow: 6px 6px 0 0 var(--pref-like-to-have);
+}
+.discuss-card.kind-explore {
+  box-shadow: 6px 6px 0 0 var(--pref-maybe);
+}
+.discuss-card.kind-conflict {
+  box-shadow: 6px 6px 0 0 var(--pref-off-limits);
+}
 .discuss-card h1 {
   margin: 0.25rem 0 0.75rem;
   color: var(--c-ink);
@@ -401,9 +420,15 @@
   height: 12px;
   background: var(--c-mist);
 }
-.swatch-dot.kind-celebrate { background: var(--pref-like-to-have); }
-.swatch-dot.kind-explore { background: var(--pref-maybe); }
-.swatch-dot.kind-conflict { background: var(--pref-off-limits); }
+.swatch-dot.kind-celebrate {
+  background: var(--pref-like-to-have);
+}
+.swatch-dot.kind-explore {
+  background: var(--pref-maybe);
+}
+.swatch-dot.kind-conflict {
+  background: var(--pref-off-limits);
+}
 
 .conv-live {
   margin-top: 2rem;
