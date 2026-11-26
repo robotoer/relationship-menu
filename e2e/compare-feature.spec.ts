@@ -1578,7 +1578,13 @@ test.describe("Compare Feature", () => {
 
       const second = inputs(page).nth(1);
       await second.click();
-      await page.keyboard.press("End");
+      // Put the caret at the end explicitly. Pressing End is not portable: on
+      // macOS, Chromium treats it as "scroll to end of document" and only moves
+      // the caret when the page can't scroll, so with the comparison showing the
+      // caret stays wherever the click landed.
+      await second.evaluate((el: HTMLInputElement) =>
+        el.setSelectionRange(el.value.length, el.value.length)
+      );
       await page.keyboard.type("!");
       await expect(inputs(page)).toHaveCount(3);
       await expect(inputs(page).nth(1)).toHaveValue(`${bob}!`);
