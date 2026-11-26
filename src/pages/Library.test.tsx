@@ -3,6 +3,7 @@ import { render, screen, fireEvent, act } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { LibraryPage } from "./Library";
 import { FakeSyncProvider, fakeAccount, fakeSync } from "../sync/fake-sync";
+import type { TextImport } from "../import-menus";
 
 // Mock react-random-avatars to avoid rendering SVG complexity in tests
 vi.mock("react-random-avatars", () => ({
@@ -309,5 +310,148 @@ describe("LibraryPage: the way into sync (SY-3…SY-13)", () => {
     );
     expect(screen.getByText(/Sync is on in this browser\./)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Sync settings" })).toHaveAttribute("href", "/sync");
+  });
+});
+
+describe("LibraryPage: Import menus (SV-14)", () => {
+  const result = (over: Partial<TextImport> = {}): TextImport => ({
+    add: [],
+    alreadyHere: 0,
+    renamed: [],
+    found: 0,
+    unreadable: 0,
+    ...over,
+  });
+  let gtag: ReturnType<typeof vi.fn>;
+  beforeEach(() => {
+    gtag = vi.fn();
+    (window as unknown as { gtag: unknown }).gtag = gtag;
+  });
+  afterEach(() => {
+    delete (window as unknown as { gtag?: unknown }).gtag;
+  });
+
+  const open = () => {
+    const button = screen.getByRole("button", { name: "Import menus" });
+    expect(button).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(button);
+    expect(button).toHaveAttribute("aria-expanded", "true");
+    return screen.getByRole("form", { name: "Import menus" });
+  };
+
+  it("is offered in an empty Library (a new Home Screen app), and only where it can save", () => {
+    const { unmount } = render(
+      <MemoryRouter>
+        <LibraryPage menus={[]} onImport={vi.fn()} />
+      </MemoryRouter>
+    );
+    expect(screen.getByRole("button", { name: "Import menus" })).toHaveAccessibleDescription(
+      "Bring menus here from a backup file or menu links, for example into a Home Screen app."
+    );
+    unmount();
+    render(
+      <MemoryRouter>
+        <LibraryPage menus={[]} />
+      </MemoryRouter>
+    );
+    expect(screen.queryByRole("button", { name: "Import menus" })).not.toBeInTheDocument();
+  });
+
+  it("imports pasted links, says what happened, and counts only that it happened", async () => {
+    const onImport = vi.fn().mockResolvedValue(
+      result({ add: [{ title: "A", encoded: "x" }, { title: "B", encoded: "y" }, { title: "C", encoded: "z" }], alreadyHere: 1, found: 4 })
+    );
+    render(
+      <MemoryRouter>
+        <LibraryPage menus={[]} onImport={onImport} />
+      </MemoryRouter>
+    );
+    open();
+    const field = screen.getByLabelText("Paste menu links");
+    expect(field).toHaveFocus();
+    const add = screen.getByRole("button", { name: "Add menus" });
+    expect(add).toBeDisabled();
+    fireEvent.change(field, { target: { value: "https://example.test/menu?encoded=secret" } });
+    await act(async () => {
+      fireEvent.click(add);
+    });
+    expect(onImport).toHaveBeenCalledWith("https://example.test/menu?encoded=secret");
+    expect(screen.getByText("Added 3 menus, 1 was already here.")).toBeInTheDocument();
+    // Done: the form closes and focus goes back to the button.
+    expect(screen.queryByRole("form", { name: "Import menus" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Import menus" })).toHaveFocus();
+    expect(gtag).toHaveBeenCalledWith("event", "menus_imported", {});
+    expect(JSON.stringify(gtag.mock.calls)).not.toContain("secret");
+  });
+
+  it("reads a chosen backup file on this device", async () => {
+    const onImport = vi.fn().mockResolvedValue(result({ add: [{ title: "A", encoded: "x" }], found: 1 }));
+    render(
+      <MemoryRouter>
+        <LibraryPage menus={[]} onImport={onImport} />
+      </MemoryRouter>
+    );
+    open();
+    const input = screen.getByLabelText("Choose backup file") as HTMLInputElement;
+    expect(input).toHaveAttribute("type", "file");
+    const file = new File(["Wants & Won'ts: 1 menu\n\n1. A\nhttps://example.test/menu?encoded=a\n"], "backup.txt", {
+      type: "text/plain",
+    });
+    await act(async () => {
+      fireEvent.change(input, { target: { files: [file] } });
+    });
+    expect(onImport).toHaveBeenCalledWith("Wants & Won'ts: 1 menu\n\n1. A\nhttps://example.test/menu?encoded=a\n");
+    expect(screen.getByText("Added 1 menu.")).toBeInTheDocument();
+  });
+
+  it("keeps the form open when nothing was found, and counts nothing", async () => {
+    const onImport = vi.fn().mockResolvedValue(result({ unreadable: 1 }));
+    render(
+      <MemoryRouter>
+        <LibraryPage menus={[]} onImport={onImport} />
+      </MemoryRouter>
+    );
+    open();
+    fireEvent.change(screen.getByLabelText("Paste menu links"), { target: { value: "https://x.test/menu?encoded=cut" } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Add menus" }));
+    });
+    expect(screen.getByText("That link couldn't be read. It may have been cut off when it was copied.")).toBeInTheDocument();
+    expect(screen.getByRole("form", { name: "Import menus" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Paste menu links")).toHaveValue("https://x.test/menu?encoded=cut");
+    expect(gtag).not.toHaveBeenCalledWith("event", "menus_imported", expect.anything());
+  });
+
+  it("says when the menus couldn't be saved", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const onImport = vi.fn().mockRejectedValue(new Error("storage full"));
+    render(
+      <MemoryRouter>
+        <LibraryPage menus={[]} onImport={onImport} />
+      </MemoryRouter>
+    );
+    open();
+    fireEvent.change(screen.getByLabelText("Paste menu links"), { target: { value: "link" } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Add menus" }));
+    });
+    expect(screen.getByText("Couldn't save the menus. Try again: any that were saved are skipped.")).toBeInTheDocument();
+    vi.restoreAllMocks();
+  });
+
+  it("Cancel and Escape close it without importing", () => {
+    const onImport = vi.fn();
+    render(
+      <MemoryRouter>
+        <LibraryPage menus={[]} onImport={onImport} />
+      </MemoryRouter>
+    );
+    open();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("form", { name: "Import menus" })).not.toBeInTheDocument();
+    open();
+    fireEvent.keyDown(screen.getByLabelText("Paste menu links"), { key: "Escape" });
+    expect(screen.queryByRole("form", { name: "Import menus" })).not.toBeInTheDocument();
+    expect(onImport).not.toHaveBeenCalled();
   });
 });

@@ -165,6 +165,7 @@ export type AnalyticsEvent =
   | { name: "library_sorted"; params: { sort: LibrarySort } }
   | { name: "menu_deleted"; params?: undefined }
   | { name: "menus_exported"; params?: undefined }
+  | { name: "menus_imported"; params?: undefined }
   // Keeping menus (spec SV-11, SV-12)
   | { name: "persistent_storage_granted"; params?: undefined }
   | { name: "persistent_storage_denied"; params?: undefined }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 import {
   Link,
@@ -50,6 +50,7 @@ import { isSupporter, useSync } from "./sync/context";
 import { useSyncRuntime } from "./providers/Sync";
 import { ImportPage } from "./pages/Import";
 import { uniqueTitle } from "./menu-titles";
+import { importMenuText } from "./import-menus";
 import { OLD_ORIGIN } from "./handoff/origins";
 import { countByFilter } from "./compare-filters";
 import {
@@ -111,7 +112,7 @@ const editKind = (prev: RelationshipMenu, change: MenuChange): MenuEditKind | nu
  * @returns The wrapped LibraryPage component.
  */
 const WrappedLibraryPage = () => {
-  const { documents: documentsMap, deleteDocument } = useStorage();
+  const { documents: documentsMap, deleteDocument, storage } = useStorage();
   const documents = useMemo(
     () =>
       Object.values(documentsMap).map((doc) => ({
@@ -122,7 +123,9 @@ const WrappedLibraryPage = () => {
   );
   // HO-7: point people who used the old address to the hand-off, except there.
   const oldAddress = window.location.origin === OLD_ORIGIN ? undefined : OLD_ORIGIN;
-  return <LibraryPage menus={documents} onDelete={deleteDocument} oldAddress={oldAddress} />;
+  // SV-14: Import menus saves through storage, which shows the new menus straight away.
+  const onImport = useCallback((text: string) => importMenuText(storage, text), [storage]);
+  return <LibraryPage menus={documents} onDelete={deleteDocument} onImport={onImport} oldAddress={oldAddress} />;
 };
 
 /** The document the editor saves for this title, menu and person. */

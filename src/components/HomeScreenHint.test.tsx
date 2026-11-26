@@ -40,7 +40,7 @@ describe("HomeScreenHint (SV-12)", () => {
   it("SV-12: with menus already saved, points to the backup (they stay in Safari)", () => {
     render(<HomeScreenHint browser={browser(IPHONE_SAFARI)} hasMenus />);
     expect(screen.getByRole("complementary")).toHaveTextContent(
-      "Menus you've already made stay in Safari: keep a copy with Export all menus in your Library."
+      "Menus you've already made stay in Safari: to move them, use Export all menus in your Library here, then Import menus in the Home Screen app."
     );
   });
 

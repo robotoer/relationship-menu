@@ -3,8 +3,8 @@ import { readFile } from "node:fs/promises";
 import { deflate } from "pako";
 
 /**
- * Keeping menus (spec SV-11, SV-12, SV-13): asking the browser to keep storage, the
- * Home Screen tip for iPhone/iPad Safari, and Export all menus.
+ * Keeping menus (spec SV-11…SV-14): asking the browser to keep storage, the Home
+ * Screen tip for iPhone/iPad Safari, Export all menus, and Import menus.
  */
 
 // Build links the same way the app does (pako + base64).
@@ -112,6 +112,95 @@ test.describe("SV-13: Export all menus", () => {
 
 // Safari on an iPhone (Chromium pretending: same user agent, size and touch screen).
 const { defaultBrowserType: _ignored, ...iPhone } = devices["iPhone 13"];
+
+/** The titles shown in the Library, in A–Z order (menus imported together share a date). */
+const libraryTitles = async (page: Page) =>
+  (await page.getByRole("heading", { level: 2 }).allTextContents()).sort((a, b) => a.localeCompare(b));
+
+test.describe("SV-14: Import menus", () => {
+  test("a backup exported in one browser brings every menu into a fresh Home Screen app", async ({
+    page,
+    browser,
+  }) => {
+    // In Safari (here: any browser), two menus, exported to a file.
+    await page.goto(menuPath("Ana's menu", { Fun: [{ item: "Dancing", value: "must-have" }] }));
+    await expect(page.locator(".save-status")).toHaveText("Saved");
+    await page.goto(menuPath("Ben's menu", { Home: [{ item: "Moving in", value: "maybe", note: "next year" }] }));
+    await expect(page.locator(".save-status")).toHaveText("Saved");
+    await page.goto("/library");
+    const [download] = await Promise.all([
+      page.waitForEvent("download"),
+      page.getByRole("button", { name: "Export all menus" }).click(),
+    ]);
+    const backup = (await download.path())!;
+    const origin = new URL(page.url()).origin;
+
+    // A Home Screen app on an iPhone: storage of its own (a fresh context), no address bar.
+    const app = await browser.newContext({ ...iPhone, baseURL: origin });
+    await app.addInitScript(() => {
+      Object.defineProperty(navigator, "standalone", { value: true });
+    });
+    const other = await app.newPage();
+    // Reading the file sends nothing anywhere: no request at all while importing.
+    const requests: string[] = [];
+    await other.goto("/library");
+    await expect(other.getByText("Nothing here yet")).toBeVisible();
+    other.on("request", (request) => requests.push(request.url()));
+
+    await other.getByRole("button", { name: "Import menus" }).click();
+    const form = other.getByRole("form", { name: "Import menus" });
+    await expect(form).toBeVisible();
+    const [chooser] = await Promise.all([
+      other.waitForEvent("filechooser"),
+      form.locator("label", { hasText: "Choose backup file" }).click(),
+    ]);
+    await chooser.setFiles(backup);
+    await expect(other.getByText("Added 2 menus.")).toBeVisible();
+    await expect(form).toHaveCount(0);
+    expect(await libraryTitles(other)).toEqual(["Ana's menu", "Ben's menu"]);
+    expect(await events(other)).toContain("menus_imported");
+    expect(requests.filter((url) => !url.includes("google"))).toEqual([]);
+
+    // The same file again adds nothing.
+    await other.getByRole("button", { name: "Import menus" }).click();
+    const [again] = await Promise.all([
+      other.waitForEvent("filechooser"),
+      form.locator("label", { hasText: "Choose backup file" }).click(),
+    ]);
+    await again.setFiles(backup);
+    await expect(other.getByText("Nothing new: 2 menus were already here.")).toBeVisible();
+    expect(await libraryTitles(other)).toEqual(["Ana's menu", "Ben's menu"]);
+
+    // A pasted link to a different menu with a taken title comes in as a copy.
+    await other.getByRole("button", { name: "Import menus" }).click();
+    await form.getByLabel("Paste menu links").fill(
+      `Here's my new one: ${origin}${menuPath("Ana's menu", { Fun: [{ item: "Karaoke", value: "maybe" }] })}.`
+    );
+    await form.getByRole("button", { name: "Add menus" }).click();
+    await expect(
+      other.getByText('Added 1 menu. You already had a menu called "Ana\'s menu", so the new one is "Ana\'s menu (2)".')
+    ).toBeVisible();
+    expect(await libraryTitles(other)).toEqual(["Ana's menu", "Ana's menu (2)", "Ben's menu"]);
+
+    // Each imported menu opens with its answers and notes; nothing was changed.
+    await other
+      .locator(".menu-tile-wrapper", { has: other.getByRole("heading", { name: "Ben's menu", exact: true }) })
+      .getByRole("link", { name: "View" })
+      .click();
+    await expect(other.locator("input.menu-title")).toHaveValue("Ben's menu");
+    await expect(other.locator(".menu-item-input").first()).toHaveValue("Moving in");
+    await expect(other.locator(".menu-item select").first()).toHaveValue("maybe");
+    await other.goto("/library");
+    expect(await libraryTitles(other)).toEqual(["Ana's menu", "Ana's menu (2)", "Ben's menu"]);
+
+    // A long pasted link wraps on a small phone: no sideways scrolling (AX-4).
+    await other.setViewportSize({ width: 320, height: 640 });
+    await other.getByRole("button", { name: "Import menus" }).click();
+    await form.getByLabel("Paste menu links").fill(`${origin}${menuPath("Long", { G: [{ item: "x".repeat(400) }] })}`);
+    expect(await other.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
+    await app.close();
+  });
+});
 
 test.describe("SV-12: the Home Screen tip on iPhone Safari", () => {
   test.use(iPhone);

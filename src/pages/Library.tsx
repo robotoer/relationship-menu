@@ -19,9 +19,13 @@ import {
 import { RandomAvatar } from "react-random-avatars";
 import { openedFromState, track, trackOnce } from "../analytics";
 import { exportMenus } from "../export-menus";
+import { importSummary, TextImport } from "../import-menus";
 import { HomeScreenHint } from "../components/HomeScreenHint";
 import { ConversationList } from "../components/ConversationList";
 import { useSync } from "../sync/context";
+
+/** Backups are a few kilobytes per menu: anything far bigger isn't one (SV-14). */
+const MAX_IMPORT_FILE_BYTES = 10 * 1024 * 1024;
 
 /**
  * Renders the Library page, displaying a list of relationship menus.
@@ -30,16 +34,20 @@ import { useSync } from "../sync/context";
  * @param {Object} props - The component props.
  * @param {RelationshipMenuDocument[]} props.menus - The array of relationship menus to display.
  * @param {function} [props.onDelete] - Optional callback to delete a menu by its id.
+ * @param {function} [props.onImport] - Optional callback that imports pasted text or a backup file (SV-14).
  * @returns {JSX.Element} The rendered Library page.
  */
 export const LibraryPage = ({
   menus,
   onDelete,
+  onImport,
   oldAddress,
 }: {
   /** Saved menus: `id` is the menu id (SY-20); `link` is the slug its tile opens. */
   menus: (RelationshipMenuDocument & { id: string; link: string })[];
   onDelete?: (id: string) => void | Promise<void>;
+  /** Saves the menus in pasted text or a backup file without overwriting any (SV-14). */
+  onImport?: (text: string) => Promise<TextImport>;
   /** The app's old address (HO-7): an empty Library says how to bring menus from there. */
   oldAddress?: string;
 }) => {
@@ -85,6 +93,60 @@ export const LibraryPage = ({
       console.error("Failed to export menus:", e);
       setExported("Couldn't export. Try again, or open each menu and copy its link with Share.");
     }
+  };
+
+  // Import menus (SV-14): from pasted links or a backup file, read on this device.
+  const [importOpen, setImportOpen] = useState(false);
+  const [pasted, setPasted] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [imported, setImported] = useState<string | null>(null);
+  const importButton = useRef<HTMLButtonElement>(null);
+  const pasteField = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    if (importOpen) pasteField.current?.focus();
+  }, [importOpen]);
+  const closeImport = () => {
+    setImportOpen(false);
+    setPasted("");
+    importButton.current?.focus();
+  };
+  const runImport = async (text: string) => {
+    if (!onImport || importing) return;
+    setImporting(true);
+    try {
+      const result = await onImport(text);
+      setImported(importSummary(result));
+      if (result.found > 0) {
+        // Only that it happened: never what, from where, or how many.
+        track("menus_imported");
+        closeImport();
+      }
+    } catch (e) {
+      console.error("Failed to import menus:", e);
+      setImported("Couldn't save the menus. Try again: any that were saved are skipped.");
+    } finally {
+      setImporting(false);
+    }
+  };
+  const handleImportFile = async (input: HTMLInputElement) => {
+    const file = input.files?.[0];
+    // Let the same file be chosen again later.
+    input.value = "";
+    if (!file) return;
+    if (file.size > MAX_IMPORT_FILE_BYTES) {
+      setImported("That file is too big to be a menu backup. Choose the file Export all menus made.");
+      return;
+    }
+    let text: string;
+    try {
+      // Read here, on this device: nothing is uploaded.
+      text = await file.text();
+    } catch (e) {
+      console.error("Failed to read the import file:", e);
+      setImported("Couldn't read that file. Try choosing it again.");
+      return;
+    }
+    await runImport(text);
   };
 
   return (
@@ -149,6 +211,74 @@ export const LibraryPage = ({
                 "A backup file with a link to each menu. It's made on this device and never uploaded."}
             </span>
           </div>
+        )}
+        {onImport && (
+          <div className="library-export">
+            <button
+              ref={importButton}
+              type="button"
+              onClick={() => (importOpen ? closeImport() : setImportOpen(true))}
+              aria-expanded={importOpen}
+              aria-controls="library-import"
+              aria-describedby="library-import-about"
+            >
+              Import menus
+            </button>
+            <span id="library-import-about" aria-live="polite">
+              {imported ??
+                "Bring menus here from a backup file or menu links, for example into a Home Screen app."}
+            </span>
+          </div>
+        )}
+        {onImport && importOpen && (
+          <form
+            id="library-import"
+            className="library-import"
+            aria-label="Import menus"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void runImport(pasted);
+            }}
+          >
+            <label htmlFor="library-import-text">Paste menu links</label>
+            <textarea
+              id="library-import-text"
+              ref={pasteField}
+              rows={3}
+              value={pasted}
+              onChange={(e) => setPasted(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") closeImport();
+              }}
+              placeholder="https://…/menu?encoded=…"
+              aria-describedby="library-import-note"
+              spellCheck={false}
+              autoCapitalize="off"
+              autoCorrect="off"
+            />
+            <p id="library-import-note" className="library-import-note">
+              Links and files are read on this device; nothing is uploaded. A menu you already have is
+              skipped, and one whose title is taken is added as a copy, so nothing is replaced.
+            </p>
+            <div className="library-import-actions">
+              <button type="submit" className="button-primary" disabled={importing || !pasted.trim()}>
+                Add menus
+              </button>
+              {/* A label, so the file picker opens natively everywhere (iPhone included). */}
+              <label className="button library-import-file">
+                Choose backup file
+                <input
+                  type="file"
+                  accept=".txt,text/plain"
+                  disabled={importing}
+                  onChange={(e) => void handleImportFile(e.currentTarget)}
+                />
+              </label>
+              <button type="button" onClick={closeImport}>
+                Cancel
+              </button>
+            </div>
+          </form>
         )}
         <p className="library-export library-sync">
           <span>
