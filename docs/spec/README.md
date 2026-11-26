@@ -294,7 +294,7 @@ An overview above the items (`src/compare-insights.ts`, `CompareOverview`), writ
 | CP-34 | Outside the grid an answer is always shown with whose it is ("Ana: Must Have"), never as an unlabelled color. | Test (unit + e2e) |
 | CP-22 | "Biggest differences first" orders items by how far apart the answers are (Must have … Off limits), conflicts above everything, ties in menu order; items with fewer than two answers go last. Nothing is added or dropped. | [Property](../../src/__props__/insights-discussion.props.test.ts), Test |
 | CP-24 | Search matches item text, group names and notes (ignoring case); it combines with the filter and a group choice, and "Show everything" clears all three. | Test (unit + e2e) |
-| CP-25 | Sorting by difference shows one list, with each item's group as a caption. | Test (unit + e2e) |
+| CP-25 | Sorting by difference drops the groups: items are split into bands by how far apart the answers are (Conflicts, Far apart, One step apart, Same answer, Can't compare yet), in rank order, each band a grid of tiles that fills the width. Each item shows its group as a caption, and a line names whose square is whose. Empty bands are left out. | Test (unit + e2e) |
 
 ---
 

@@ -1,14 +1,21 @@
-import { render as rtlRender, screen, fireEvent, within } from "@testing-library/react";
+import {
+  render as rtlRender,
+  screen,
+  fireEvent,
+  within,
+} from "@testing-library/react";
 import { ReactElement } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { ComparePage } from "./Compare";
 
 // The overview repeats some names (biggest differences, groups), so look in the grid.
-const grid = () => within(document.querySelector(".compare-page-grid") as HTMLElement);
+const grid = () =>
+  within(document.querySelector(".compare-page-grid") as HTMLElement);
 const filters = () => within(screen.getByRole("group", { name: "Show items" }));
 
 // The page links to /support, so it needs a router.
-const render = (ui: ReactElement) => rtlRender(<MemoryRouter>{ui}</MemoryRouter>);
+const render = (ui: ReactElement) =>
+  rtlRender(<MemoryRouter>{ui}</MemoryRouter>);
 
 describe("ComparePage", () => {
   const defaultProps = {
@@ -44,7 +51,7 @@ describe("ComparePage", () => {
   it("should not show comparison grid when showComparison is false", () => {
     const { container } = render(<ComparePage {...defaultProps} />);
     expect(
-      container.querySelector(".compare-page-grid")
+      container.querySelector(".compare-page-grid"),
     ).not.toBeInTheDocument();
   });
 
@@ -59,7 +66,7 @@ describe("ComparePage", () => {
         {...defaultProps}
         comparison={comparison}
         showComparison={true}
-      />
+      />,
     );
     expect(container.querySelector(".compare-page-grid")).toBeInTheDocument();
     expect(grid().getByText("Kissing")).toBeInTheDocument();
@@ -68,16 +75,14 @@ describe("ComparePage", () => {
 
   it("should render legend in comparison grid", () => {
     const comparison = {
-      Values: [
-        { item: "Trust", values: ["must-have", "maybe"] as any },
-      ],
+      Values: [{ item: "Trust", values: ["must-have", "maybe"] as any }],
     };
     render(
       <ComparePage
         {...defaultProps}
         comparison={comparison}
         showComparison={true}
-      />
+      />,
     );
     // Legend should display the titles; each appears in mobile + desktop legend + input label
     expect(screen.getAllByText("Alice").length).toBeGreaterThanOrEqual(2);
@@ -93,9 +98,7 @@ describe("ComparePage", () => {
 
   it("should render multiple groups in comparison", () => {
     const comparison = {
-      Physical: [
-        { item: "Kissing", values: ["must-have", "maybe"] as any },
-      ],
+      Physical: [{ item: "Kissing", values: ["must-have", "maybe"] as any }],
       Emotional: [
         { item: "Trust", values: ["like-to-have", "off-limits"] as any },
       ],
@@ -105,7 +108,7 @@ describe("ComparePage", () => {
         {...defaultProps}
         comparison={comparison}
         showComparison={true}
-      />
+      />,
     );
     expect(grid().getByText("Physical")).toBeInTheDocument();
     expect(grid().getByText("Emotional")).toBeInTheDocument();
@@ -122,7 +125,11 @@ describe("ComparePage", () => {
       Emotional: [{ item: "Trust", values: ["maybe", "maybe"] as any }],
     };
     render(
-      <ComparePage {...defaultProps} comparison={comparison} showComparison={true} />
+      <ComparePage
+        {...defaultProps}
+        comparison={comparison}
+        showComparison={true}
+      />,
     );
     const conflicts = filters().getByRole("button", { name: /Conflicts/ });
     expect(conflicts).toHaveTextContent("1");
@@ -136,60 +143,111 @@ describe("ComparePage", () => {
     expect(grid().getByText("Kissing")).toBeInTheDocument();
     // The zones split every item exactly once.
     // Kissing (both Must have) is the same page; Trust (both Maybe) is a quick check.
-    expect(filters().getByRole("button", { name: /Same page/ })).toHaveTextContent("1");
-    expect(filters().getByRole("button", { name: /Quick checks/ })).toHaveTextContent("1");
+    expect(
+      filters().getByRole("button", { name: /Same page/ }),
+    ).toHaveTextContent("1");
+    expect(
+      filters().getByRole("button", { name: /Quick checks/ }),
+    ).toHaveTextContent("1");
     // Rows that need a talk say so; aligned rows don't.
     expect(grid().getByText("Conflict")).toBeInTheDocument();
-    expect(document.querySelectorAll(".compare-page-grid .zone-tag")).toHaveLength(1);
+    expect(
+      document.querySelectorAll(".compare-page-grid .zone-tag"),
+    ).toHaveLength(1);
   });
 
   it("shows an overview and can search, pick a group and sort by difference (CP-24, CP-25)", () => {
     const comparison = {
       Physical: [
         { item: "Kissing", values: ["must-have", "must-have"] as any },
-        { item: "Dancing", values: ["must-have", "off-limits"] as any, notes: ["at weddings", undefined] },
+        {
+          item: "Dancing",
+          values: ["must-have", "off-limits"] as any,
+          notes: ["at weddings", undefined],
+        },
       ],
       Emotional: [{ item: "Trust", values: ["like-to-have", "maybe"] as any }],
     };
     render(
-      <ComparePage {...defaultProps} comparison={comparison} showComparison={true} discussLink="/discuss?x" />
+      <ComparePage
+        {...defaultProps}
+        comparison={comparison}
+        showComparison={true}
+        discussLink="/discuss?x"
+      />,
     );
-    const overview = within(screen.getByRole("region", { name: "Where you stand" }));
+    const overview = within(
+      screen.getByRole("region", { name: "Where you stand" }),
+    );
     expect(overview.getByText(/on the same page/)).toHaveTextContent(
-      "Alice & Bob: you're on the same page on 1 of 3 items. 2 are worth a real conversation, including 1 conflict."
+      "Alice & Bob: you're on the same page on 1 of 3 items. 2 are worth a real conversation, including 1 conflict.",
     );
-    expect(overview.getByRole("link", { name: /Talk it through/ })).toHaveAttribute("href", "/discuss?x");
+    expect(
+      overview.getByRole("link", { name: /Talk it through/ }),
+    ).toHaveAttribute("href", "/discuss?x");
     // What to talk about first names who answered what, and shows their notes (CP-32).
-    const first = overview.getByRole("heading", { name: "Talk about these first" }).parentElement!;
-    expect(first).toHaveTextContent(/Dancing.*Alice: Must Have.*Bob: Off Limits.*at weddings/);
+    const first = overview.getByRole("heading", {
+      name: "Talk about these first",
+    }).parentElement!;
+    expect(first).toHaveTextContent(
+      /Dancing.*Alice: Must Have.*Bob: Off Limits.*at weddings/,
+    );
     // What matters most to each person (CP-33).
-    const people = overview.getByRole("heading", { name: "What matters most to each of you" }).parentElement!;
+    const people = overview.getByRole("heading", {
+      name: "What matters most to each of you",
+    }).parentElement!;
     expect(people).toHaveTextContent("Must-haves that aren't a yes for Bob:");
     expect(people).toHaveTextContent("Off limits, but Alice wants it:");
     // Each zone opens its items below.
-    fireEvent.click(overview.getByRole("button", { name: /^Talk about it: 1/ }));
-    expect(filters().getByRole("button", { name: /Talk about it/ })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(
+      overview.getByRole("button", { name: /^Talk about it: 1/ }),
+    );
+    expect(
+      filters().getByRole("button", { name: /Talk about it/ }),
+    ).toHaveAttribute("aria-pressed", "true");
     expect(grid().getByText("Trust")).toBeInTheDocument();
     expect(grid().queryByText("Dancing")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Show everything" }));
 
     // Search matches notes too.
-    fireEvent.change(screen.getByRole("searchbox"), { target: { value: "wedding" } });
+    fireEvent.change(screen.getByRole("searchbox"), {
+      target: { value: "wedding" },
+    });
     expect(grid().getByText("Dancing")).toBeInTheDocument();
     expect(grid().queryByText("Kissing")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Show everything" }));
 
-    fireEvent.change(screen.getByRole("combobox", { name: "Group" }), { target: { value: "Emotional" } });
+    fireEvent.change(screen.getByRole("combobox", { name: "Group" }), {
+      target: { value: "Emotional" },
+    });
     expect(grid().getByText("Trust")).toBeInTheDocument();
     expect(grid().queryByText("Kissing")).not.toBeInTheDocument();
-    fireEvent.change(screen.getByRole("combobox", { name: "Group" }), { target: { value: "" } });
+    fireEvent.change(screen.getByRole("combobox", { name: "Group" }), {
+      target: { value: "" },
+    });
 
-    fireEvent.change(screen.getByRole("combobox", { name: "Order" }), { target: { value: "difference" } });
-    const rows = document.querySelectorAll(".compare-page-grid .menu-item-compare .menu-item");
+    fireEvent.change(screen.getByRole("combobox", { name: "Order" }), {
+      target: { value: "difference" },
+    });
+    const rows = document.querySelectorAll(
+      ".compare-page-grid .menu-item-compare .menu-item",
+    );
     expect(Array.from(rows).map((r) => r.textContent)).toEqual([
       "Dancing · Physical",
       "Trust · Emotional",
       "Kissing · Physical",
     ]);
+    // Not one group: a band for each distance, each item still naming its group.
+    expect(
+      grid()
+        .getAllByRole("heading")
+        .map((h) => h.textContent),
+    ).toEqual(["Conflicts 1", "One step apart 1", "Same answer 1"]);
+    expect(
+      screen.queryByRole("heading", { name: "Biggest differences first" }),
+    ).not.toBeInTheDocument();
+    expect(
+      grid().getByText(/Squares, left to right: Alice, Bob/),
+    ).toBeInTheDocument();
   });
 });

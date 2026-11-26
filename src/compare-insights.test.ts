@@ -1,4 +1,14 @@
-import { answerGap, byDifference, byFocus, compareInsights, differenceScore, flattenComparison, matchesQuery } from "./compare-insights";
+import {
+  answerGap,
+  byDifference,
+  byDifferenceBands,
+  byFocus,
+  compareInsights,
+  differenceBand,
+  differenceScore,
+  flattenComparison,
+  matchesQuery,
+} from "./compare-insights";
 import { bucketOf, matchesFocusFilter } from "./compare-focus";
 import { compareMenus } from "./data-comparer";
 
@@ -33,7 +43,9 @@ const comparison = compareMenus([
 describe("bucketOf (CP-30, CP-31)", () => {
   it("puts each item in the one bucket that says where people stand", () => {
     expect(bucketOf(["must-have", "off-limits"])).toBe("conflict");
-    expect(bucketOf(["like-to-have", "off-limits", undefined])).toBe("conflict");
+    expect(bucketOf(["like-to-have", "off-limits", undefined])).toBe(
+      "conflict",
+    );
     expect(bucketOf(["must-have", "maybe"])).toBe("talk");
     expect(bucketOf(["maybe", "off-limits"])).toBe("talk");
     expect(bucketOf(["must-have", undefined])).toBe("open");
@@ -69,7 +81,9 @@ describe("answerGap and differenceScore", () => {
   });
 
   it("ranks conflicts above any non-conflict difference, and uncomparable items last", () => {
-    expect(differenceScore(["like-to-have", "off-limits"])).toBeGreaterThan(differenceScore(["must-have", "maybe"]));
+    expect(differenceScore(["like-to-have", "off-limits"])).toBeGreaterThan(
+      differenceScore(["must-have", "maybe"]),
+    );
     expect(differenceScore(["must-have", null])).toBe(-1);
   });
 });
@@ -79,13 +93,28 @@ describe("compareInsights (CP-30..CP-33)", () => {
 
   it("counts every item once, by bucket and by zone", () => {
     expect(insights.total).toBe(7);
-    expect(insights.zones).toEqual({ conflict: 1, talk: 1, open: 1, quick: 2, aligned: 2 });
-    expect(insights.buckets).toMatchObject({ degree: 1, "shared-maybe": 1, "shared-want": 1, "shared-no": 1 });
+    expect(insights.zones).toEqual({
+      conflict: 1,
+      talk: 1,
+      open: 1,
+      quick: 2,
+      aligned: 2,
+    });
+    expect(insights.buckets).toMatchObject({
+      degree: 1,
+      "shared-maybe": 1,
+      "shared-want": 1,
+      "shared-no": 1,
+    });
     expect(insights.withNotes).toBe(1);
   });
 
   it("lists what to talk about first: conflicts, then differences, then open items", () => {
-    expect(insights.focus.map((i) => i.item)).toEqual(["Kids", "Cuddling", "Marriage"]);
+    expect(insights.focus.map((i) => i.item)).toEqual([
+      "Kids",
+      "Cuddling",
+      "Marriage",
+    ]);
   });
 
   it("lists shared wants and shared limits", () => {
@@ -122,7 +151,14 @@ describe("compareInsights (CP-30..CP-33)", () => {
 
   it("shows what matters most to each person, and how the other answered", () => {
     const [ana, ben] = insights.people;
-    expect(ana).toMatchObject({ mustHave: 3, likeToHave: 1, maybe: 1, offLimits: 1, unanswered: 1, notOnMenu: 0 });
+    expect(ana).toMatchObject({
+      mustHave: 3,
+      likeToHave: 1,
+      maybe: 1,
+      offLimits: 1,
+      unanswered: 1,
+      notOnMenu: 0,
+    });
     // Kissing is shared; Hugging is a Like to have for Ben, still a yes; Kids is an Off limits.
     expect(ana.mustNotShared.map((i) => i.item)).toEqual(["Kids"]);
     expect(ana.limitsWanted).toEqual([]);
@@ -140,7 +176,9 @@ describe("compareInsights (CP-30..CP-33)", () => {
 
 describe("byDifference, byFocus and matchesQuery", () => {
   it("sorts by difference, keeping menu order for ties", () => {
-    expect(byDifference(flattenComparison(comparison)).map((i) => i.item)).toEqual([
+    expect(
+      byDifference(flattenComparison(comparison)).map((i) => i.item),
+    ).toEqual([
       "Kids",
       "Cuddling",
       "Hugging",
@@ -153,16 +191,64 @@ describe("byDifference, byFocus and matchesQuery", () => {
 
   it("puts items with notes first among equals", () => {
     const tie = compareMenus([
-      { G: [{ item: "A", value: "must-have" }, { item: "B", value: "must-have", note: "why" }] },
-      { G: [{ item: "A", value: "maybe" }, { item: "B", value: "maybe" }] },
+      {
+        G: [
+          { item: "A", value: "must-have" },
+          { item: "B", value: "must-have", note: "why" },
+        ],
+      },
+      {
+        G: [
+          { item: "A", value: "maybe" },
+          { item: "B", value: "maybe" },
+        ],
+      },
     ]);
-    expect(byFocus(flattenComparison(tie)).map((i) => i.item)).toEqual(["B", "A"]);
+    expect(byFocus(flattenComparison(tie)).map((i) => i.item)).toEqual([
+      "B",
+      "A",
+    ]);
   });
 
   it("searches item text, group name and notes, ignoring case", () => {
     const items = flattenComparison(comparison);
-    expect(items.filter((i) => matchesQuery(i, "SOMEDAY")).map((i) => i.item)).toEqual(["Kids"]);
+    expect(
+      items.filter((i) => matchesQuery(i, "SOMEDAY")).map((i) => i.item),
+    ).toEqual(["Kids"]);
     expect(items.filter((i) => matchesQuery(i, "touch"))).toHaveLength(4);
     expect(items.filter((i) => matchesQuery(i, "  "))).toHaveLength(7);
+  });
+});
+
+describe("difference bands (CP-25)", () => {
+  it("puts each item in one band, in the same order as the difference sort", () => {
+    expect(differenceBand(["must-have", "off-limits"])).toBe("conflict");
+    expect(differenceBand(["must-have", "maybe"])).toBe("far");
+    expect(differenceBand(["must-have", "like-to-have"])).toBe("step");
+    expect(differenceBand(["maybe", "maybe"])).toBe("same");
+    expect(differenceBand(["maybe", null])).toBe("uncompared");
+    const items = flattenComparison({
+      G: [
+        { item: "same", values: ["maybe", "maybe"] },
+        { item: "none", values: ["maybe", null] },
+        { item: "step", values: ["must-have", "like-to-have"] },
+        { item: "conflict", values: ["like-to-have", "off-limits"] },
+        { item: "far", values: ["must-have", "maybe"] },
+      ],
+    } as any);
+    const bands = byDifferenceBands(items);
+    expect(bands.map((b) => b.band.id)).toEqual([
+      "conflict",
+      "far",
+      "step",
+      "same",
+      "uncompared",
+    ]);
+    expect(bands.flatMap((b) => b.items)).toEqual(byDifference(items));
+    expect(
+      byDifferenceBands(items.filter((i) => i.item !== "far")).map(
+        (b) => b.band.id,
+      ),
+    ).not.toContain("far");
   });
 });
