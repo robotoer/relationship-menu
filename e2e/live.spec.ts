@@ -20,6 +20,7 @@ const createServer = () => {
   type Box = { joinHash: string; host: string; seq: number; members: Set<string>; copies: Map<string, { version: number; seq: number; body: Buffer }> };
   const boxes = new Map<string, Box>();
   const bodies: string[] = [];
+  const subscriptions: { boxId: string; endpoint: string }[] = [];
   const memberOf = (auth: string | undefined) => {
     const key = auth?.match(/key=([^,]+)/)?.[1];
     return key ? b64url(createHash("sha256").update(Buffer.from(key, "base64url")).digest().subarray(0, 16)) : null;
@@ -37,6 +38,7 @@ const createServer = () => {
         purgeAt: null, purgeSoon: false, limits: { menus: 500, menuBytes: 65536, totalBytes: 4194304 }, usage: { menus: 0, bytes: 0 },
       });
     if (pathname.startsWith("/v1/menus")) return reply(200, { menus: [], next: 0, more: false, resync: false, purged: 0 });
+    if (pathname === "/v1/push/key") return reply(200, { key: b64url(Buffer.concat([Buffer.from([4]), randomBytes(64)])) });
     if (pathname === "/v1/boxes" && req.method() === "POST") {
       const { boxId, joinHash, hostKey } = JSON.parse(body.toString());
       const host = b64url(createHash("sha256").update(Buffer.from(hostKey, "base64url")).digest().subarray(0, 16));
@@ -72,6 +74,10 @@ const createServer = () => {
       box.copies.set(me, { version: (current?.version ?? 0) + 1, seq: box.seq, body });
       return reply(200, { version: (current?.version ?? 0) + 1, seq: box.seq });
     }
+    if (pathname.endsWith("/subscriptions") && req.method() === "POST") {
+      subscriptions.push({ boxId, endpoint: JSON.parse(body.toString()).endpoint });
+      return reply(201, { subId: `sub${subscriptions.length}`.padEnd(22, "x") });
+    }
     if (pathname.endsWith("/members/me") && req.method() === "DELETE") {
       box.members.delete(me);
       box.copies.delete(me);
@@ -83,7 +89,7 @@ const createServer = () => {
     }
     return reply(404, { error: "not_found" });
   };
-  return { boxes, bodies, handle };
+  return { boxes, bodies, subscriptions, handle };
 };
 
 const person = async (browser: Browser, baseURL: string | undefined, server: ReturnType<typeof createServer>, supporter: boolean) => {
@@ -153,5 +159,70 @@ test.describe("Live sharing (docs/spec/notifications.md, NT-10…NT-16, NT-30, N
     expect(server.boxes.size).toBe(0);
     await ana.context.close();
     await ben.context.close();
+  });
+
+  test("Notify me: the service worker is registered, the subscription reaches the box, and a push shows the private text (NT-20, NT-25, NT-26)", async ({
+    browser,
+    baseURL,
+  }) => {
+    test.skip(browser.browserType().name() !== "chromium", "uses the Chromium DevTools protocol to deliver a push");
+    const server = createServer();
+    const ana = await person(browser, baseURL, server, true);
+    await ana.context.grantPermissions(["notifications"]);
+    // Headless Chromium can't reach a real push service: the browser's subscribe() is stubbed.
+    await ana.context.addInitScript(() => {
+      const fake = {
+        endpoint: "https://fcm.googleapis.com/fcm/send/e2e-device",
+        options: { applicationServerKey: null as ArrayBuffer | null },
+        getKey: (name: string) => new Uint8Array(name === "p256dh" ? 65 : 16).fill(4).buffer,
+        unsubscribe: async () => true,
+      };
+      let current: typeof fake | null = null;
+      PushManager.prototype.getSubscription = async function () {
+        return current as unknown as PushSubscription;
+      };
+      PushManager.prototype.subscribe = async function (options?: PushSubscriptionOptionsInit) {
+        fake.options.applicationServerKey = (options?.applicationServerKey as ArrayBuffer) ?? null;
+        current = fake;
+        return fake as unknown as PushSubscription;
+      };
+    });
+    await ana.page.goto(comparePath);
+    await ana.page.getByRole("button", { name: "💾 Save this comparison" }).click();
+    await ana.page.getByRole("link", { name: "Open the conversation" }).click();
+    await ana.page.getByRole("button", { name: "Share live…" }).click();
+    const live = ana.page.getByRole("region", { name: "Shared live" });
+    await live.getByRole("button", { name: "🔔 Notify me on this device" }).click();
+    await expect(live).toContainText("On for this device");
+    expect(server.subscriptions).toEqual([{ boxId: [...server.boxes.keys()][0], endpoint: "https://fcm.googleapis.com/fcm/send/e2e-device" }]);
+
+    // The real service worker gets a push (as the push service would deliver it) and shows only the private text.
+    const cdp = await ana.context.newCDPSession(ana.page);
+    const registrationId = new Promise<string>((resolve) =>
+      cdp.on("ServiceWorker.workerRegistrationUpdated", ({ registrations }) => {
+        const r = registrations.find((x: { scopeURL: string; isDeleted: boolean }) => x.scopeURL.startsWith(new URL(baseURL!).origin) && !x.isDeleted);
+        if (r) resolve(r.registrationId);
+      })
+    );
+    await cdp.send("ServiceWorker.enable");
+    const boxId = [...server.boxes.keys()][0];
+    await cdp.send("ServiceWorker.deliverPushMessage", {
+      origin: new URL(baseURL!).origin,
+      registrationId: await registrationId,
+      data: JSON.stringify({ box: boxId, kind: "comment", count: 3 }),
+    });
+    await expect
+      .poll(() =>
+        ana.page.evaluate(async () => {
+          const r = await navigator.serviceWorker.ready;
+          return (await r.getNotifications()).map((n) => ({ title: n.title, body: n.body, tag: n.tag }));
+        })
+      )
+      .toEqual([{ title: "Wants & Won'ts", body: "3 new changes in a conversation.", tag: `box-${boxId}` }]);
+
+    // Turning it off.
+    await live.getByRole("button", { name: "Turn off on this device" }).click();
+    await expect(live.getByRole("button", { name: "🔔 Notify me on this device" })).toBeVisible();
+    await ana.context.close();
   });
 });

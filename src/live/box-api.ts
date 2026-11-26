@@ -20,6 +20,9 @@ export type LiveFailure =
   | "version_mismatch"
   | "too_large"
   | "rate_limited"
+  | "push_unavailable"
+  | "bad_endpoint"
+  | "too_many_subscriptions"
   | "failed";
 
 export class LiveError extends Error {
@@ -44,7 +47,7 @@ type AuthorizeAccount = (method: string, pathAndQuery: string, body: Uint8Array)
 
 const KNOWN = new Set<LiveFailure>([
   "not_supporter", "read_only", "too_many_boxes", "box_exists", "not_found", "bad_join",
-  "invite_expired", "box_full", "version_mismatch",
+  "invite_expired", "box_full", "version_mismatch", "push_unavailable", "bad_endpoint", "too_many_subscriptions",
 ]);
 
 const failure = (status: number, code: unknown): LiveFailure => {
@@ -135,6 +138,24 @@ export const createBoxApi = ({
     /** DELETE /v1/boxes/:id/members/me (NT-14). */
     leave: async (m: Member) => {
       const path = `/v1/boxes/${m.boxId}/members/me`;
+      await send("DELETE", path, { sign: asMember(m, "DELETE", path) });
+    },
+    /** GET /v1/push/key (§7b): the VAPID public key, or LiveError("push_unavailable"). */
+    pushKey: async () => {
+      const data = await send("GET", "/v1/push/key", {});
+      const key = typeof data.key === "string" ? fromBase64Url(data.key) : null;
+      if (!key || key.length !== 65) throw new LiveError("push_unavailable");
+      return key;
+    },
+    /** POST /v1/boxes/:id/subscriptions (§7b). */
+    subscribe: async (m: Member, sub: { endpoint: string; p256dh: string; auth: string }) => {
+      const path = `/v1/boxes/${m.boxId}/subscriptions`;
+      const data = await send("POST", path, { body: jsonBody(sub), headers: JSON_HEADERS, sign: asMember(m, "POST", path) });
+      return { subId: String(data.subId) };
+    },
+    /** DELETE /v1/boxes/:id/subscriptions/:subId (§7b). */
+    unsubscribe: async (m: Member, subId: string) => {
+      const path = `/v1/boxes/${m.boxId}/subscriptions/${encodeURIComponent(subId)}`;
       await send("DELETE", path, { sign: asMember(m, "DELETE", path) });
     },
     /** DELETE /v1/boxes/:id (NT-15), host only. */

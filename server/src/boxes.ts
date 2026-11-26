@@ -12,6 +12,10 @@ import { memberIdForKey, type BoxCaller, type Caller } from "./auth";
 import { ID_PATTERN, fromBase64Url, sha256, timingSafeEqual, toBase64Url } from "./bytes";
 import { BOX_LIMITS, INVITE_TTL_MS, type Env } from "./env";
 import { HttpError, json, noContent, parseJson } from "./http";
+import { notifyBox, notifyKind } from "./notify";
+
+/** Starts work that outlives the response (ctx.waitUntil in the Worker). */
+export type Background = (work: Promise<unknown>) => void;
 
 type BoxRow = {
   box_id: string;
@@ -229,15 +233,17 @@ const writeRefused = async (env: Env, member: Member) => {
  * PUT /v1/boxes/:id/copies/:memberId (NT-2, NT-3, NT-5) — the caller's own copy,
  * conditional on its version (If-Match) or on there being none (If-None-Match: *).
  * The box's seq and the copy move together in one D1 batch; both statements carry
- * the same guard, so a mismatch changes nothing. `Notify` is accepted and ignored
- * until notifications exist (phase 3).
+ * the same guard, so a mismatch changes nothing. After an accepted write with
+ * `Notify: comment|notes`, the other members' devices are notified (NT-23,
+ * notify.ts) in the background: the response never waits on a push service.
  */
 export const putCopy = async (
   env: Env,
   member: Member,
   request: Request,
   memberId: string,
-  body: Uint8Array
+  body: Uint8Array,
+  background: Background = () => undefined
 ): Promise<Response> => {
   checkId(memberId);
   if (memberId !== member.memberId) throw new HttpError(403, "not_yours");
@@ -247,6 +253,12 @@ export const putCopy = async (
   const b = member.boxId;
   const m = member.memberId;
   const isMemberSql = "EXISTS (SELECT 1 FROM box_members WHERE box_id = ?1 AND member_id = ?2)";
+  const kind = notifyKind(request.headers.get("notify"));
+  const written = (version: number, seq: number) => {
+    // `Notify: none` (or no header) tells nobody.
+    if (kind) background(notifyBox(env, b, m, kind, now));
+    return json({ version, seq });
+  };
 
   if (request.headers.get("if-none-match")?.trim() === "*") {
     const noCopy = "NOT EXISTS (SELECT 1 FROM box_copies WHERE box_id = ?1 AND member_id = ?2)";
@@ -259,9 +271,9 @@ export const putCopy = async (
          RETURNING version, seq`
       ).bind(b, m, now, body.length, body),
     ]);
-    const written = results[1]?.results[0];
-    if (!written) throw await writeRefused(env, member);
-    return json({ version: written.version, seq: written.seq });
+    const result = results[1]?.results[0];
+    if (!result) throw await writeRefused(env, member);
+    return written(result.version, result.seq);
   }
 
   const expected = parseIfMatch(request.headers.get("if-match"));
@@ -278,15 +290,19 @@ export const putCopy = async (
        RETURNING version, seq`
     ).bind(b, m, expected, now, body.length, body),
   ]);
-  const written = results[1]?.results[0];
-  if (!written) throw await writeRefused(env, member);
-  return json({ version: written.version, seq: written.seq });
+  const result = results[1]?.results[0];
+  if (!result) throw await writeRefused(env, member);
+  return written(result.version, result.seq);
 };
 
-/** DELETE /v1/boxes/:id/members/me (NT-14) — any member but the host; its copy goes too. */
+/**
+ * DELETE /v1/boxes/:id/members/me (NT-14) — any member but the host; its copy
+ * and its push subscriptions (NT-56) go too.
+ */
 export const leaveBox = async (env: Env, member: Member): Promise<Response> => {
   if (member.isHost) throw new HttpError(409, "host_must_stop");
   await env.DB.batch([
+    env.DB.prepare("DELETE FROM push_subs WHERE box_id = ? AND member_id = ?").bind(member.boxId, member.memberId),
     env.DB.prepare("DELETE FROM box_copies WHERE box_id = ? AND member_id = ?").bind(member.boxId, member.memberId),
     env.DB.prepare("DELETE FROM box_members WHERE box_id = ? AND member_id = ?").bind(member.boxId, member.memberId),
   ]);
@@ -302,9 +318,11 @@ export const deleteBox = async (env: Env, member: Member): Promise<Response> => 
 
 /**
  * Statements that delete the boxes matching `where` (on `boxes`) with all their
- * members and copies. Used by Stop sharing, account deletion and the daily purge.
+ * members, copies and push subscriptions (NT-56). Used by Stop sharing, account
+ * deletion and the daily purge.
  */
 export const deleteBoxesWhere = (db: D1Database, where: string, ...values: unknown[]): D1PreparedStatement[] => [
+  db.prepare(`DELETE FROM push_subs WHERE box_id IN (SELECT box_id FROM boxes WHERE ${where})`).bind(...values),
   db.prepare(`DELETE FROM box_copies WHERE box_id IN (SELECT box_id FROM boxes WHERE ${where})`).bind(...values),
   db.prepare(`DELETE FROM box_members WHERE box_id IN (SELECT box_id FROM boxes WHERE ${where})`).bind(...values),
   db.prepare(`DELETE FROM boxes WHERE ${where}`).bind(...values),

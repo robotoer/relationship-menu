@@ -160,6 +160,9 @@ export type AnalyticsEvent =
   | { name: "live_joined"; params: { outcome: "ok" | "expired" | "full" | "gone" | "offline" | "failed" } }
   | { name: "live_left"; params?: undefined }
   | { name: "live_stopped"; params?: undefined }
+  | { name: "notifications_enabled"; params: { channel: "webpush" } }
+  | { name: "notifications_disabled"; params?: undefined }
+  | { name: "notification_opened"; params?: undefined }
   // Library
   | { name: "library_searched"; params?: undefined }
   | { name: "library_sorted"; params: { sort: LibrarySort } }

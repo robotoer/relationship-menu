@@ -15,6 +15,9 @@
 # Secrets (never in this file): STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, and
 #   ANTHROPIC_API_KEY for the AI coach (docs/spec/coach.md). The coach stays off
 #   until an environment also sets COACH_ENABLED = "true" in its vars.
+#   VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY and VAPID_SUBJECT for web push
+#   (docs/spec/notifications.md §7b); without them push answers 503 and
+#   everything else works. See server/README.md for making the key pair.
 #   npx wrangler secret put STRIPE_SECRET_KEY --env test
 
 name = "wantsandwonts-local"
@@ -104,8 +107,10 @@ name = "RL_IP"
 namespace_id = "1003"
 simple = { limit = 10, period = 60 }
 
+# Daily: the purge (src/cron.ts). Every 5 minutes: notifications held back by
+# the 15-minute window or the daily limit (src/notify.ts, notifications.md NT-24).
 [env.test.triggers]
-crons = ["17 3 * * *"]
+crons = ["17 3 * * *", "*/5 * * * *"]
 
 # ---------------------------------------------------------------------------
 [env.production]
@@ -149,5 +154,6 @@ name = "RL_IP"
 namespace_id = "2003"
 simple = { limit = 10, period = 60 }
 
+# As for test: the daily purge, and the 5-minute push flush.
 [env.production.triggers]
-crons = ["17 3 * * *"]
+crons = ["17 3 * * *", "*/5 * * * *"]

@@ -24,6 +24,16 @@ export interface Env {
   COACH_DAILY_TOTAL?: string;
   COACH_MONTHLY_PER_ACCOUNT?: string;
   COACH_MONTHLY_TOTAL?: string;
+  /**
+   * Web push (docs/spec/notifications.md §7b, NT-54), all three secrets. Without
+   * them push is off (503 push_unavailable) and everything else works.
+   * VAPID_PUBLIC_KEY: base64url, the 65-byte uncompressed P-256 point.
+   */
+  VAPID_PUBLIC_KEY?: string;
+  /** base64url, the 32-byte private scalar d. */
+  VAPID_PRIVATE_KEY?: string;
+  /** A project `mailto:` or `https:` contact for push services, never a person's address. */
+  VAPID_SUBJECT?: string;
   /** Tests only: overrides ROTATION_COMMIT_MS (accounts.ts). */
   ROTATION_COMMIT_MS?: string;
 }
@@ -61,3 +71,14 @@ export const BOX_LIMITS = {
 
 /** How long an invite (join secret) works (NT-13). */
 export const INVITE_TTL_MS = 7 * DAY_MS;
+
+/** Web push subscriptions (docs/spec/notifications.md §7b). */
+export const PUSH_LIMITS = {
+  /** Subscriptions per member device per box. */
+  subscriptions: 5,
+  /** Waiting subscriptions the 5-minute cron sends to per run. */
+  flushBatch: 500,
+} as const;
+
+/** A subscription with changes waiting that hasn't been delivered for this long is deleted (NT-53). */
+export const PUSH_UNDELIVERED_TTL_MS = 60 * DAY_MS;

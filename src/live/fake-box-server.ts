@@ -21,6 +21,9 @@ export const createFakeBoxServer = ({ now = () => Date.now() } = {}) => {
   const boxes = new Map<string, Box>();
   /** Every PUT's Notify header, in order (to check NT-23 from the app's side). */
   const notifications: { boxId: string; memberId: string; notify: string | null }[] = [];
+  /** Push subscriptions by id (§7b). */
+  const subscriptions = new Map<string, { boxId: string; memberId: string; endpoint: string; p256dh: string; auth: string }>();
+  let pushKey: Uint8Array | null = new Uint8Array(65).fill(4);
 
   const reply = (status: number, body?: unknown) =>
     new Response(body === undefined ? null : JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -49,6 +52,10 @@ export const createFakeBoxServer = ({ now = () => Date.now() } = {}) => {
     const body = new Uint8Array(await request.arrayBuffer());
     const path = url.pathname;
     let m: RegExpMatchArray | null;
+
+    if (request.method === "GET" && path === "/v1/push/key") {
+      return pushKey ? reply(200, { key: toBase64Url(pushKey) }) : error(503, "push_unavailable");
+    }
 
     if (request.method === "POST" && path === "/v1/boxes") {
       // The sync account's signature is checked by the real server; here any MenuSync header will do.
@@ -114,6 +121,23 @@ export const createFakeBoxServer = ({ now = () => Date.now() } = {}) => {
         notifications.push({ boxId, memberId, notify: request.headers.get("notify") });
         return reply(200, { version, seq: box.seq });
       }
+      if (request.method === "POST" && path === `/v1/boxes/${boxId}/subscriptions`) {
+        const sub = JSON.parse(new TextDecoder().decode(body));
+        if (!/^https:\/\/[^/]*(fcm\.googleapis\.com|push\.apple\.com|push\.services\.mozilla\.com|notify\.windows\.com)\//.test(sub.endpoint)) {
+          return error(400, "bad_endpoint");
+        }
+        const existing = [...subscriptions].find(([, x]) => x.boxId === boxId && x.memberId === memberId && x.endpoint === sub.endpoint);
+        if (existing) return reply(201, { subId: existing[0] });
+        const subId = `sub${subscriptions.size}`.padEnd(22, "x");
+        subscriptions.set(subId, { boxId, memberId, ...sub });
+        return reply(201, { subId });
+      }
+      if ((m = path.match(/^\/v1\/boxes\/[^/]+\/subscriptions\/([^/]+)$/)) && request.method === "DELETE") {
+        const sub = subscriptions.get(m[1]);
+        if (!sub || sub.boxId !== boxId || sub.memberId !== memberId) return error(404, "not_found");
+        subscriptions.delete(m[1]);
+        return reply(204);
+      }
       if (request.method === "POST" && path === `/v1/boxes/${boxId}/invite`) {
         if (memberId !== box.host) return error(403, "not_host");
         box.joinHash = JSON.parse(new TextDecoder().decode(body)).joinHash;
@@ -124,11 +148,13 @@ export const createFakeBoxServer = ({ now = () => Date.now() } = {}) => {
         if (memberId === box.host) return error(409, "host_must_stop");
         box.members.delete(memberId);
         box.copies.delete(memberId);
+        for (const [id, sub] of subscriptions) if (sub.boxId === boxId && sub.memberId === memberId) subscriptions.delete(id);
         return reply(204);
       }
       if (request.method === "DELETE" && path === `/v1/boxes/${boxId}`) {
         if (memberId !== box.host) return error(403, "not_host");
         boxes.delete(boxId);
+        for (const [id, sub] of subscriptions) if (sub.boxId === boxId) subscriptions.delete(id);
         return reply(204);
       }
     }
@@ -138,6 +164,9 @@ export const createFakeBoxServer = ({ now = () => Date.now() } = {}) => {
   return {
     boxes,
     notifications,
+    subscriptions,
+    /** Turns push off on the server (503 push_unavailable). */
+    disablePush: () => (pushKey = null),
     fetch: ((input: RequestInfo | URL, init?: RequestInit) =>
       handle(new Request(new URL(String(input), "https://app.test"), init))) as typeof fetch,
   };
