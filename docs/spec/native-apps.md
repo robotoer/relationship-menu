@@ -70,6 +70,7 @@ Most of the work is a small platform layer, so the rest of the app doesn't chang
 - **`ShareDialog` / `SharePane` / Discuss "Copy summary"** call the platform helpers (NA-5).
 - **CSS safe-area padding** goes on the header, bottom bars and dialogs, and `index.html` gets `viewport-fit=cover` (NA-7).
 - **Routes and entry points** for Support, the AI teaser and sync are hidden when `isNativeApp()` (NA-8).
+- **A public `/privacy` page** (and `/terms`), made from `docs/legal/`, for the store listings (§6).
 
 ## 5. The native projects (second PR)
 
