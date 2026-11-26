@@ -20,6 +20,7 @@ import { RandomAvatar } from "react-random-avatars";
 import { openedFromState, track, trackOnce } from "../analytics";
 import { exportMenus } from "../export-menus";
 import { HomeScreenHint } from "../components/HomeScreenHint";
+import { useSync } from "../sync/context";
 
 /**
  * Renders the Library page, displaying a list of relationship menus.
@@ -61,6 +62,9 @@ export const LibraryPage = ({
     () => sortMenus(menus.filter((menu) => matchesSearch(menu, query)), sort),
     [menus, query, sort]
   );
+
+  // The way into sync settings (SY-3…SY-13). Everything here works without it (SY-70).
+  const syncOn = useSync().state.kind === "on";
 
   // Export all menus (SV-13): what the last export did, for the status line.
   const [exported, setExported] = useState<string | null>(null);
@@ -135,6 +139,12 @@ export const LibraryPage = ({
             </span>
           </div>
         )}
+        <p className="library-export library-sync">
+          <span>
+            {syncOn ? "Sync is on in this browser." : "Use more than one device?"}{" "}
+            <Link to="/sync">{syncOn ? "Sync settings" : "Sync your menus"}</Link>
+          </span>
+        </p>
       </div>
       <div className="library">
         {shown.map((menu) => {

@@ -2,6 +2,7 @@ import { encodeData } from "../data-encoder";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { LibraryPage } from "./Library";
+import { FakeSyncProvider, fakeAccount, fakeSync } from "../sync/fake-sync";
 
 // Mock react-random-avatars to avoid rendering SVG complexity in tests
 vi.mock("react-random-avatars", () => ({
@@ -247,5 +248,38 @@ describe("LibraryPage: keeping menus", () => {
       </MemoryRouter>
     );
     expect(screen.queryByRole("complementary")).not.toBeInTheDocument();
+  });
+});
+
+describe("LibraryPage: the way into sync (SY-3…SY-13)", () => {
+  it("links to sync settings, with or without menus and without any account (SY-70)", () => {
+    const { unmount } = render(
+      <MemoryRouter>
+        <LibraryPage menus={[]} />
+      </MemoryRouter>
+    );
+    expect(screen.getByRole("link", { name: "Sync your menus" })).toHaveAttribute("href", "/sync");
+    unmount();
+    render(
+      <MemoryRouter>
+        <LibraryPage menus={[{ title: "A", encoded: "x", id: "a", link: "a" }]} />
+      </MemoryRouter>
+    );
+    expect(screen.getByRole("link", { name: "Sync your menus" })).toHaveAttribute("href", "/sync");
+  });
+
+  it("says when sync is on", () => {
+    const sync = fakeSync({
+      state: { kind: "on", account: fakeAccount(), pending: 0, lastSyncedAt: null, notices: [], unreadable: 0 },
+    });
+    render(
+      <MemoryRouter>
+        <FakeSyncProvider value={sync}>
+          <LibraryPage menus={[]} />
+        </FakeSyncProvider>
+      </MemoryRouter>
+    );
+    expect(screen.getByText(/Sync is on in this browser\./)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Sync settings" })).toHaveAttribute("href", "/sync");
   });
 });
