@@ -54,6 +54,9 @@ export const ITEM_THEMES: Record<Theme, string[]> = {
     "Gifts",
     "Anniversaries",
     "Pet names",
+    "Massage",
+    "Dancing together",
+    "Sharing a bed without touching",
   ],
   talk: [
     "Daily check-in messages",
@@ -91,6 +94,11 @@ export const ITEM_THEMES: Record<Theme, string[]> = {
     "Knowing about other partners",
     "Advance notice of new relationships",
     "Revisiting this menu regularly",
+    "Safety check-ins during dates",
+    "Talking directly with metamours",
+    "Talking about mental health",
+    "Adapting to each other's communication needs",
+    "Talking about love languages",
   ],
   space: [
     "Time alone respected",
@@ -108,6 +116,14 @@ export const ITEM_THEMES: Record<Theme, string[]> = {
     "Separate homes",
     "Protected alone time",
     "Dating other people",
+    "Sharing our locations",
+    "Parallel style: little contact with metamours",
+    "Plenty of time apart",
+    "Separate friendships",
+    "Pursuing our own interests",
+    "Equal say in the relationship",
+    "Veto over each other's other relationships",
+    "Other romantic relationships",
   ],
   roots: [
     "Exclusivity",
@@ -136,6 +152,17 @@ export const ITEM_THEMES: Record<Theme, string[]> = {
     "Long-term plans",
     "Shared big decisions",
     "Growing old together",
+    "A non-legal commitment ceremony",
+    "Merging finances",
+    "Having or raising kids together",
+    "Either of us marrying someone else",
+    "Either of us having kids with someone else",
+    "Birthdays together",
+    "Some holidays together",
+    "Most holidays together",
+    "Coming first when plans clash",
+    "Being named in each other's will",
+    "Power of attorney for each other",
   ],
   spotlight: [
     "Meeting each other's friends",
@@ -169,6 +196,15 @@ export const ITEM_THEMES: Record<Theme, string[]> = {
     "Posting together online",
     "Bringing each other to events",
     "Meeting metamours",
+    "Garden-party style: friendly at gatherings",
+    "Being glad about each other's other relationships",
+    "Being openly polyamorous with friends",
+    "Being openly polyamorous with family",
+    "Being openly polyamorous at work",
+    "Being out about us to family",
+    "Being out about us at work",
+    "Being each other's plus-one",
+    "First pick as plus-one",
   ],
   hearth: [
     "Sharing a home",
@@ -213,7 +249,6 @@ export const ITEM_THEMES: Record<Theme, string[]> = {
     "Being a go-to support person",
     "Prioritising each other emotionally",
     "Regular testing",
-    "Agreed barrier practices",
     "Remembering important dates",
     "Venting without fixing",
     "Being called in a crisis",
@@ -223,6 +258,14 @@ export const ITEM_THEMES: Record<Theme, string[]> = {
     "Emotional support",
     "Caring when sick",
     "Help with practical tasks",
+    "Using barriers with each other",
+    "Using barriers with other partners",
+    "Knowing each other's medications and conditions",
+    "Making medical decisions for each other",
+    "Care through a long illness",
+    "Supporting each other's therapy",
+    "Knowing each other's triggers",
+    "Sharing past hurts",
   ],
   adventure: [
     "Regular date nights",
@@ -236,26 +279,62 @@ export const ITEM_THEMES: Record<Theme, string[]> = {
     "Celebrating holidays together",
     "Planning the next date in advance",
     "Seeing each other weekly",
+    "Seeing each other once a week or less",
+    "Seeing each other 2–3 days a week",
+    "Seeing each other 4–5 days a week",
+    "Seeing each other most days",
+    "Some weekends together",
+    "Most weekends together",
+    "Every weekend together",
   ],
 };
 
 /** Template group names, by theme ("Pace" and "Other partners" mix themes, so they're left out). */
 export const GROUP_THEMES: Record<Theme, string[]> = {
-  closeness: ["Affection & intimacy", "Physical connection", "Romance", "Physical closeness", "Physical affection"],
-  talk: ["Communication", "Disclosure", "Staying in touch", "Communication cadence", "Getting to know each other"],
-  space: ["Boundaries & veto", "Space & privacy"],
+  closeness: [
+    "Affection & intimacy",
+    "Physical connection",
+    "Romance",
+    "Physical closeness",
+    "Physical affection",
+  ],
+  talk: [
+    "Communication",
+    "Disclosure",
+    "Staying in touch",
+    "Communication cadence",
+    "Getting to know each other",
+  ],
+  space: [
+    "Boundaries & veto",
+    "Space & privacy",
+    "Structure",
+    "Independence",
+    "Other partners",
+    "Pace",
+  ],
   roots: [
     "Future",
     "Commitment",
-    "Hierarchy & commitment",
     "Commitment & boundaries",
     "Exclusivity",
     "Holidays & traditions",
     "Living arrangements",
     "Family & kids",
     "Future & commitment",
+    "Milestones, one at a time",
+    "Priorities & occasions",
+    "Other relationships",
   ],
-  spotlight: ["Social life", "Social & identity", "Metamours", "Social circles", "Guests", "Social life & public"],
+  spotlight: [
+    "Social life",
+    "Social & identity",
+    "Metamours",
+    "Social circles",
+    "Guests",
+    "Social life & public",
+    "Being out & included",
+  ],
   hearth: [
     "Practical life",
     "Scheduling & time",
@@ -265,8 +344,19 @@ export const GROUP_THEMES: Record<Theme, string[]> = {
     "Pets & plants",
     "Household & chores",
   ],
-  care: ["Support & care", "Emotional connection", "Safer sex & health", "Emotional support"],
-  adventure: ["Time together", "Time together & apart"],
+  care: [
+    "Support & care",
+    "Emotional connection",
+    "Safer sex & health",
+    "Emotional support",
+    "Health & emergencies",
+    "Emotional health",
+  ],
+  adventure: [
+    "Time together",
+    "Time together & apart",
+    "How often we see each other",
+  ],
 };
 
 /**
@@ -274,14 +364,38 @@ export const GROUP_THEMES: Record<Theme, string[]> = {
  * in this order. Kept conservative: an item no rule matches simply doesn't count.
  */
 export const THEME_KEYWORDS: [Theme, RegExp][] = [
-  ["hearth", /\b(chores?\b|clean|cook|dish|laundry|bills?\b|money|financ|rent\b|budget|expens|errands?\b|pets?\b|plants?\b|household|groceri|kitchen)/i],
-  ["talk", /\b(text|messag|calls?\b|calling|phone|talk|communicat|check[- ]?ins?\b|chat|discuss|feedback|disclos|honest)/i],
-  ["closeness", /\b(cuddl|hug|kiss|hold(ing)? hands|touch|intima|physical|affection|sex|snuggl|romanc|romantic|flirt|massag|gifts?\b)/i],
-  ["care", /\b(support|caring|care\b|sick|comfort|emergenc|listen|vent\b|venting|crisis|celebrat|help)/i],
-  ["space", /\b(alone|space|privacy|private|independen|solo\b|separate|quiet|apart|autonom|freedom|me[- ]time|boundar)/i],
-  ["roots", /\b(future|commit|marr|wedding|kids?\b|child|famil|exclusiv|long[- ]term|moving in|move in|living together|engag|anniversar|forever)/i],
-  ["spotlight", /\b(public|social|friends?\b|part(y|ies)\b|events?\b|posting|post\b|online|introduc|label|metamour)/i],
-  ["adventure", /\b(travel|trips?\b|adventur|hobb|dates?\b|hang ?outs?\b|games?\b|outings?\b|explor|holiday|vacation|new things|hik(e|ing)\b|together\b)/i],
+  [
+    "hearth",
+    /\b(chores?\b|clean|cook|dish|laundry|bills?\b|money|financ|rent\b|budget|expens|errands?\b|pets?\b|plants?\b|household|groceri|kitchen)/i,
+  ],
+  [
+    "talk",
+    /\b(text|messag|calls?\b|calling|phone|talk|communicat|check[- ]?ins?\b|chat|discuss|feedback|disclos|honest)/i,
+  ],
+  [
+    "closeness",
+    /\b(cuddl|hug|kiss|hold(ing)? hands|touch|intima|physical|affection|sex|snuggl|romanc|romantic|flirt|massag|gifts?\b)/i,
+  ],
+  [
+    "care",
+    /\b(support|caring|care\b|sick|comfort|emergenc|listen|vent\b|venting|crisis|celebrat|help)/i,
+  ],
+  [
+    "space",
+    /\b(alone|space|privacy|private|independen|solo\b|separate|quiet|apart|autonom|freedom|me[- ]time|boundar)/i,
+  ],
+  [
+    "roots",
+    /\b(future|commit|marr|wedding|kids?\b|child|famil|exclusiv|long[- ]term|moving in|move in|living together|engag|anniversar|forever)/i,
+  ],
+  [
+    "spotlight",
+    /\b(public|social|friends?\b|part(y|ies)\b|events?\b|posting|post\b|online|introduc|label|metamour)/i,
+  ],
+  [
+    "adventure",
+    /\b(travel|trips?\b|adventur|hobb|dates?\b|hang ?outs?\b|games?\b|outings?\b|explor|holiday|vacation|new things|hik(e|ing)\b|together\b)/i,
+  ],
 ];
 
 export type Animal = { name: string; emoji: string; blurbs: string[] };
@@ -366,16 +480,37 @@ export const CHAMELEON: Animal = {
 
 export const EGG_EMOJI = "🥚";
 
-export const STYLES = ["curious", "wholehearted", "discerning", "decisive", "easygoing"] as const;
+export const STYLES = [
+  "curious",
+  "wholehearted",
+  "discerning",
+  "decisive",
+  "easygoing",
+] as const;
 export type Style = (typeof STYLES)[number];
 
 /** Styles from the answer mix (IN-5): an adjective for the animal, and what it means. */
-export const STYLE_TEXT: Record<Style, { adjective: string; description: string }> = {
-  curious: { adjective: "Curious", description: "Lots of Maybes: keeps the door open." },
-  wholehearted: { adjective: "Wholehearted", description: "Lots of Must haves: all in." },
-  discerning: { adjective: "Discerning", description: "Knows exactly where the lines are." },
+export const STYLE_TEXT: Record<
+  Style,
+  { adjective: string; description: string }
+> = {
+  curious: {
+    adjective: "Curious",
+    description: "Lots of Maybes: keeps the door open.",
+  },
+  wholehearted: {
+    adjective: "Wholehearted",
+    description: "Lots of Must haves: all in.",
+  },
+  discerning: {
+    adjective: "Discerning",
+    description: "Knows exactly where the lines are.",
+  },
   decisive: { adjective: "Decisive", description: "Not a single Maybe." },
-  easygoing: { adjective: "Easygoing", description: "A relaxed mix of answers." },
+  easygoing: {
+    adjective: "Easygoing",
+    description: "A relaxed mix of answers.",
+  },
 };
 
 export const BADGE_IDS = [
@@ -395,7 +530,13 @@ export type BadgeId = (typeof BADGE_IDS)[number];
  */
 export const BADGE_TEXT: Record<
   BadgeId,
-  { kind: "effort" | "answers"; emoji: string; name: string; earned: string; hint?: string }
+  {
+    kind: "effort" | "answers";
+    emoji: string;
+    name: string;
+    earned: string;
+    hint?: string;
+  }
 > = {
   hatched: {
     kind: "effort",
@@ -456,10 +597,16 @@ export const SENSITIVE_ITEMS: string[] = [
   "Sex",
   "Sharing sexual health information",
   "Regular testing",
-  "Agreed barrier practices",
+  "Using barriers with each other",
+  "Using barriers with other partners",
   "Telling each other about new risks",
   "Knowing before things become physical",
   "Having or raising kids",
+  "Having or raising kids together",
+  "Either of us having kids with someone else",
+  "Either of us marrying someone else",
+  "Other romantic relationships",
+  "Veto over each other's other relationships",
   "Co-parenting",
   "Involvement with existing children",
   "Exclusivity",
@@ -497,14 +644,26 @@ export type CharacterClass = { name: string; flavor: string };
 
 /** A class per theme (IN-10). */
 export const THEME_CLASSES: Record<Theme, CharacterClass> = {
-  closeness: { name: "Enchanter", flavor: "Casts Hold Hands at will. No saving throw." },
+  closeness: {
+    name: "Enchanter",
+    flavor: "Casts Hold Hands at will. No saving throw.",
+  },
   talk: { name: "Bard", flavor: "Wields words, mostly good-morning texts." },
-  space: { name: "Ranger", flavor: "Roams the wilds alone, then comes home with stories." },
+  space: {
+    name: "Ranger",
+    flavor: "Roams the wilds alone, then comes home with stories.",
+  },
   roots: { name: "Paladin", flavor: "Swore an oath. Intends to keep it." },
-  spotlight: { name: "Herald", flavor: "Announces you wherever you go, at volume." },
+  spotlight: {
+    name: "Herald",
+    flavor: "Announces you wherever you go, at volume.",
+  },
   hearth: { name: "Artificer", flavor: "Built a chore wheel. It's enchanted." },
   care: { name: "Cleric", flavor: "Heals 2d6 with soup and a blanket." },
-  adventure: { name: "Swashbuckler", flavor: "Never met a side quest they didn't take." },
+  adventure: {
+    name: "Swashbuckler",
+    flavor: "Never met a side quest they didn't take.",
+  },
 };
 
 /** The Chameleon's class (IN-10). */
@@ -548,14 +707,32 @@ export const LOOT_PREFIXES: Record<Style, string[]> = {
   easygoing: ["Comfy", "Well-Worn", "Easygoing"],
 };
 
-export const RARITIES = ["common", "uncommon", "rare", "epic", "legendary"] as const;
+export const RARITIES = [
+  "common",
+  "uncommon",
+  "rare",
+  "epic",
+  "legendary",
+] as const;
 export type Rarity = (typeof RARITIES)[number];
 
 /** Rarity comes from how much is answered, never which answers (IN-13). */
 export const RARITY_TEXT: Record<Rarity, { label: string; flavor: string }> = {
-  common: { label: "Common", flavor: "Still being forged. Answer more items to upgrade it." },
-  uncommon: { label: "Uncommon", flavor: "Taking shape. Answer more items to upgrade it." },
-  rare: { label: "Rare", flavor: "Well forged. A few more answers and it gleams." },
+  common: {
+    label: "Common",
+    flavor: "Still being forged. Answer more items to upgrade it.",
+  },
+  uncommon: {
+    label: "Uncommon",
+    flavor: "Taking shape. Answer more items to upgrade it.",
+  },
+  rare: {
+    label: "Rare",
+    flavor: "Well forged. A few more answers and it gleams.",
+  },
   epic: { label: "Epic", flavor: "Nearly complete. It hums faintly." },
-  legendary: { label: "Legendary", flavor: "Forged from a fully answered menu." },
+  legendary: {
+    label: "Legendary",
+    flavor: "Forged from a fully answered menu.",
+  },
 };

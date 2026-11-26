@@ -724,7 +724,32 @@ describe("NT-28: what the push service answers", () => {
     expect(service.to(fine)).toHaveLength(1);
   });
 
-  it.each([429, 500, 503, "network"] as const)("%s: the change waits, and the 5-minute cron sends it", async (answer) => {
+  it("no answer at all (the push may have arrived): the change waits, but the window counts, so the retry is 15 minutes later", async () => {
+    const box = await liveBox(1);
+    const browser = await PushBrowser.create();
+    const subId = await subscribed(box.members[0]!, box.boxId, browser);
+    const service = fakePushService([browser]);
+    service.answer(browser, "network");
+    const before = Date.now();
+    await write(box, box.host, "comment");
+    const row = (await subRow(subId))!;
+    expect(row).toMatchObject({ pending_count: 1, pending_kind: "comment", sent_today: 1 });
+    if (row.last_sent_at === null) throw new Error("the window should count");
+    expect(row.last_sent_at).toBeGreaterThanOrEqual(before);
+
+    service.answer(browser, 201);
+    // Not within the window of an attempt that may have been delivered (NT-24, Notify.tla).
+    await pushCron(row.last_sent_at + FLUSH_EVERY_MS);
+    expect(service.delivered.filter((d) => d.status === 201)).toHaveLength(0);
+    const at = row.last_sent_at + WINDOW_MS;
+    await pushCron(at);
+    expect(service.delivered.filter((d) => d.status === 201).map((d) => JSON.parse(d.plaintext) as unknown)).toEqual([
+      { box: box.boxId, kind: "comment", count: 1 },
+    ]);
+    expect(await subRow(subId)).toMatchObject({ pending_count: 0, last_sent_at: at });
+  });
+
+  it.each([429, 500, 503] as const)("%s: the change waits, and the 5-minute cron sends it", async (answer) => {
     const box = await liveBox(1);
     const browser = await PushBrowser.create();
     const subId = await subscribed(box.members[0]!, box.boxId, browser);

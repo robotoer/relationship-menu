@@ -228,21 +228,23 @@ const deliver = async (env: Env, ready: Channels, rows: SubRow[], nowMs: number,
 
   const unreachable: PushOutcome = { result: "retry", status: 0, code: "push_unreachable" };
   const outcomes = await Promise.all(
-    claimed.map(async ({ row, send }): Promise<{ outcome: PushOutcome; logged: boolean }> => {
+    claimed.map(async ({ row, send }): Promise<{ outcome: PushOutcome; logged: boolean; maybeDelivered: boolean }> => {
       const payload = { box: row.box_id, ...send };
+      // `maybeDelivered`: the push was sent but no answer came back, so it may have
+      // arrived (a lost acknowledgement). See below.
       if (row.kind === "webpush") {
         const status = await sendPush(ready.webpush!, row, payload, fetchImpl, nowMs).catch(() => 0);
-        return { outcome: webPushOutcome(status), logged: false };
+        return { outcome: webPushOutcome(status), logged: false, maybeDelivered: status === 0 };
       }
-      // A token failure was logged once above.
-      if (!fcmAuth?.ok) return { outcome: fcmAuth?.outcome ?? unreachable, logged: fcmAuth !== null };
+      // A token failure was logged once above; nothing was sent.
+      if (!fcmAuth?.ok) return { outcome: fcmAuth?.outcome ?? unreachable, logged: fcmAuth !== null, maybeDelivered: false };
       const outcome = await sendFcm(ready.fcm!, fcmAuth.token, row.endpoint, payload, { fetch: fetchImpl, nowMs }).catch(() => unreachable);
-      return { outcome, logged: false };
+      return { outcome, logged: false, maybeDelivered: outcome.result === "retry" && outcome.status === 0 };
     })
   );
   const followUps: D1PreparedStatement[] = [];
   claimed.forEach(({ row, send, next }, i) => {
-    const { outcome, logged } = outcomes[i]!;
+    const { outcome, logged, maybeDelivered } = outcomes[i]!;
     const route = row.kind === "fcm" ? "push fcm" : "push";
     if (outcome.result !== "sent" && !logged) log({ route, status: outcome.status, code: outcome.code });
     if (outcome.result === "sent") {
@@ -250,6 +252,19 @@ const deliver = async (env: Env, ready: Channels, rows: SubRow[], nowMs: number,
     } else if (outcome.result === "gone") {
       result.gone++;
       followUps.push(env.DB.prepare("DELETE FROM push_subs WHERE sub_id = ?").bind(row.sub_id));
+    } else if (maybeDelivered) {
+      result.retry++;
+      // No answer at all: the push may have arrived. The changes wait again, but
+      // this attempt keeps its window and day count, so a retry can't reach the
+      // device within 15 minutes of a push it did get (NT-24; found by Notify.tla).
+      followUps.push(
+        env.DB.prepare(
+          `UPDATE push_subs SET
+             pending_count = pending_count + ?2,
+             pending_kind = CASE WHEN ?3 = 'comment' OR pending_kind = 'comment' THEN 'comment' ELSE 'notes' END
+           WHERE sub_id = ?1`
+        ).bind(row.sub_id, send.count, send.kind)
+      );
     } else if (outcome.result === "retry" || outcome.result === "auth") {
       result.retry++;
       // Undo the claim: the changes wait again (with any that arrived meanwhile),

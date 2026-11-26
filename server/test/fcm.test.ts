@@ -681,7 +681,27 @@ describe("§7c: FCM's answers, through the Worker", () => {
     expect(lines.some((l) => l.includes("push_failed"))).toBe(true);
   });
 
-  it.each([429, 500, 503, "network"] as const)("%s: the change waits, and the 5-minute cron sends it", async (answer) => {
+  it("no answer at all: the change waits, but the window counts (it may have been delivered)", async () => {
+    const box = await liveBox(1);
+    const token = fcmToken();
+    const subId = await registered(box.members[0]!, box.boxId, token);
+    const google = fakeGoogle(SA);
+    google.install();
+    google.answer(token, "network");
+    await write(box, box.host, "comment");
+    const row = (await subRow(subId))!;
+    expect(row).toMatchObject({ pending_count: 1, pending_kind: "comment", sent_today: 1 });
+    if (row.last_sent_at === null) throw new Error("the window should count");
+    google.answer(token, 200);
+    const sentBefore = google.delivered.length;
+    await pushCron(row.last_sent_at + FLUSH_EVERY_MS);
+    expect(google.delivered.length).toBe(sentBefore);
+    await pushCron(row.last_sent_at + WINDOW_MS);
+    expect(google.delivered.at(-1)!.body.message.data).toEqual({ box: box.boxId, kind: "comment", count: "1" });
+    expect(await subRow(subId)).toMatchObject({ pending_count: 0 });
+  });
+
+  it.each([429, 500, 503] as const)("%s: the change waits, and the 5-minute cron sends it", async (answer) => {
     const box = await liveBox(1);
     const token = fcmToken();
     const subId = await registered(box.members[0]!, box.boxId, token);
