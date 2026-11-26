@@ -449,3 +449,5 @@ Run everything locally: `yarn test --run` (includes the property tests), `yarn v
 ## 12. Architecture notes
 
 **In short:** React stays (it was about 3% of the download). The app moved from Create React App to Vite + Vitest and dropped the in-browser IPFS node (about 70% of the download), which also removed every known vulnerable dependency. Details and measurements are in [`architecture.md`](architecture.md).
+
+The iOS and Android apps (a Capacitor shell around this same build) are specified in [`native-apps.md`](native-apps.md) (NA-1…NA-11).
