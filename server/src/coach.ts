@@ -6,7 +6,8 @@
  * Privacy: the request carries only topic text, group names and each person's
  * answer, with people as "Person 1", "Person 2"… No names, notes, titles or ids.
  * Nothing from the request or the reply is logged or stored (CO-5); the only
- * thing written is a daily counter per account for the quota (CO-8).
+ * things written are use counters for the limits (CO-8): per account and in
+ * total, by UTC day and by UTC month.
  */
 
 import Anthropic from "@anthropic-ai/sdk";
@@ -14,18 +15,29 @@ import { canWrite, getAccount } from "./accounts";
 import type { Caller } from "./auth";
 import type { Env } from "./env";
 import { HttpError, json, parseJson } from "./http";
+import { coachUsageKeys } from "./coach-usage";
 
 export const COACH_DEFAULT_MODEL = "claude-opus-5-5";
 export const COACH_LIMITS = {
   minPeople: 2,
   maxPeople: 6,
-  maxTopics: 40,
+  /** Keeps both what's sent and what comes back (and so the cost) small. */
+  maxTopics: 15,
   maxItemChars: 160,
   maxGroupChars: 80,
   requestBytes: 16 * 1024,
-  /** Defaults when the environment doesn't set them (CO-8). */
-  perAccountPerDay: 10,
-  totalPerDay: 500,
+  /**
+   * Defaults when the environment doesn't set them (CO-8). With an output cap of
+   * 8,000 tokens, a preparation costs at most about $0.17 on Opus 5.5 ($4 / $20 per
+   * million tokens), so these bound spend to about $8.50 a day and $85 a month,
+   * and one supporter to about $0.70 a month. Typical use is a small fraction.
+   */
+  perAccountPerDay: 2,
+  perAccountPerMonth: 4,
+  totalPerDay: 50,
+  totalPerMonth: 500,
+  /** Output tokens, thinking included: a guide for 15 topics needs well under this. */
+  maxOutputTokens: 8000,
 } as const;
 
 export const TOPIC_KINDS = ["celebrate", "explore", "conflict", "check-in"] as const;
@@ -165,20 +177,47 @@ export const sanitizeGuide = (raw: unknown, request: CoachRequest): CoachGuide =
 };
 
 const today = (nowMs: number) => new Date(nowMs).toISOString().slice(0, 10);
+const thisMonth = (nowMs: number) => new Date(nowMs).toISOString().slice(0, 7);
 
-/** Counts one use for the account and in total; 429 once either daily limit is reached (CO-8). */
+
+const limit = (value: string | undefined, fallback: number) => {
+  const n = Number(value);
+  return value !== undefined && Number.isFinite(n) ? n : fallback;
+};
+
+/**
+ * Counts one use, for the account and in total, by day and by month; 429 once any
+ * limit is passed (CO-8). The reply says which, so the app can say when it resets.
+ */
 const takeQuota = async (env: Env, accountId: string, nowMs: number) => {
   const day = today(nowMs);
-  const perAccount = Number(env.COACH_DAILY_PER_ACCOUNT ?? COACH_LIMITS.perAccountPerDay);
-  const total = Number(env.COACH_DAILY_TOTAL ?? COACH_LIMITS.totalPerDay);
-  const bump = (key: string) =>
+  const month = thisMonth(nowMs);
+  const keys = coachUsageKeys(accountId);
+  const bump = (key: string, period: string) =>
     env.DB.prepare(
       `INSERT INTO coach_usage (key, day, count) VALUES (?1, ?2, 1)
        ON CONFLICT (key, day) DO UPDATE SET count = count + 1 RETURNING count`
-    ).bind(key, day);
-  const [mine, all] = await env.DB.batch<{ count: number }>([bump(`a:${accountId}`), bump("total")]);
-  if ((mine?.results[0]?.count ?? 0) > perAccount) throw new HttpError(429, "coach_quota", { scope: "account" });
-  if ((all?.results[0]?.count ?? 0) > total) throw new HttpError(429, "coach_quota", { scope: "total" });
+    ).bind(key, period);
+  const results = await env.DB.batch<{ count: number }>([
+    bump(keys.day, day),
+    bump(keys.month, month),
+    bump("total", day),
+    bump("m:total", month),
+  ]);
+  const [mineToday, mineThisMonth, allToday, allThisMonth] = results.map((r) => r?.results[0]?.count ?? 0);
+  const over = (count: number | undefined, value: string | undefined, fallback: number) => (count ?? 0) > limit(value, fallback);
+  if (over(allThisMonth, env.COACH_MONTHLY_TOTAL, COACH_LIMITS.totalPerMonth)) {
+    throw new HttpError(429, "coach_quota", { scope: "total", period: "month" });
+  }
+  if (over(allToday, env.COACH_DAILY_TOTAL, COACH_LIMITS.totalPerDay)) {
+    throw new HttpError(429, "coach_quota", { scope: "total", period: "day" });
+  }
+  if (over(mineThisMonth, env.COACH_MONTHLY_PER_ACCOUNT, COACH_LIMITS.perAccountPerMonth)) {
+    throw new HttpError(429, "coach_quota", { scope: "account", period: "month" });
+  }
+  if (over(mineToday, env.COACH_DAILY_PER_ACCOUNT, COACH_LIMITS.perAccountPerDay)) {
+    throw new HttpError(429, "coach_quota", { scope: "account", period: "day" });
+  }
 };
 
 /** How the Worker talks to Claude; replaced in tests. */
@@ -190,11 +229,12 @@ export const callClaude: CoachModel = async (env, request) => {
   try {
     response = await client.beta.messages.create({
       model: env.COACH_MODEL || COACH_DEFAULT_MODEL,
-      max_tokens: 16000,
+      max_tokens: COACH_LIMITS.maxOutputTokens,
       // If a safety classifier declines, Anthropic retries on a suitable model.
       betas: ["server-side-fallback-2026-07-01"],
       fallbacks: "default",
-      output_config: { effort: "medium", format: { type: "json_schema", schema: COACH_SCHEMA } },
+      // Low effort: short, plain questions don't need long thinking, and thinking is paid output.
+      output_config: { effort: "low", format: { type: "json_schema", schema: COACH_SCHEMA } },
       system: COACH_SYSTEM,
       messages: [{ role: "user", content: coachUserMessage(request) }],
     });

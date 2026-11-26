@@ -2,14 +2,14 @@ import "./Discuss.css";
 import "../components/CompareOverview.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  COACH_FAILURE_TEXT,
   CoachClient,
   CoachError,
-  CoachFailure,
   SavedCoachGuide,
   buildCoachRequest,
   coachPreview,
   saveGuide,
+  coachFailureText,
+  COACH_LIMITS,
 } from "../coach";
 import { Link } from "react-router-dom";
 import { track } from "../analytics";
@@ -405,7 +405,7 @@ const CoachPanel = ({
 }) => {
   const [step, setStep] = useState<"idle" | "consent" | "working">("idle");
   const [agreed, setAgreed] = useState(false);
-  const [error, setError] = useState<CoachFailure | null>(null);
+  const [error, setError] = useState<CoachError | null>(null);
   const { request, ids, omitted } = useMemo(() => buildCoachRequest(agenda, people), [agenda, people]);
 
   const send = async () => {
@@ -419,9 +419,9 @@ const CoachPanel = ({
       setStep("idle");
       setAgreed(false);
     } catch (e) {
-      const reason = e instanceof CoachError ? e.reason : "failed";
-      track("coach_result", { outcome: reason });
-      setError(reason);
+      const failure = e instanceof CoachError ? e : new CoachError("failed");
+      track("coach_result", { outcome: failure.reason });
+      setError(failure);
       setStep("consent");
     }
   };
@@ -459,7 +459,11 @@ const CoachPanel = ({
           <li key={line}>{line}</li>
         ))}
       </ul>
-      {omitted > 0 && <p>The last {omitted} topics aren't included (40 at most).</p>}
+      {omitted > 0 && (
+        <p>
+          The last {omitted} topics aren't included ({COACH_LIMITS.maxTopics} at most, to keep each preparation small).
+        </p>
+      )}
       <p>
         <strong>Never sent:</strong> names, notes, menu titles, or anything you write in this discussion.
         It goes through our server, which doesn't log or keep it. The suggestions are saved only in this
@@ -472,7 +476,7 @@ const CoachPanel = ({
       </label>
       {error && (
         <p className="discuss-coach-error" role="alert">
-          {COACH_FAILURE_TEXT[error]}
+          {coachFailureText(error)}
         </p>
       )}
       <div className="discuss-actions">

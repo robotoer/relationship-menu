@@ -83,6 +83,24 @@ describe("SY-8: replacing the sync code", () => {
     });
   };
 
+  it("CO-8: the AI coach's use so far moves to the new code (a new code isn't a new allowance)", async () => {
+    const oldDevice = await Device.create();
+    await seedAccount(oldDevice.accountId, "active");
+    await env.DB.batch([
+      env.DB.prepare("INSERT INTO coach_usage (key, day, count) VALUES (?, '2026-11-26', 2)").bind(`a:${oldDevice.accountId}`),
+      env.DB.prepare("INSERT INTO coach_usage (key, day, count) VALUES (?, '2026-11', 4)").bind(`m:a:${oldDevice.accountId}`),
+    ]);
+    const newDevice = await Device.create();
+    expect((await rotate(oldDevice, newDevice)).status).toBe(200);
+    const rows = await env.DB.prepare("SELECT key, day, count FROM coach_usage WHERE key LIKE ? OR key LIKE ? ORDER BY key")
+      .bind(`%${oldDevice.accountId}`, `%${newDevice.accountId}`)
+      .all<{ key: string; day: string; count: number }>();
+    expect(rows.results).toEqual([
+      { key: `a:${newDevice.accountId}`, day: "2026-11-26", count: 2 },
+      { key: `m:a:${newDevice.accountId}`, day: "2026-11", count: 4 },
+    ]);
+  });
+
   it("refuses to move it at all once the request has taken too long (a device may have given up on it)", async () => {
     const oldDevice = await Device.create();
     await seedAccount(oldDevice.accountId, "active");
