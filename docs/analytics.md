@@ -21,7 +21,7 @@ Google Analytics is loaded only on `wantsandwonts.com` (until November 2026, `re
 | --- | --- | --- |
 | `page_view` | Each page (path only) | `page_path` |
 | `landing_button_clicked` | A landing page button is used | `button_id`: `hero_start`, `hero_compare`, `hero_library` (My menus), `footer_start`, `footer_compare` |
-| `template_chosen` | A template is picked for a new menu | `template_id` (`romantic-starter`, `relationship-anarchy-smorgasbord`, `polyamory-agreements`, `close-friendship`, `early-dating`, `co-living-partnership`) |
+| `template_chosen` | A template is picked for a new menu | `template_id` (`romantic-starter`, `relationship-anarchy-smorgasbord`, `polyamory-agreements`, `off-the-escalator`, `close-friendship`, `early-dating`, `co-living-partnership`) |
 | `blank_menu_started` | "Blank menu" is picked | |
 | `ready_made_group_added` | A ready-made group is added | `group_name` (the built-in group's name) |
 | `menu_progress` | A menu passes 25 / 50 / 75 / 100 % answered while being edited | `percent_answered`, `item_count` |

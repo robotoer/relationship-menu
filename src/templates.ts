@@ -19,6 +19,52 @@ export type MenuTemplate = {
 
 export type GroupTemplate = { name: string; items: string[] };
 
+// Groups used both in a template and in the ready-made group picker, so the two
+// never drift apart.
+
+/**
+ * A ladder: each step is its own item, so each person can mark what's too little,
+ * what's right and what's too much, and a comparison shows where the ranges overlap.
+ */
+const HOW_OFTEN = [
+  "Seeing each other once a week or less",
+  "Seeing each other 2–3 days a week",
+  "Seeing each other 4–5 days a week",
+  "Seeing each other most days",
+  "Some weekends together",
+  "Most weekends together",
+  "Every weekend together",
+];
+
+const PRIORITIES = [
+  "Birthdays together",
+  "Some holidays together",
+  "Most holidays together",
+  "Being each other's plus-one",
+  "First pick as plus-one",
+  "Coming first when plans clash",
+];
+
+const INDEPENDENCE = [
+  "Plenty of time apart",
+  "Separate friendships",
+  "Pursuing our own interests",
+  "Equal say in the relationship",
+  "Sharing our locations",
+  // Items are answered by both people and compared by their text, so each one names
+  // an arrangement that applies to both of us. A "me" / "my partner" pair would
+  // compare each row only with itself and could show agreement where there is none.
+  "Veto over each other's other relationships",
+];
+
+const HEALTH_AND_EMERGENCIES = [
+  "Knowing each other's medications and conditions",
+  "Making medical decisions for each other",
+  "Care through a long illness",
+  "Being named in each other's will",
+  "Power of attorney for each other",
+];
+
 export const MENU_TEMPLATES: MenuTemplate[] = [
   {
     id: "romantic-starter",
@@ -95,8 +141,11 @@ export const MENU_TEMPLATES: MenuTemplate[] = [
         "Holding hands",
         "Cuddling",
         "Kissing",
+        "Massage",
+        "Dancing together",
         "Sex",
         "Sleeping in the same bed",
+        "Sharing a bed without touching",
       ],
       Romance: [
         "Flirting",
@@ -110,6 +159,7 @@ export const MENU_TEMPLATES: MenuTemplate[] = [
         "Running errands for each other",
         "Helping with chores",
         "Caring for each other's pets",
+        "Sharing our locations",
       ],
       "Social & identity": [
         "Using a relationship label",
@@ -122,6 +172,7 @@ export const MENU_TEMPLATES: MenuTemplate[] = [
         "Planning far into the future",
         "Making decisions together",
         "Legal or financial ties",
+        "A non-legal commitment ceremony",
         "Co-parenting",
         "Prioritising this relationship",
       ],
@@ -133,19 +184,28 @@ export const MENU_TEMPLATES: MenuTemplate[] = [
     description:
       "For partners in, or moving toward, polyamorous or open relationships who want to agree on how other connections fit in.",
     groups: {
+      Structure: [
+        "Kitchen-table style closeness",
+        "Garden-party style: friendly at gatherings",
+        "Parallel style: little contact with metamours",
+        "Don't-ask-don't-tell arrangement",
+        "Nesting or primary partnership",
+        "Equal footing for all partners",
+      ],
       Disclosure: [
         "Telling each other about new interests",
         "Sharing details about dates",
         "Knowing before things become physical",
-        "Don't-ask-don't-tell arrangement",
         "Sharing relationship changes promptly",
+        "Safety check-ins during dates",
       ],
       Metamours: [
         "Meeting each other's partners",
         "Being friendly with metamours",
+        "Talking directly with metamours",
         "Spending group time together",
         "Metamours in our home",
-        "Kitchen-table style closeness",
+        "Being glad about each other's other relationships",
       ],
       "Scheduling & time": [
         "Shared calendar",
@@ -157,7 +217,8 @@ export const MENU_TEMPLATES: MenuTemplate[] = [
       "Safer sex & health": [
         "Sharing sexual health information",
         "Regular testing",
-        "Agreed barrier practices",
+        "Using barriers with each other",
+        "Using barriers with other partners",
         "Telling each other about new risks",
       ],
       "Boundaries & veto": [
@@ -166,12 +227,39 @@ export const MENU_TEMPLATES: MenuTemplate[] = [
         "Off-limits people or circles",
         "Revisiting agreements regularly",
       ],
-      "Hierarchy & commitment": [
-        "Nesting or primary partnership",
-        "Equal footing for all partners",
+      "Being out & included": [
         "Introducing others to family",
         "Bringing others to events",
+        "Being openly polyamorous with friends",
+        "Being openly polyamorous with family",
+        "Being openly polyamorous at work",
       ],
+    },
+  },
+  {
+    id: "off-the-escalator",
+    name: "Off the Escalator",
+    description:
+      "For partners who want to choose each step of a relationship on its own, instead of following the usual order of milestones.",
+    groups: {
+      "Milestones, one at a time": [
+        "Using a relationship label",
+        "Exclusivity",
+        "Living together",
+        "Merging finances",
+        "Marriage or legal partnership",
+        "A non-legal commitment ceremony",
+        "Having or raising kids together",
+      ],
+      "How often we see each other": HOW_OFTEN,
+      "Priorities & occasions": PRIORITIES,
+      Independence: INDEPENDENCE,
+      "Other relationships": [
+        "Other romantic relationships",
+        "Either of us marrying someone else",
+        "Either of us having kids with someone else",
+      ],
+      "Health & emergencies": HEALTH_AND_EMERGENCIES,
     },
   },
   {
@@ -372,6 +460,8 @@ export const GROUP_TEMPLATES: GroupTemplate[] = [
       "Posting together online",
       "Using a relationship label",
       "Bringing each other to events",
+      "Being out about us to family",
+      "Being out about us at work",
     ],
   },
   {
@@ -384,6 +474,9 @@ export const GROUP_TEMPLATES: GroupTemplate[] = [
       "Spending holidays together",
     ],
   },
+  { name: "How often we see each other", items: HOW_OFTEN },
+  { name: "Priorities & occasions", items: PRIORITIES },
+  { name: "Independence", items: INDEPENDENCE },
   {
     name: "Other partners",
     items: [
@@ -404,6 +497,18 @@ export const GROUP_TEMPLATES: GroupTemplate[] = [
       "Celebrating each other's wins",
     ],
   },
+  {
+    name: "Emotional health",
+    items: [
+      "Talking about mental health",
+      "Supporting each other's therapy",
+      "Knowing each other's triggers",
+      "Sharing past hurts",
+      "Adapting to each other's communication needs",
+      "Talking about love languages",
+    ],
+  },
+  { name: "Health & emergencies", items: HEALTH_AND_EMERGENCIES },
   {
     name: "Future & commitment",
     items: [
