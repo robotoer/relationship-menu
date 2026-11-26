@@ -2,7 +2,7 @@
 
 **In short:** before a guided discussion ("Talk it through"), supporters can ask an AI to write an opening, a one-line "what this might be about" and two or three questions for each topic. Only the topics and answers are sent, with people as "Person 1", "Person 2"… Everyone taking part has to agree, every time. The suggestions sit next to the built-in prompts and are saved with the notes, in this browser only. It's a conversation guide, not therapy.
 
-**Status:** server endpoint and app UI built and tested. The app shows the coach once a browser has a supporter sync account (the sync client, PR 4 in [sync.md §17](sync.md#17-phases-and-pull-requests), passes a `coach` client to the discussion page). Until then it shows the "coming soon" teaser. The server keeps it **off** until `COACH_ENABLED=true` and an `ANTHROPIC_API_KEY` secret are set.
+**Status:** server endpoint, app UI and the signed client (`src/sync/coach-client.ts`) are built and tested. The last step is wiring: once the sync client keeps a supporter's `SyncKeys` and knows the account is active, past due or lifetime, it passes `createSyncCoachClient(keys, origin)` as the `coach` prop of the discussion page (PR 4 in [sync.md §17](sync.md#17-phases-and-pull-requests)). Until then the page shows the "coming soon" teaser. The server keeps it **off** until `COACH_ENABLED=true` and an `ANTHROPIC_API_KEY` secret are set.
 
 ```mermaid
 sequenceDiagram
