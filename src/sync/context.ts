@@ -98,6 +98,10 @@ export type PairingOffer = {
  * - `already_supporter`: Checkout for an account that's already a supporter (409).
  * - `pairing_used`, `pairing_expired`, `pairing_not_found`: a pairing link that no longer works (SY-12).
  * - `pairing_unreadable`: the link's key doesn't open the blob (a mistyped or altered link).
+ * - `code_unconfirmed`: a new sync code is being made, or was made but the server's answer was lost
+ *   and it isn't confirmed yet (SY-8). Turning sync off, switching codes, deleting synced data and
+ *   replacing the code again wait until it is; sync checks again by itself (every 30 s, and when
+ *   the tab is shown). Try again once online.
  * - `unavailable`: sync isn't available here (unsupported browser, or no provider).
  * - `failed`: anything else.
  */
@@ -110,6 +114,7 @@ export type SyncErrorReason =
   | "pairing_expired"
   | "pairing_not_found"
   | "pairing_unreadable"
+  | "code_unconfirmed"
   | "unavailable"
   | "failed";
 

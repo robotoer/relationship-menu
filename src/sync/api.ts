@@ -48,6 +48,8 @@ export type ApiOptions = {
   fetch?: typeof fetch;
   /** Unix ms. */
   now?: () => number;
+  /** Once aborted, nothing more is sent through this API (its calls fail as offline). */
+  signal?: AbortSignal;
 };
 
 const retryAfterMs = (response: Response) => {
@@ -97,7 +99,7 @@ type SendOptions = {
   ts?: number;
 };
 
-const sender = (signer: Signer | null, { origin = "", fetch: fetchImpl, now = Date.now }: ApiOptions) => {
+const sender = (signer: Signer | null, { origin = "", fetch: fetchImpl, now = Date.now, signal }: ApiOptions) => {
   const doFetch = fetchImpl ?? ((input: RequestInfo | URL, init?: RequestInit) => fetch(input, init));
   return async (method: string, path: string, options: SendOptions = {}): Promise<Response> => {
     const body: Bytes =
@@ -111,6 +113,8 @@ const sender = (signer: Signer | null, { origin = "", fetch: fetchImpl, now = Da
     }
     let response: Response;
     try {
+      // Checked here, right before sending: signing above may have taken a while.
+      if (signal?.aborted) throw new DOMException("Not sent", "AbortError");
       response = await doFetch(`${origin}${path}`, {
         method,
         headers,
@@ -119,6 +123,7 @@ const sender = (signer: Signer | null, { origin = "", fetch: fetchImpl, now = Da
         credentials: "same-origin",
         cache: "no-store",
         redirect: "error",
+        signal,
       });
     } catch {
       throw new ApiError(0, "offline");

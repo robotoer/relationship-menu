@@ -140,6 +140,11 @@ const makeDevice = <K extends MemoryStore | TabStore = MemoryStore>(
 
 type Device = ReturnType<typeof makeDevice>;
 
+/** Settles round by round until `done` holds (for steps whose real time varies with load). */
+const settleUntil = async (done: () => boolean | Promise<boolean>, rounds = 200) => {
+  for (let i = 0; i < rounds && !(await done()); i++) await settle(1);
+};
+
 /** Lets the runtime's (fake) timers and WebCrypto (real time) run. */
 const settle = async (rounds = 25, step = 2_500) => {
   for (let i = 0; i < rounds; i++) {
@@ -746,9 +751,12 @@ describe("SY-8: the server's answer to a code replacement is lost", () => {
     const oldId = await supporter(server, a);
     await settle();
     loseRotationAnswer(() => server.setOnline(false));
-    await expect(a.runtime.replaceCode()).rejects.toMatchObject({ reason: "offline" });
+    await expect(a.runtime.replaceCode()).rejects.toMatchObject({ reason: "code_unconfirmed" });
     expect(a.kv.getItem(SYNC_KEY.nextCode)).not.toBeNull();
     expect(a.runtime.getState()).toMatchObject({ kind: "on", notices: expect.arrayContaining(["offline"]) });
+    // Until it's confirmed, nothing that depends on which code is live goes ahead.
+    await expect(a.runtime.turnOff()).rejects.toMatchObject({ reason: "code_unconfirmed" });
+    await expect(a.runtime.replaceCode()).rejects.toMatchObject({ reason: "code_unconfirmed" });
 
     server.setOnline(true);
     await settle(20); // it checks again every 30 s
@@ -788,7 +796,7 @@ describe("SY-8: the server's answer to a code replacement is lost", () => {
       if (blankChecks && String(input).endsWith("/v1/account")) return new Response("{}", { status: 200 });
       return response;
     });
-    await expect(a.runtime.replaceCode()).rejects.toMatchObject({ reason: "offline" });
+    await expect(a.runtime.replaceCode()).rejects.toMatchObject({ reason: "code_unconfirmed" });
     expect(a.kv.getItem(SYNC_KEY.nextCode)).not.toBeNull();
     blankChecks = false;
     await settle(20);
@@ -829,13 +837,14 @@ describe("SY-8: the server's answer to a code replacement is lost", () => {
       await settle(1, 500);
     }
     await replacing;
-    await settle();
-    // Once the replacement was under way (from its request on), nothing went to the old account.
+    const newId = await accountIdOf(tab2);
+    await settleUntil(async () => server.liveMenuIds(newId).length === 1 && (await accountIdOf(tab1)) === newId);
+    // Once the replacement was under way (from its request on), nothing was sent to the
+    // old account: requests are recorded in the order they were sent.
     const rotated = server.requests.findIndex((r) => r.path === "/v1/account/rotate");
     expect(rotated).toBeGreaterThan(-1);
-    const afterwards = server.requests.slice(rotated).filter((r) => r.account === oldId && r.path !== "/v1/account/rotate");
+    const afterwards = server.requests.slice(rotated + 1).filter((r) => r.account === oldId);
     expect(afterwards.filter((r) => r.method === "PUT" || r.method === "DELETE")).toEqual([]);
-    const newId = await accountIdOf(tab2);
     expect(newId).not.toBe(oldId);
     expect(server.liveMenuIds(newId)).toEqual([ID(1)]);
     // And tab 1 carries on under the new code.
@@ -856,7 +865,7 @@ describe("SY-8: the server's answer to a code replacement is lost", () => {
       }
       return real(input, init);
     });
-    await expect(a.runtime.replaceCode()).rejects.toMatchObject({ reason: "offline" });
+    await expect(a.runtime.replaceCode()).rejects.toMatchObject({ reason: "code_unconfirmed" });
     // The new account doesn't exist yet: "not moved" for now, but the code is kept.
     expect(a.kv.getItem(SYNC_KEY.nextCode)).not.toBeNull();
     await settle(40); // the move lands after a minute; checks every 30 s
@@ -877,7 +886,7 @@ describe("SY-8: the server's answer to a code replacement is lost", () => {
       if (String(input).endsWith("/v1/account/rotate")) throw new TypeError("never sent");
       return real(input, init);
     });
-    await expect(a.runtime.replaceCode()).rejects.toMatchObject({ reason: "offline" });
+    await expect(a.runtime.replaceCode()).rejects.toMatchObject({ reason: "code_unconfirmed" });
     await settle(200); // well past 6 minutes
     expect(a.kv.getItem(SYNC_KEY.nextCode)).toBeNull();
     expect(await a.runtime.syncCode()).toEqual(words);

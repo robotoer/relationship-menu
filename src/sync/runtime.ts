@@ -181,6 +181,14 @@ export const createSyncRuntime = (options: RuntimeOptions = {}): SyncRuntime => 
 
   /** Bumps whenever the code changes (on, off, replaced): an older loop stops. */
   let generation = 0;
+  /** Aborted at each bump, so an older loop sends nothing more (not even a request it was signing). */
+  let stopSending = new AbortController();
+  const bump = () => {
+    generation += 1;
+    stopSending.abort();
+    stopSending = new AbortController();
+    return generation;
+  };
   let keys: SyncKeys | null = null;
   let api: SyncApi | null = null;
   let deviceId = "";
@@ -345,7 +353,11 @@ export const createSyncRuntime = (options: RuntimeOptions = {}): SyncRuntime => 
     return { kind: "failed", notApplied: true };
   };
 
-  const transport = (current: SyncApi, currentKeys: SyncKeys, gen: number) => async (request: Request): Promise<Reply> => {
+  /** A loop's requests, through its own API: once the code changes, it sends nothing more (SY-8, SY-9). */
+  const transport = (currentKeys: SyncKeys, gen: number) =>
+    sendFor(createApi(currentKeys, { ...apiOptions, signal: stopSending.signal }), currentKeys, gen);
+
+  const sendFor = (current: SyncApi, currentKeys: SyncKeys, gen: number) => async (request: Request): Promise<Reply> => {
     // Only for the code this was sent under (another account's menus aren't set aside),
     // and only if the version that was too large is still the latest one here.
     const skip = (id: string, revision: number) => {
@@ -411,7 +423,7 @@ export const createSyncRuntime = (options: RuntimeOptions = {}): SyncRuntime => 
 
   const runLoop = async (gen: number) => {
     if (gen !== generation || !api || !keys || main) return;
-    const send = transport(api, keys, gen);
+    const send = transport(keys, gen);
     const holder: Holder = { loop: newLoop() };
     const io = engineIO(holder, gen);
     main = holder;
@@ -512,7 +524,7 @@ export const createSyncRuntime = (options: RuntimeOptions = {}): SyncRuntime => 
   const activate = async () => {
     // This tab is replacing the code: it restarts sync itself when that's settled.
     if (rotation) return;
-    const gen = ++generation;
+    const gen = bump();
     keys = null;
     api = null;
     main = null;
@@ -597,7 +609,7 @@ export const createSyncRuntime = (options: RuntimeOptions = {}): SyncRuntime => 
   const enable = async (secret: Uint8Array, how: "new" | "restored", method?: "qr" | "words") => {
     if (state.kind === "unsupported") throw new SyncError("unavailable");
     await rotation?.catch(() => undefined);
-    if (readNextSecret(kv)) throw new SyncError("offline", "The new sync code isn't confirmed yet.");
+    if (readNextSecret(kv)) throw new SyncError("code_unconfirmed", "The new sync code isn't confirmed yet.");
     const existing = readSecret(kv);
     if (existing && sameBytes(existing, secret)) {
       if (!api) await activate();
@@ -620,7 +632,7 @@ export const createSyncRuntime = (options: RuntimeOptions = {}): SyncRuntime => 
   /** Pulls until caught up, with a loop of its own (SY-8 needs every synced menu here first). */
   const catchUp = async (current: SyncApi, currentKeys: SyncKeys) => {
     const gen = generation;
-    const send = transport(current, currentKeys, gen);
+    const send = transport(currentKeys, gen);
     const holder: Holder = { loop: { ...newLoop(), pullWanted: true } };
     const io = engineIO(holder, gen);
     for (let rounds = 0; rounds < 10_000; rounds++) {
@@ -694,9 +706,9 @@ export const createSyncRuntime = (options: RuntimeOptions = {}): SyncRuntime => 
       // Never in the middle of a code replacement: its outcome decides which code is live.
       await rotation?.catch(() => undefined);
       if (readNextSecret(kv)) {
-        throw new SyncError("offline", "The new sync code isn't confirmed yet. Try again when you're online.");
+        throw new SyncError("code_unconfirmed", "The new sync code isn't confirmed yet. Try again when you're online.");
       }
-      generation++;
+      bump();
       keys = null;
       api = null;
       main = null;
@@ -708,10 +720,10 @@ export const createSyncRuntime = (options: RuntimeOptions = {}): SyncRuntime => 
 
     replaceCode: async () => {
       const on = requireOn();
-      if (rotation || readNextSecret(kv)) throw new SyncError("failed", "A new sync code is already being made.");
+      if (rotation || readNextSecret(kv)) throw new SyncError("code_unconfirmed", "A new sync code is already being made.");
       const run = (async () => {
         // Stop the loop: nothing is pushed under the old code from here.
-        generation++;
+        bump();
         poke();
         let secret: Uint8Array | null = null;
         try {
@@ -739,7 +751,10 @@ export const createSyncRuntime = (options: RuntimeOptions = {}): SyncRuntime => 
               // Unknown: the new code stays kept, and checking again settles it. This tab
               // is done with it, so any tab may check from now on (at 0).
               else writeNextSecret(kv, secret, 0, sent);
-              throw new SyncError("offline");
+              throw new SyncError(
+                outcome === "not_moved" ? "offline" : "code_unconfirmed",
+                outcome === "not_moved" ? "offline" : "The new sync code isn't confirmed yet. Try again when you're online."
+              );
             }
           }
           adoptNewCode(secret);
@@ -759,7 +774,7 @@ export const createSyncRuntime = (options: RuntimeOptions = {}): SyncRuntime => 
 
     deleteSyncedData: async () => {
       await rotation?.catch(() => undefined);
-      if (readNextSecret(kv)) throw new SyncError("offline", "The new sync code isn't confirmed yet.");
+      if (readNextSecret(kv)) throw new SyncError("code_unconfirmed", "The new sync code isn't confirmed yet.");
       const on = requireOn();
       try {
         await on.api.deleteAccount();
@@ -824,7 +839,7 @@ export const createSyncRuntime = (options: RuntimeOptions = {}): SyncRuntime => 
       const secret = readSecret(kv);
       if (!secret) {
         // Even while keys are still being made: that activation must not finish.
-        generation++;
+        bump();
         keys = null;
         api = null;
         main = null;
@@ -876,7 +891,7 @@ export const createSyncRuntime = (options: RuntimeOptions = {}): SyncRuntime => 
     stop: () => {
       startToken++;
       leadPending = false;
-      generation++;
+      bump();
       poke();
       for (const off of unsubscribe) off();
       unsubscribe = [];

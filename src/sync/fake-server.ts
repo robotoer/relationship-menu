@@ -219,9 +219,20 @@ export const createFakeServer = (options: { now?: () => number } = {}) => {
   const fetch = async (input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> => {
     const url = new URL(String(input), "http://app.test");
     const method = (init.method ?? "GET").toUpperCase();
+    if (init.signal?.aborted) throw new DOMException("The operation was aborted.", "AbortError");
     if (!online) throw new TypeError("Failed to fetch");
     const headers = new Headers(init.headers);
     const body = init.body ? new Uint8Array(init.body as ArrayBuffer | Uint8Array) : new Uint8Array();
+    const accountMatch = headers.get("authorization")?.match(/account=([A-Za-z0-9_-]{22})/);
+    // Recorded as it arrives (so the order is the order requests were sent); status once answered.
+    const entry: FakeRequest = {
+      method,
+      path: url.pathname + url.search,
+      account: accountMatch?.[1] ?? null,
+      status: 0,
+      bodyText: new TextDecoder().decode(body),
+    };
+    requests.push(entry);
     const forced = failNext.findIndex((f) => f.match(method, url.pathname));
     let response: Response;
     if (forced >= 0) {
@@ -230,14 +241,7 @@ export const createFakeServer = (options: { now?: () => number } = {}) => {
     } else {
       response = await handle(method, url, headers, body);
     }
-    const accountMatch = headers.get("authorization")?.match(/account=([A-Za-z0-9_-]{22})/);
-    requests.push({
-      method,
-      path: url.pathname + url.search,
-      account: accountMatch?.[1] ?? null,
-      status: response.status,
-      bodyText: new TextDecoder().decode(body),
-    });
+    entry.status = response.status;
     return response;
   };
 
