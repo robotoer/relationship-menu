@@ -1,6 +1,63 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { Navbar } from "./Navbar";
+import { AccountStatus, SyncState } from "../sync/context";
+import { FakeSyncProvider, fakeAccount, fakeSync } from "../sync/fake-sync";
+
+const onWith = (status: AccountStatus | null): SyncState => ({
+  kind: "on",
+  account: status === null ? null : fakeAccount({ status }),
+  pending: 0,
+  lastSyncedAt: null,
+  notices: [],
+  unreadable: 0,
+});
+
+const renderWithSync = (state: SyncState) =>
+  render(
+    <FakeSyncProvider value={fakeSync({ state })}>
+      <MemoryRouter>
+        <Navbar title="My App" links={[{ to: "/menu", text: "Menu" }]} />
+      </MemoryRouter>
+    </FakeSyncProvider>
+  );
+
+describe("SY-71: the supporter heart", () => {
+  it.each<AccountStatus>(["active", "past_due", "lifetime"])(
+    "shows for a %s account, labelled and linking to sync settings",
+    (status) => {
+      renderWithSync(onWith(status));
+      const heart = screen.getByRole("link", { name: "Supporter" });
+      expect(heart).toHaveAttribute("href", "/sync");
+      // The picture is decoration; the label is what's announced.
+      expect(heart.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
+    }
+  );
+
+  it.each<AccountStatus>(["none", "lapsed"])("doesn't show for a %s account", (status) => {
+    renderWithSync(onWith(status));
+    expect(screen.queryByRole("link", { name: "Supporter" })).not.toBeInTheDocument();
+  });
+
+  it.each<[string, SyncState]>([
+    ["sync off", { kind: "off" }],
+    ["still loading", { kind: "loading" }],
+    ["an unsupported browser", { kind: "unsupported" }],
+    ["no answer from the server yet", onWith(null)],
+  ])("doesn't show with %s", (_, state) => {
+    renderWithSync(state);
+    expect(screen.queryByRole("link", { name: "Supporter" })).not.toBeInTheDocument();
+  });
+
+  it("doesn't show outside a sync provider", () => {
+    render(
+      <MemoryRouter>
+        <Navbar title="My App" />
+      </MemoryRouter>
+    );
+    expect(screen.queryByRole("link", { name: "Supporter" })).not.toBeInTheDocument();
+  });
+});
 
 describe("Navbar", () => {
   it("should render the title", () => {
