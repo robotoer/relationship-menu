@@ -61,7 +61,7 @@ Google Analytics is loaded only on `wantsandwonts.com` (until November 2026, `re
 | `notifications_enabled` | "Notify me" was turned on for a live conversation on this device | `channel`: `webpush` |
 | `notifications_disabled` | "Notify me" was turned off | — |
 | `notification_opened` | A notification was tapped (the page opened with `from=notification`) | — |
-| `ai_prep_interest` | "Prepare this conversation with AI (coming soon)" is clicked: measures interest, nothing is sent | |
+| `ai_prep_interest` | "Prepare this conversation with AI (for supporters)" is clicked by someone who isn't a supporter: measures interest, nothing is sent | |
 | `library_searched` | The Library is searched (once per visit; never the text) | |
 | `library_sorted` | The Library sort is changed | `sort`: `edited`, `created`, `title` |
 | `menu_deleted` | A menu is deleted from the Library | |
@@ -71,7 +71,7 @@ Google Analytics is loaded only on `wantsandwonts.com` (until November 2026, `re
 | `home_screen_hint_shown` | The Home Screen tip appears (iPhone/iPad Safari only; once per page load) | |
 | `home_screen_hint_dismissed` | The Home Screen tip is dismissed (it then stays hidden in that browser) | |
 | `save_failed` | A save fails | |
-| `support_viewed` | The Support page is opened | `from`: `nav`, `share` (after sharing), `compare` (under results), `landing`, `live` (the Share live panel), `direct` |
+| `support_viewed` | The Support page is opened | `from`: `nav`, `share` (after sharing), `compare` (under results), `landing`, `live` (the Share live panel), `coach` (Prepare with AI, for someone who isn't a supporter), `direct` |
 | `checkout_started` | Leaving for Stripe Checkout from the Support page | `amount_usd` (6, 12, 24, 30), `plan` (`yearly`, `lifetime`) |
 | `checkout_completed` | Back from Checkout, once the server confirms the supporter status | `amount_usd`, `plan` |
 | `checkout_cancelled` | Back from Checkout without paying | `amount_usd`, `plan` |
