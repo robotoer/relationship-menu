@@ -1,11 +1,16 @@
-# Supporter sync Worker. See docs/spec/sync.md (§7 API, §13 costs).
+# The Wants & Won'ts Worker: it serves the app (static files) and the supporter
+# sync API (/v1/*). See docs/spec/sync.md (§7 API, §12 hosting, §14 costs).
 #
 # Environments:
 #   (none)      local `wrangler dev` and the Vitest suite; Miniflare's local D1.
-#   test        Stripe test mode, D1 `menu-sync-test`, a workers.dev URL.
-#               Deployed from `main` by .github/workflows/server.yml.
-#   production  Stripe live mode, D1 `menu-sync-prod`. Not deployed yet; the
-#               hosting PR adds the wantsandwonts.com route (HO-1).
+#   test        Stripe test mode, D1 `menu-sync-test`, a workers.dev URL, and a
+#               preview URL for each pull request. Deployed from `main` by
+#               .github/workflows/server.yml.
+#   production  Stripe live mode, D1 `menu-sync-prod`, wantsandwonts.com.
+#               Deployed from `main` once the repository variable
+#               DEPLOY_PRODUCTION is "true" (see server/README.md).
+#
+# The app is built first, at the repository root (`yarn build` → ../build).
 #
 # Secrets (never in this file): STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, and
 #   ANTHROPIC_API_KEY for the AI coach (docs/spec/coach.md). The coach stays off
@@ -22,6 +27,16 @@ workers_dev = false
 enabled = true
 [observability.logs]
 invocation_logs = false
+
+# HO-1: the built app is served as static assets. Requests for them never run
+# Worker code, cost nothing and don't count toward the Worker's request limit.
+# Only /v1/* runs the Worker (HO-2: the app calls the API on its own address, so
+# there are no CORS headers). Any other unknown path gets the app's index.html,
+# and the app's router takes over (NV-1). Every environment inherits this.
+[assets]
+directory = "../build"
+not_found_handling = "single-page-application"
+run_worker_first = ["/v1/*"]
 
 [vars]
 APP_ORIGIN = "http://localhost:3099"
@@ -55,6 +70,9 @@ simple = { limit = 10, period = 60 }
 [env.test]
 name = "wantsandwonts-test"
 workers_dev = true
+# HO-10: each pull request gets its own preview URL (wrangler versions upload
+# --preview-alias pr-<number>), against this test database and Stripe test mode.
+preview_urls = true
 
 [env.test.observability]
 enabled = true
@@ -93,6 +111,13 @@ crons = ["17 3 * * *"]
 [env.production]
 name = "wantsandwonts"
 workers_dev = false
+# HO-1: the production address. Attaching it adds DNS records to the
+# wantsandwonts.com zone, so the owner does it, not CI: uncomment these lines in
+# a commit of their own, then deploy. wantsandwonts.app and www. redirect here
+# with Cloudflare redirect rules (dashboard), not through this Worker.
+# routes = [
+#   { pattern = "wantsandwonts.com", custom_domain = true },
+# ]
 
 [env.production.observability]
 enabled = true

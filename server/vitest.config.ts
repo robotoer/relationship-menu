@@ -9,6 +9,10 @@ export default defineConfig(async () => {
         main: "./src/index.ts",
         wrangler: { configPath: "./wrangler.toml" },
         miniflare: {
+          // HO-1: a tiny stand-in for the built app, so the tests don't need a build.
+          // Everything else about assets (SPA fallback, run_worker_first) comes from
+          // wrangler.toml.
+          assets: { directory: "./test/fixtures/app" },
           bindings: {
             TEST_MIGRATIONS: migrations,
             // Fake values: tests stub Stripe's API and sign webhooks with this secret.
@@ -19,6 +23,8 @@ export default defineConfig(async () => {
       }),
     ],
     test: {
+      // test-node/ runs in Node instead (vitest.node.config.ts).
+      include: ["test/**/*.test.ts"],
       setupFiles: ["./test/setup.ts"],
     },
   };
