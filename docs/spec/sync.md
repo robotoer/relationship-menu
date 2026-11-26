@@ -361,9 +361,9 @@ New events follow [`src/analytics.ts`](../../src/analytics.ts): typed, with fixe
 | ID | Rule | Checked by |
 | --- | --- | --- |
 | SY-90 | Old `menu:<title>`, `menu:<CID>` and `menu:pending:<title>` entries keep being read (SV-9), and get an id on first load. The id-keyed entry is written **before** the old entry is removed. | Test |
-| SY-91 | Menus saved by the IPFS backend between July 2024 and March 2026 may exist only in its IndexedDB store: localStorage held just a date under `menu:<CID>`. Before IPFS code is removed, the app reads the `helia-blocks` IndexedDB store directly (plain IndexedDB, JSON blocks, no IPFS libraries) and copies any menu it finds into browser storage. | Test (unit, with a fake IndexedDB holding real blocks written by today's Helia) |
+| SY-91 | Menus saved by the IPFS backend between July 2024 and March 2026 may exist only in its IndexedDB store: localStorage held just a date under `menu:<CID>`. Before the Library first loads, the app reads the `helia-blocks` IndexedDB store directly (plain IndexedDB, JSON blocks, no IPFS libraries), checks that each block hashes to its CID, and copies the menu into browser storage under the same key, dated when it was saved. A pointer that can't be resolved is hidden, never listed as an unreadable menu. *(IPFS itself was removed in #71, before this recovery existed; until it ships, such menus show as unreadable entries.)* | Test (`src/ipfs-recovery.test.ts`, vectors from multiformats 13.4.2; `e2e/ipfs-recovery.spec.ts`) |
 | SY-92 | The old IPFS IndexedDB data is left in place, not deleted, until you decide otherwise. | Review |
-| SY-93 | The `Storage` interface stays. The IPFS backend, `NetworkStatus` and the P2P e2e tests go, which removes about two thirds of the download. | Test (bundle-size check in CI) |
+| SY-93 | The `Storage` interface stays. The IPFS backend, `NetworkStatus` and the P2P e2e tests go, which removes about two thirds of the download. *(Done in #71 with the move to Vite: 1.87 MB → 420 KB of JavaScript.)* | Review |
 
 ---
 
