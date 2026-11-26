@@ -4,8 +4,8 @@ import { platform, resetPlatform, setPlatform } from "./platform";
 import { ShareDialog } from "./components/ShareDialog";
 import { LandingPage } from "./pages/Landing";
 import { DiscussPage } from "./pages/Discuss";
-import { buildAgenda } from "./discussion";
-import { compareMenus } from "./data-comparer";
+import { newConversation } from "./conversation";
+import { encodeMenuSlug } from "./compare-slug";
 import { exportMenus } from "./export-menus";
 import { homeScreenDevice } from "./persistence";
 
@@ -87,12 +87,21 @@ describe("platform (hooks for hosts that embed the app)", () => {
 
   it("aiTeaser: false hides the AI teaser in the discussion", () => {
     setPlatform({ aiTeaser: false });
-    const agenda = buildAgenda(
-      compareMenus([{ G: [{ item: "Kids", value: "must-have" }] }, { G: [{ item: "Kids", value: "off-limits" }] }])
-    );
+    const conversation = newConversation([
+      encodeMenuSlug("A", { G: [{ item: "Kids", value: "must-have" }] }),
+      encodeMenuSlug("B", { G: [{ item: "Kids", value: "off-limits" }] }),
+    ]);
     render(
       <MemoryRouter>
-        <DiscussPage agenda={agenda} names={["A", "B"]} recordKey="discussion:t" compareLink="/compare" />
+        <DiscussPage
+          conversation={conversation}
+          onChange={() => {}}
+          names={["A", "B"]}
+          compareLink="/compare"
+          me={null}
+          onMe={() => {}}
+          seen={0}
+        />
       </MemoryRouter>
     );
     expect(screen.getByRole("heading", { level: 1, name: "Talk it through" })).toBeInTheDocument();
@@ -106,7 +115,7 @@ describe("platform (hooks for hosts that embed the app)", () => {
   });
 
   it("export uses the public address in links and the platform's way of saving", async () => {
-    const saveFile = vi.fn(async () => "shared" as const);
+    const saveFile = vi.fn(async (_file: File) => "shared" as const);
     setPlatform({ kind: "test", publicOrigin: "https://example.test", saveFile });
     const outcome = await exportMenus([{ title: "Ours", encoded: "E" } as never], { browser: IPHONE_SAFARI });
     expect(outcome).toBe("shared");

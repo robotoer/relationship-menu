@@ -158,3 +158,15 @@
     align-items: stretch;
   }
 }
+
+.overview-save {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  margin: 0 0 1rem;
+}
+.overview-save p {
+  flex: 1 1 18rem;
+  margin: 0;
+}

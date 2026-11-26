@@ -145,6 +145,14 @@ export type AnalyticsEvent =
       name: "coach_result";
       params: { outcome: "ok" | "unavailable" | "not_supporter" | "quota" | "busy" | "declined" | "failed" };
     }
+  // Conversations (spec §7c): counts and choices only, never what anyone wrote
+  | { name: "conversation_saved"; params: { source: "compare" | "talk" } }
+  | { name: "conversation_shared"; params: { method: "share" | "copy" } }
+  | { name: "conversation_merged"; params: { comments: number; notes: number; menus: number } }
+  | { name: "conversation_comment_added"; params: { target: "topic" | "area" } }
+  | { name: "conversation_part_done"; params: { part_count: number } }
+  | { name: "conversation_tips_opened"; params?: undefined }
+  | { name: "conversation_deleted"; params?: undefined }
   // Library
   | { name: "library_searched"; params?: undefined }
   | { name: "library_sorted"; params: { sort: LibrarySort } }

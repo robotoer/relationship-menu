@@ -1,4 +1,5 @@
 import "./CompareOverview.css";
+import { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { CompareFilter } from "../compare-filters";
 import { Insights } from "../compare-insights";
@@ -17,6 +18,7 @@ export const CompareOverview = ({
   onFilter,
   discussLink,
   topicCount,
+  actions,
 }: {
   insights: Insights;
   names: string[];
@@ -24,6 +26,8 @@ export const CompareOverview = ({
   /** Where "Talk it through" goes, or undefined when there's nothing to discuss. */
   discussLink?: string;
   topicCount: number;
+  /** Save / share controls shown with "Talk it through". */
+  actions?: ReactNode;
 }) => {
   const { counts, alignment, fullyAnswered, byGroup, people, topDifferences } = insights;
   const open = counts.unanswered + counts.missing;
@@ -84,6 +88,7 @@ export const CompareOverview = ({
           </Link>
         </div>
       )}
+      {actions}
 
       <div className="overview-columns">
         {byGroup.length > 1 && (

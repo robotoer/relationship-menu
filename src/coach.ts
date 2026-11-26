@@ -17,8 +17,11 @@ export type CoachRequest = {
   people: number;
   topics: { id: string; group: string; item: string; kind: Topic["kind"]; answers: Answer[] }[];
 };
+export type CoachArea = { group: string; insight: string };
 export type CoachGuide = {
   opening: string;
+  /** One insight per area (menu group), keyed by the group text sent. Older servers omit it. */
+  areas?: CoachArea[];
   topics: { id: string; about: string; questions: string[] }[];
   closing: string;
 };
@@ -28,33 +31,42 @@ export type SavedCoachGuide = {
   opening: string;
   closing: string;
   topics: Record<string, { about: string; questions: string[] }>;
+  /** Insight per area, keyed by the exact group text of the comparison. Absent in older saves. */
+  areas?: Record<string, string>;
 };
+
+/** Longest saved area insight (the server caps at 300). */
+export const MAX_AREA_INSIGHT_CHARS = 300;
 
 const toAnswer = (value: ComparedMenuItemValue): Answer =>
   value === null ? "not on menu" : value === undefined ? "no answer" : value;
 
 /**
- * The request for an agenda, plus which agenda topic each request id stands for.
+ * The request for an agenda, plus which agenda topic each request id stands for
+ * (`ids`) and which comparison group each sent group text stands for (`groups`).
  * At most 40 topics (the first ones), text trimmed to the server's limits.
  */
 export const buildCoachRequest = (agenda: Topic[], people: number) => {
   const included = agenda.slice(0, COACH_LIMITS.maxTopics);
   const ids = new Map<string, string>();
+  const groups = new Map<string, string>();
   const request: CoachRequest = {
     people,
     topics: included.map((topic, i) => {
       const id = `t${i}`;
       ids.set(id, topic.key);
+      const group = topic.group.replace(/\s+/g, " ").trim().slice(0, COACH_LIMITS.maxGroupChars);
+      if (!groups.has(group)) groups.set(group, topic.group);
       return {
         id,
-        group: topic.group.replace(/\s+/g, " ").trim().slice(0, COACH_LIMITS.maxGroupChars),
+        group,
         item: topic.item.replace(/\s+/g, " ").trim().slice(0, COACH_LIMITS.maxItemChars),
         kind: topic.kind,
         answers: topic.values.map(toAnswer),
       };
     }),
   };
-  return { request, ids, omitted: agenda.length - included.length };
+  return { request, ids, groups, omitted: agenda.length - included.length };
 };
 
 const ANSWER_LABEL: Record<Answer, string> = {
@@ -73,14 +85,51 @@ export const coachPreview = (request: CoachRequest) =>
       `${t.item}${t.group ? ` (${t.group})` : ""}: ${t.answers.map((a, i) => `Person ${i + 1} ${ANSWER_LABEL[a]}`).join(", ")}`
   );
 
-/** Re-keys a guide by agenda topic key, for saving with the discussion. */
-export const saveGuide = (guide: CoachGuide, ids: Map<string, string>, now = Date.now()): SavedCoachGuide => {
+/**
+ * Area insights as a map from group text, keeping the first insight per group (at
+ * most one per possible topic); anything that isn't a non-empty string is dropped.
+ * Undefined when there are none.
+ */
+const toAreaMap = (entries: [unknown, unknown][]): Record<string, string> | undefined => {
+  const areas: Record<string, string> = Object.create(null);
+  let count = 0;
+  for (const [group, insight] of entries) {
+    if (count >= COACH_LIMITS.maxTopics) break;
+    if (typeof group !== "string" || typeof insight !== "string" || Object.hasOwn(areas, group)) continue;
+    const text = insight.trim().slice(0, MAX_AREA_INSIGHT_CHARS);
+    if (!text) continue;
+    areas[group] = text;
+    count++;
+  }
+  return count ? areas : undefined;
+};
+
+/**
+ * Re-keys a guide by agenda topic key, for saving with the discussion. Area
+ * insights are keyed by the comparison's group text: pass `groups` from
+ * buildCoachRequest to map each sent group back to it (without it, the sent text
+ * is used, which is the same unless the group had extra spaces or was clipped).
+ * Areas for groups that weren't sent are dropped.
+ */
+export const saveGuide = (
+  guide: CoachGuide,
+  ids: Map<string, string>,
+  now = Date.now(),
+  groups?: Map<string, string>
+): SavedCoachGuide => {
   const topics: SavedCoachGuide["topics"] = Object.create(null);
   for (const t of guide.topics) {
     const key = ids.get(t.id);
     if (key && t.questions.length) topics[key] = { about: t.about, questions: t.questions.slice(0, 3) };
   }
-  return { createdAt: now, opening: guide.opening, closing: guide.closing, topics };
+  const areas = toAreaMap(
+    (Array.isArray(guide.areas) ? guide.areas : []).map((a): [unknown, unknown] =>
+      a && typeof a === "object" && typeof a.group === "string"
+        ? [groups ? groups.get(a.group) : a.group, a.insight]
+        : [undefined, undefined]
+    )
+  );
+  return { createdAt: now, opening: guide.opening, closing: guide.closing, topics, ...(areas ? { areas } : {}) };
 };
 
 /** Reads a saved guide back from storage, dropping anything malformed. */
@@ -93,7 +142,10 @@ export const loadSavedGuide = (raw: unknown): SavedCoachGuide | undefined => {
     const questions = t.questions.filter((q): q is string => typeof q === "string").slice(0, 3);
     if (questions.length) topics[key] = { about: t.about, questions };
   }
-  return { createdAt: Number(v.createdAt) || 0, opening: v.opening, closing: v.closing, topics };
+  const rawAreas: unknown = v.areas;
+  const areas =
+    rawAreas && typeof rawAreas === "object" && !Array.isArray(rawAreas) ? toAreaMap(Object.entries(rawAreas)) : undefined;
+  return { createdAt: Number(v.createdAt) || 0, opening: v.opening, closing: v.closing, topics, ...(areas ? { areas } : {}) };
 };
 
 /** Why a coach request didn't work, in words people can act on. */

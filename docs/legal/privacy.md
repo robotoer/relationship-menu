@@ -41,6 +41,8 @@ A menu link holds the menu itself in the web address. A full menu link includes 
 - It can stay in your browser history, and your browser may sync that history to your other devices.
 - When someone opens the link, the address, menu included, is sent to our web host as part of loading the page. We don't read or collect it, and we don't send it to analytics. The host can technically see it. `[FILL IN: check what request logs the host keeps for page addresses, and for how long, and say so here.]`
 
+A **conversation link** ("Not in the same room?" on the Talk it through page) holds a whole conversation: both menus, everyone's area and topic notes, outcomes and comments. The same points apply, with one difference: the conversation is in the part of the address after `#`, which browsers don't send to our web host, so it never reaches our server or its logs. It is still readable by anyone who has the link and by the apps you send it through. Who you are on a device ("I'm …") and what you've already seen stay in that browser.
+
 ### On our sync server (only supporters who turn on sync)
 
 Sync is optional. When you turn it on, your device creates a **sync code** of 24 words. Menus are encrypted on your device with a key made from that code, then sent to our server, which runs on Cloudflare (a Worker and a D1 database).

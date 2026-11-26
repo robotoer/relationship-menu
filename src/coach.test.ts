@@ -59,6 +59,81 @@ describe("saved guides (CO-10)", () => {
   });
 });
 
+describe("saved area insights (CO-10)", () => {
+  const { ids, groups } = buildCoachRequest(agenda, 2);
+  const guide = (areas?: unknown) =>
+    ({ opening: "Hi", closing: "Bye", topics: [{ id: "t0", about: "A", questions: ["Q"] }], areas }) as never;
+
+  it("keys insights by group, trimmed and capped, first one per group", () => {
+    const saved = saveGuide(
+      guide([
+        { group: "Future", insight: "  You differ on kids.  " },
+        { group: "Touch", insight: "x".repeat(500) },
+        { group: "Touch", insight: "a later duplicate" },
+        { group: "Future", insight: "another" },
+        { group: "Nowhere", insight: "not sent" },
+        { group: "Touch" },
+        null,
+      ]),
+      ids,
+      5,
+      groups
+    );
+    expect(saved.areas).toEqual({ Future: "You differ on kids.", Touch: "x".repeat(300) });
+    expect(Object.getPrototypeOf(saved.areas)).toBeNull();
+    expect(loadSavedGuide(JSON.parse(JSON.stringify(saved)))).toEqual(saved);
+  });
+
+  it("maps sent group text back to the comparison's exact group text", () => {
+    const long = "g".repeat(100);
+    const odd = buildCoachRequest(
+      [
+        { ...agenda[0], key: "a", group: long },
+        { ...agenda[0], key: "b", group: "Out  doors" },
+      ],
+      2
+    );
+    const saved = saveGuide(
+      guide([
+        { group: "g".repeat(80), insight: "Long group." },
+        { group: "Out doors", insight: "Spaced group." },
+      ]),
+      odd.ids,
+      5,
+      odd.groups
+    );
+    expect(saved.areas).toEqual({ [long]: "Long group.", "Out  doors": "Spaced group." });
+  });
+
+  it("is optional: guides without areas save and load as before", () => {
+    const saved = saveGuide(guide(), ids, 5, groups);
+    expect(saved).not.toHaveProperty("areas");
+    expect(saveGuide(guide("junk"), ids, 5)).not.toHaveProperty("areas");
+    expect(saveGuide(guide([]), ids, 5)).not.toHaveProperty("areas");
+    const old = { createdAt: 1, opening: "a", closing: "b", topics: {} };
+    expect(loadSavedGuide(old)).toEqual(old);
+  });
+
+  it("without the group map, uses the group text as sent", () => {
+    expect(saveGuide(guide([{ group: "Touch", insight: "Shared." }]), ids, 5).areas).toEqual({ Touch: "Shared." });
+  });
+
+  it("reads back only string insights, capped, ignoring junk and prototype keys", () => {
+    const raw = JSON.parse(
+      `{"opening":"a","closing":"b","topics":{},"areas":{"Touch":" ok ","Future":3,"Pets":null,"Blank":"  ","__proto__":"proto","Long":"${"y".repeat(400)}"}}`
+    );
+    const loaded = loadSavedGuide(raw)!;
+    expect({ ...loaded.areas }).toEqual(JSON.parse(`{"Touch":"ok","__proto__":"proto","Long":"${"y".repeat(300)}"}`));
+    expect(Object.getPrototypeOf(loaded.areas)).toBeNull();
+    expect(Object.keys(loaded.areas!)).toEqual(["Touch", "__proto__", "Long"]);
+    for (const areas of [["Touch", "x"], "Touch", 5, null, {}]) {
+      expect(loadSavedGuide({ opening: "a", closing: "b", topics: {}, areas })).not.toHaveProperty("areas");
+    }
+    const many = Object.fromEntries(Array.from({ length: 50 }, (_, i) => [`g${i}`, "x"]));
+    expect(Object.keys(loadSavedGuide({ opening: "a", closing: "b", topics: {}, areas: many })!.areas!)).toHaveLength(40);
+  });
+});
+
 describe("createCoachClient", () => {
   const { request } = buildCoachRequest(agenda, 2);
   const respond = (status: number, body: unknown) =>

@@ -304,10 +304,46 @@ flowchart LR
 | DS-2 | The agenda has every conflict, difference and not-fully-answered item exactly once, in this order: up to two shared wants (Must have first), differences, conflicts (largest gap first within each, ties in menu order), then check-ins. Agreed items that aren't shared wants are left out. | [Property](../../src/__props__/insights-discussion.props.test.ts), Test |
 | DS-3 | Each topic has prompts suited to its kind, chosen the same way every time. | [Property](../../src/__props__/insights-discussion.props.test.ts), Test |
 | DS-4 | Each topic shows everyone's answers and notes from their menus, with a notes field, one of five outcomes (Agreed, Compromise, Revisit later, Agree to disagree, Boundary) and an optional next step. Topics can be skipped, revisited from the progress dots, and finished in any order. | Test (unit + e2e) |
-| DS-5 | Notes are saved in this browser as they're typed, under a key made from the people's names and menu titles (so they survive changed answers). They never leave the browser and never reach analytics. | Test (unit + e2e) |
+| DS-5 | Notes are saved in this browser as they're typed, in the conversation for these menus ([§7c](#7c-conversations)). They leave the browser only in a conversation link someone chooses to send (CV-6), and never reach analytics. | Test (unit + e2e) |
 | DS-6 | Coming back offers "Continue", which goes to the first topic not yet covered. | Test (unit + e2e) |
-| DS-7 | The summary groups covered topics by outcome, with answers, notes and next steps. It can be copied or downloaded as Markdown, or printed. | Test (unit + e2e) |
+| DS-7 | The summary groups covered topics by outcome, with answers, notes and next steps. It can be copied or downloaded as Markdown (with everything in CV-12), or printed. | Test (unit + e2e) |
 | DS-8 | "Prepare with AI": for supporters, the AI coach ([coach.md](coach.md), CO-1…CO-12) after everyone agrees to exactly what's sent; for everyone else an honest "coming soon" that records interest only and sends nothing. | Test |
+
+---
+
+## 7c. Conversations
+
+**In short:** a comparison can be saved as a **conversation**: a living document people come back to over several sittings. It keeps the menus, the agenda split into **parts**, notes on each **area** (a group of the menu) from each person, notes and outcomes on each topic, **comments** left for later, and research-based **tips**. It's saved in this browser and listed in the Library. To work on it without being in the same room, people send it to each other as a link; opening a link merges it into your copy. No server is involved.
+
+```mermaid
+sequenceDiagram
+  participant A as Ana's browser
+  participant B as Ben's browser
+  A->>A: Save comparison → conversation (id, menus, parts)
+  A->>A: Area notes, comments
+  A-->>B: Link /talk#c=… (sent by message, email…)
+  B->>B: Saved (new) or merged into Ben's copy
+  B->>B: "1 new comment"; Ben replies
+  B-->>A: Link back
+  A->>A: Merged: Ana's notes kept, Ben's reply added
+```
+
+| ID | Rule | Checked by |
+| --- | --- | --- |
+| CV-1 | "Save this comparison" on the Compare page saves a conversation for those menus; the Library lists conversations with progress, parts done and new comments, and can delete them. | Test |
+| CV-2 | "Talk it through" opens the saved conversation for the same people and menu titles if there is one, else a new one that's saved as soon as anything is written in it. Either way the address becomes `/talk?id=…`. | Test |
+| CV-3 | The agenda is suggested in parts of at most six topics, keeping each area together where it fits, easiest areas first. Parts can be renamed, dated, marked done and have their own notes; topics can move between parts. Finishing a part's last topic marks it done. Topics added by changed menus go to "Not planned yet". | Test, Property (merge) |
+| CV-4 | Each area shows plain insights computed from the answers (agreements, shared wants, conflicts, differences, open items, who has the most Must haves) and the AI coach's area insight if there is one (CO-10). Insights never judge compatibility or suggest changing an Off limits answer. | Test |
+| CV-5 | Each area has notes per person in three prompts: what matters most to me, what I'm unsure or worried about, what would help me. | Test (unit + e2e) |
+| CV-6 | A conversation travels as a link `/talk#c=<compressed conversation>`. The payload is in the #hash, which browsers never send to a server, so it isn't in our logs or analytics. Opening it saves or merges it, then the address becomes `/talk?id=…`. The page says the link holds every note and comment. | Test (unit + e2e) |
+| CV-7 | If a newer version of one compared menu is saved in this browser (same title and person) or arrives in a compare link, the conversation offers to use it; it's never replaced silently. | Test |
+| CV-8 | Merging two copies keeps, for each menu, part, topic and person's area notes, the most recently changed version, and every comment from both (a deletion wins). Merging is commutative, associative and idempotent. Two people editing the same shared topic note at once: the later one wins, which is why comments exist for async replies. | [Property](../../src/__props__/conversation.props.test.ts) |
+| CV-9 | Anything read from storage or a link is cleaned: unknown fields dropped, text capped (notes 4,000, comments 1,000 characters, 300 comments per topic), ids checked, maps without prototypes. A damaged link says so. | [Property](../../src/__props__/conversation.props.test.ts), Test |
+| CV-10 | Notes saved by the earlier discussion page (`discussion:<hash>`) move into the conversation for the same menus; the old entry is removed only after the conversation is saved. | Test |
+| CV-11 | Who's using this device ("I'm …") is remembered per conversation in this browser only and never sent. Comments are signed with it; you can delete your own. Comments by others since this device last looked are marked new. ("New" compares each device's clock; a badly wrong clock can hide the mark.) | Test (unit + e2e) |
+| CV-12 | The summary (copy, download) has outcomes first, then each part and area with everyone's area notes, topic notes, next steps and comments. | Test |
+| CV-13 | Tips for hard conversations by stage (before, opening, listening, when heated, Off limits and boundaries, closing, between conversations), each with its sources, adapted from the Gottman Institute, PREP, Imago Dialogue, NVC, EFT, DBT skills and consent education ([evidence notes](conversation-tips.md)). Each topic shows one tip fitting its kind. No statistics, no therapy claims, nothing that nudges anyone off an Off limits answer. | Test |
+| CV-14 | Every text box is a plain field, so the device's own dictation works in it; each view says how to dictate on this device (keyboard microphone, Fn twice on a Mac, Windows + H, Search + D on a Chromebook). Nothing is recorded or transcribed by the app. | Test |
 
 ---
 
@@ -401,6 +437,7 @@ flowchart LR
 | Comparing | CP-1…CP-5, CP-12, CP-14 | Property (against a naive reference) | compare props |
 | Comparing | CP-20…CP-25 | Property + Test | [`insights-discussion.props`](../../src/__props__/insights-discussion.props.test.ts), `Compare.test.tsx`, `e2e/discuss.spec.ts` |
 | Discussing | DS-1…DS-8 | Property (DS-2, DS-3) + Test | `discussion.test.ts`, `Discuss.test.tsx`, `e2e/discuss.spec.ts` |
+| Conversations | CV-1…CV-14 | Property (CV-8, CV-9) + Test | `__props__/conversation.props.test.ts`, `conversation.test.ts`, `Talk.test.tsx`, `Discuss.test.tsx`, `ConversationList.test.tsx`, `e2e/conversation.spec.ts` |
 | Comparing | CP-13 | Test (e2e) | `e2e/` |
 | Pages, privacy, accessibility | NV, PR, AX | Test / Review | see each table |
 

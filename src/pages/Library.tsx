@@ -20,6 +20,7 @@ import { RandomAvatar } from "react-random-avatars";
 import { openedFromState, track, trackOnce } from "../analytics";
 import { exportMenus } from "../export-menus";
 import { HomeScreenHint } from "../components/HomeScreenHint";
+import { ConversationList } from "../components/ConversationList";
 
 /**
  * Renders the Library page, displaying a list of relationship menus.
@@ -254,6 +255,7 @@ export const LibraryPage = ({
           </Link>
         </div>
       </div>
+      <ConversationList />
     </div>
   );
 };
