@@ -13,7 +13,7 @@ import { LibrarySort } from "./library-info";
 
 type LinkKind = "menu" | "template" | "invite" | "menu_slug" | "template_slug";
 /** Where someone opened the Support page from. */
-export type SupportFrom = "nav" | "share" | "compare" | "landing" | "direct";
+export type SupportFrom = "nav" | "share" | "compare" | "landing" | "live" | "direct";
 export type SupportPlan = "yearly" | "lifetime";
 /** The Support page's amounts, in US dollars. */
 export type SupportAmount = 6 | 12 | 24 | 30;
@@ -155,6 +155,11 @@ export type AnalyticsEvent =
   | { name: "conversation_part_done"; params: { part_count: number } }
   | { name: "conversation_tips_opened"; params?: undefined }
   | { name: "conversation_deleted"; params?: undefined }
+  // Live sharing (docs/spec/notifications.md): counts only, never ids
+  | { name: "live_shared"; params?: undefined }
+  | { name: "live_joined"; params: { outcome: "ok" | "expired" | "full" | "gone" | "offline" | "failed" } }
+  | { name: "live_left"; params?: undefined }
+  | { name: "live_stopped"; params?: undefined }
   // Library
   | { name: "library_searched"; params?: undefined }
   | { name: "library_sorted"; params: { sort: LibrarySort } }

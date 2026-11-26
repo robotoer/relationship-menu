@@ -1,6 +1,6 @@
 # Live conversations and notifications
 
-**Status:** proposal, 26 November 2026. Nothing here is built. It builds on [conversations](README.md#7c-conversations) (§7c, PR #87) and [supporter sync](sync.md). Rule IDs use the prefix `NT`. Every "Checked by" entry names the check we plan to write.
+**Status:** approved 26 November 2026 with the recommended answer to every decision in §12. Phases 1–2 (boxes, live sharing without notifications) are being built; the wire protocol is in [§7a](#7a-wire-protocol-v1). It builds on [conversations](README.md#7c-conversations) (§7c, PR #87) and [supporter sync](sync.md). Rule IDs use the prefix `NT`. Every "Checked by" entry names the check we plan to write.
 
 **In short:** today, people who aren't in the same room take turns by sending the conversation as a link (CV-6). That stays, free for everyone. This adds **live sharing**:
 - A supporter can share a conversation *live*.
@@ -65,11 +65,11 @@ flowchart LR
 
 | ID | Rule | Checked by |
 | --- | --- | --- |
-| NT-1 | A box has a random 128-bit id, a random 256-bit **box key K** (AES-256-GCM) and a random 256-bit **join secret J**. K and J are made on the sharing device and are never sent to the server. The server stores only SHA-256(J). | Test (client: ids and keys from `crypto.getRandomValues`; server: stores only the hash) |
+| NT-1 | A box has a random 128-bit id, a random 256-bit **box key K** (AES-256-GCM) and a random 256-bit **join secret J**. Both are made on the sharing device. K is never sent to the server. J is sent once by each device that joins (NT-12); the server stores only SHA-256(J), and J lets a device join, never read. | Test (client: ids and keys from `crypto.getRandomValues`; server: stores only the hash) |
 | NT-2 | Each copy is the whole conversation (the same JSON as a conversation link, CV-6), compressed, padded to a multiple of 4 KiB and encrypted with K. Every write uses a fresh 96-bit nonce. The additional data is `"menu-box/v1" ‖ boxId ‖ memberId ‖ version`, so the server can't move a copy to another member or box, or present an old version as new, without decryption failing. | Test (tamper: every byte flip, wrong member, wrong version → rejected) |
 | NT-3 | Each member device writes only its own copy, conditional on its version (`If-Match`), like menus in sync (SY-42). Two tabs on one device that race get 412, re-read, merge and retry. | Test (server + client) |
 | NT-4 | Reading a box returns every copy. The device decrypts each one, cleans it as untrusted input (CV-9), merges them all into its local conversation, and writes its own copy if that changed anything. A copy that fails to decrypt is skipped and counted, never applied. | Property (any order of reads and writes converges; a corrupt copy changes nothing) |
-| NT-5 | Limits: at most 16 member devices per box; each copy at most 256 KiB; a box counts toward its host's sync storage quota, at its padded size. | Test (server) |
+| NT-5 | Limits: at most 16 member devices per box, each copy at most 256 KiB, and at most 50 boxes hosted per supporter account. (Boxes don't use the menus quota.) | Test (server) |
 | NT-6 | The conversation's merge rules apply unchanged (CV-8): notes and outcomes go to the latest change, and every comment is kept. A device that has left still sees its last merged copy locally. | Property (reuses `conversation.props`) |
 
 ---
@@ -80,12 +80,12 @@ flowchart LR
 | --- | --- | --- |
 | NT-10 | **Share live** is offered to supporters (an active, past-due or lifetime sync account) on a conversation. It creates the box with a request signed by their sync account (SY-6), which becomes the box's **host**. | Test |
 | NT-11 | The **invite link** is `/talk#live=<boxId>.<K>.<J>`. Everything is in the #fragment, so it never reaches a server (as SY-11). The app removes it from the address bar before anything else runs. The page says plainly: *"Anyone with this link can read and add to this conversation, now and later. Send it only to the people in it."* | Test (fragment removed before the first effect and `page_view`) |
-| NT-12 | **Joining** needs no account. The device makes its own Ed25519 key pair (kept in IndexedDB, non-extractable). It sends the public key with an HMAC of the public key under J, so J itself never travels. Its member id is the first 128 bits of SHA-256(public key). Every later box request is signed like sync requests (SY-6, label `menu-box/v1`), and the server stores no credential. | Test (server: bad proof, reused proof, wrong key) |
+| NT-12 | **Joining** needs no account. The device makes its own Ed25519 key pair (kept in IndexedDB, non-extractable), and sends the public key with J. The server checks SHA-256(J) and keeps the public key. J only admits members; the server could already add or drop members, so learning J gives it nothing new, and it still can't read anything without K. The member id is the first 128 bits of SHA-256(public key). Every later box request is signed like sync requests (SY-6, label `menu-box/v1`), and the server stores no credential. | Test (server: bad proof, reused proof, wrong key) |
 | NT-13 | An invite works for 7 days. The host can make a new one, which replaces J, and that ends the old link for new joins. People who already joined stay. | Test |
 | NT-14 | **Leave** (any member) deletes that device's copy, member entry and push subscriptions from the server. The conversation stays on the device, as an ordinary saved conversation. | Test |
 | NT-15 | **Stop sharing** (host only) deletes the box: every copy, member and subscription. Each device keeps its own merged conversation. To remove one person, the host stops sharing and shares again with a new link to the others: a new K, so the removed person can't read anything written after that. | Test |
 | NT-16 | Boxes follow the host's supporter status (SY lapsing rules): if the host lapses, the box is read-only, so members can read but not write, and nobody is notified. It is purged with the host's account. Members are told *"Live sharing has paused; you can keep talking by sending links."* | Test (server + client) |
-| NT-17 | The box key and device key live in IndexedDB as non-extractable `CryptoKey`s, reachable by the page and its service worker. They're never in localStorage, in a conversation link, or in analytics. | Test (no key material in localStorage or links; e2e marker check) |
+| NT-17 | The box key K and the device's box key pair live in IndexedDB (`wants-live`), never in localStorage, a conversation link or analytics. The device's private key is a non-extractable `CryptoKey`. K is kept as bytes, so the host can show the invite link again. | Test (`src/live/live.test.ts`; e2e: no key material in requests) |
 
 ---
 
@@ -168,6 +168,46 @@ push_subs    (sub_id TEXT PRIMARY KEY, box_id TEXT, member_id TEXT, kind TEXT, e
 | NT-52 | **Rate limits:** 60 box requests a minute per member, 10 joins a minute per IP, and 5 box creations a minute per account. | Test (server) |
 | NT-53 | The daily cron deletes expired invites (their hash), boxes of purged hosts, subscriptions not delivered for 60 days, and day counters. | Test (server, scheduled handler) |
 | NT-54 | Secrets: the `VAPID_PRIVATE_KEY` (P-256) and, for the apps, `FCM_SERVICE_ACCOUNT`, are set with `wrangler secret put`. They're never committed, and VAPID's `sub` is a project contact address, not a person's. | Review |
+
+## 7a. Wire protocol (v1)
+
+Phases 1–2. Subscriptions (phase 3) come later. All ids are 22-character base64url (128 bits), like sync's.
+
+**Member requests** carry
+
+```
+Authorization: MenuBox v1 box=<boxId>, key=<base64url Ed25519 public key>, ts=<seconds>, sig=<base64url signature>
+```
+
+The signature is Ed25519 over these lines, joined by `\n`: `menu-box/v1`, METHOD, path with query, ts, base64url(SHA-256(body)). `ts` must be within ±5 minutes. The key must be a member of that box. `memberId` = base64url(first 16 bytes of SHA-256(public key)).
+
+| Method and path | Auth | Request | Response |
+| --- | --- | --- | --- |
+| `POST /v1/boxes` | sync account (`MenuSync`, sensitive limit); the account must be able to write (active, past due, lifetime) | `{boxId, joinHash, hostKey}`: `joinHash` = base64url(SHA-256(J)), `hostKey` = the host device's box public key | `201 {boxId, memberId, inviteExpiresAt}` · `402 not_supporter` / `read_only` · `409 box_exists` · `429 too_many_boxes` (50 per account) |
+| `POST /v1/boxes/:id/members` | none (10/min per IP) | `{key, join}`: the device's box public key, and J (base64url) | `201 {memberId}` (also when already a member) · `404 not_found` · `403 bad_join` (wrong J) · `410 invite_expired` · `409 box_full` (16 members) |
+| `POST /v1/boxes/:id/invite` | member, host only | `{joinHash}` | `200 {inviteExpiresAt}` (7 days from now) · `403 not_host` |
+| `GET /v1/boxes/:id/copies?since=<seq>` | member | — | `200 {copies: [{memberId, version, seq, updatedAt, ciphertext}], seq, readOnly, members}`: the copies changed after `since` (all of them for `0`), the box's current `seq`, whether the host's support has lapsed, and the member count |
+| `PUT /v1/boxes/:id/copies/:memberId` | that member only | body: ciphertext (`application/octet-stream`, 28 B to 256 KiB); `If-None-Match: *` for a first copy, else `If-Match: "<version>"`; optional `Notify: comment\|notes\|none` (ignored until phase 3) | `200 {version, seq}` · `412 version_mismatch {current: {version}}` · `428` · `402 read_only` · `403 not_member` / `not_yours` · `413` |
+| `DELETE /v1/boxes/:id/members/me` | member, not the host | — | `204` (its copy goes too) · `409 host_must_stop` |
+| `DELETE /v1/boxes/:id` | member, host only | — | `204` (everything goes) |
+
+Unknown box → `404`. A member removed by Stop sharing → `404` on its next request; a key that isn't a member → `403 not_member`. Errors are `{error: <code>}` as elsewhere, plus `400 bad_request` for malformed ids or bodies, `401` for signature failures (`clock_skew` when more than 5 minutes off), and `413 too_large {max}`. A 412 before any copy exists says `current: null`. A lapsed host can't make new invites either (`402 read_only`); joining a lapsed box with a valid invite still works, because it's only reading. Joins have their own per-IP limit (10 a minute), and member requests are limited to 60 a minute per member. The app's signatures are checked against the server's own `authenticateMember` in `src/live/server-auth.test.ts`.
+
+**Copies, on the device:** the plaintext is the conversation's JSON (CV-6), deflated, with a 4-byte big-endian length in front, zero-padded to a multiple of 4 KiB. It's encrypted with AES-256-GCM under K, with a fresh 12-byte nonce in front of the ciphertext. The additional data is UTF-8 `menu-box/v1\n<boxId>\n<memberId>\n<version>`, where `version` is the version being written (1 for the first copy).
+
+**Invite link:** `/talk#live=<boxId>.<base64url K>.<base64url J>`.
+
+```sql
+-- server/migrations/0003_boxes.sql
+boxes        (box_id TEXT PRIMARY KEY, host_account TEXT NOT NULL, join_hash TEXT,
+              invite_expires_at INTEGER, seq INTEGER NOT NULL, created_at INTEGER NOT NULL)
+box_members  (box_id TEXT, member_id TEXT, public_key BLOB, is_host INTEGER, joined_at INTEGER,
+              PRIMARY KEY (box_id, member_id))
+box_copies   (box_id TEXT, member_id TEXT, version INTEGER, seq INTEGER, updated_at INTEGER,
+              size INTEGER, ciphertext BLOB, PRIMARY KEY (box_id, member_id))   -- index (box_id, seq)
+```
+
+Account deletion and purge delete the account's boxes. Rotation (SY-8) moves `host_account` to the new account. The daily cron clears expired join hashes.
 
 ---
 

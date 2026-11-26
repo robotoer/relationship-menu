@@ -405,6 +405,32 @@
 .swatch-dot.kind-explore { background: var(--pref-maybe); }
 .swatch-dot.kind-conflict { background: var(--pref-off-limits); }
 
+.conv-live {
+  margin-top: 2rem;
+  padding: 0.75rem 1rem 1rem;
+  background: var(--c-shade);
+  border: var(--px) solid var(--c-cyan);
+  box-shadow: var(--drop);
+}
+.conv-live h2 {
+  margin-top: 0.25rem;
+}
+.conv-live-status {
+  font-weight: bold;
+  color: var(--c-lime);
+}
+.conv-invite {
+  margin: 0.75rem 0;
+  padding-top: 0.5rem;
+  border-top: 2px dashed var(--c-slate);
+}
+.conv-live-confirm {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .conv-share {
   margin-top: 2rem;
   padding-top: 1rem;
@@ -566,6 +592,7 @@
 }
 
 @media print {
+  .conv-live,
   .conv-share,
   .conv-tips,
   .conv-comment-actions,

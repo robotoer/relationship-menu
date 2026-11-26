@@ -1,7 +1,7 @@
 /**
  * The only logging in this Worker (SY-44). It takes route patterns, status codes,
- * error codes and counts — never request bodies, headers, IP addresses, account
- * ids or menu data. The type keeps it that way.
+ * error codes and counts — never request bodies, headers, IP addresses, account,
+ * box or member ids, or menu data. The type keeps it that way.
  */
 
 type LogLine = {

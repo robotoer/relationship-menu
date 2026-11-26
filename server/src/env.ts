@@ -48,3 +48,16 @@ export const PURGE_WARNING_MS = 30 * DAY_MS;
 export const TOMBSTONE_TTL_MS = 180 * DAY_MS;
 /** How long pairing blobs live (SY-10). */
 export const PAIRING_TTL_MS = 10 * 60 * 1000;
+
+/** Live-sharing boxes (docs/spec/notifications.md NT-5, NT-13). */
+export const BOX_LIMITS = {
+  /** Member devices per box, the host's included. */
+  members: 16,
+  /** Boxes hosted per supporter account. */
+  boxes: 50,
+  /** Largest copy, in bytes. */
+  copyBytes: 256 * 1024,
+} as const;
+
+/** How long an invite (join secret) works (NT-13). */
+export const INVITE_TTL_MS = 7 * DAY_MS;

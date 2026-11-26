@@ -39,6 +39,9 @@ import { SupportPage } from "./pages/Support";
 import { platform } from "./platform";
 import { TalkRoute } from "./pages/Talk";
 import { SaveComparison } from "./components/SaveComparison";
+import { createBoxApi } from "./live/box-api";
+import { createLiveStore } from "./live/live-store";
+import type { LiveDeps } from "./live/useLive";
 import { SyncSettingsRoute } from "./pages/SyncSettingsRoute";
 import { PairPage } from "./pages/Pair";
 import { createCoachClient } from "./coach";
@@ -707,8 +710,21 @@ const WrappedTalkRoute = () => {
     const authorize = isSupporter(state) ? runtime?.authorizer() : null;
     return authorize ? createCoachClient({ origin: "", authorize }) : undefined;
   }, [state, runtime]);
-  return <TalkRoute coach={coach} />;
+  // Live sharing (docs/spec/notifications.md): anyone can join; only supporters can start one.
+  const live = useMemo((): LiveDeps => {
+    const authorize = isSupporter(state) ? runtime?.authorizer() : null;
+    return { ...liveServices(), authorizeAccount: authorize ?? null };
+  }, [state, runtime]);
+  return <TalkRoute coach={coach} live={live} />;
 };
+
+/** The box API and this browser's live store, made once. */
+let services: Omit<LiveDeps, "authorizeAccount"> | null = null;
+const liveServices = () =>
+  (services ??= {
+    api: createBoxApi({ origin: platform().kind === "web" ? "" : platform().publicOrigin }),
+    store: createLiveStore(),
+  });
 
 /**
  * Main application component.

@@ -6,7 +6,7 @@
  *   opens the saved conversation for those menus or starts a new one (CV-2).
  * A new conversation is saved the first time anything is written in it.
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { CoachClient } from "../coach";
 import { DecodedCompareSlug, decodeCompareSlug, encodeMenuSlug, normalizeCompareEntry } from "../compare-slug";
@@ -31,9 +31,16 @@ import {
 import { useStorage } from "../providers/Storage";
 import { track } from "../analytics";
 import { DiscussPage, MenuUpdate } from "./Discuss";
+import { BoxSecrets, parseInvite } from "../live/box-crypto";
+import { LiveError } from "../live/box-api";
+import { joinLive } from "../live/live-session";
+import { LiveDeps, useLive } from "../live/useLive";
+import { platform } from "../platform";
 
 type Loaded =
   | { kind: "ok"; conversation: Conversation; saved: boolean; notice?: string; linkMenus?: string[] }
+  | { kind: "joining"; invite: BoxSecrets }
+  | { kind: "join-failed"; reason: "expired" | "full" | "gone" | "offline" | "unavailable" | "failed" }
   | { kind: "missing" }
   | { kind: "broken" }
   | { kind: "too-few" };
@@ -42,6 +49,10 @@ const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 /** Works out which conversation the address is about. */
 const resolve = (hash: string, id: string | null, entries: string[]): Loaded => {
+  if (hash.includes("live=")) {
+    const invite = parseInvite(hash);
+    return invite ? { kind: "joining", invite } : { kind: "broken" };
+  }
   if (hash.includes("c=")) {
     const shared = conversationFromLink(hash);
     if (!shared) return { kind: "broken" };
@@ -107,7 +118,16 @@ const findMenuUpdates = (
   return updates;
 };
 
-export const TalkRoute = ({ coach }: { coach?: CoachClient }) => {
+const JOIN_FAILED: Record<Extract<Loaded, { kind: "join-failed" }>["reason"], string> = {
+  expired: "This invite has expired or was replaced by a newer one. Ask for a new invite link.",
+  full: "This conversation already has as many devices as it can (16).",
+  gone: "This conversation isn't shared live any more. Ask for a copy, or a new invite.",
+  offline: "You're offline. Connect to the internet, then open the invite link again.",
+  unavailable: "Live sharing isn't available in this browser.",
+  failed: "Couldn't join. Try opening the invite link again in a moment.",
+};
+
+export const TalkRoute = ({ coach, live }: { coach?: CoachClient; live?: LiveDeps }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [params] = useSearchParams();
@@ -116,6 +136,60 @@ export const TalkRoute = ({ coach }: { coach?: CoachClient }) => {
   const id = params.get("id");
 
   const [loaded, setLoaded] = useState<Loaded>(() => resolve(location.hash, id, entries));
+  // NT-11: an invite's key leaves the address bar before anything else happens.
+  useLayoutEffect(() => {
+    if (location.hash.includes("live=")) window.history.replaceState(window.history.state, "", location.pathname);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.key]);
+
+  // Joining from an invite (NT-12).
+  const joining = useRef<{ invite: BoxSecrets; promise: ReturnType<typeof joinLive> } | null>(null);
+  useEffect(() => {
+    if (loaded.kind !== "joining") return;
+    if (!live) {
+      setLoaded({ kind: "join-failed", reason: "unavailable" });
+      return;
+    }
+    let cancelled = false;
+    // One join per invite, even when React runs this effect twice (StrictMode).
+    const pending = (joining.current ??= { invite: loaded.invite, promise: joinLive(live, loaded.invite, loadConversation) });
+    if (pending.invite !== loaded.invite) {
+      joining.current = { invite: loaded.invite, promise: joinLive(live, loaded.invite, loadConversation) };
+    }
+    joining.current.promise.then(
+      ({ conversation }) => {
+        if (cancelled) return;
+        saveConversation(conversation);
+        track("live_joined", { outcome: "ok" });
+        setLoaded({
+          kind: "ok",
+          conversation,
+          saved: true,
+          notice: "You've joined this conversation. Everyone's notes and comments show up here as they're made.",
+        });
+      },
+      (e) => {
+        if (cancelled) return;
+        const reason =
+          e instanceof LiveError
+            ? e.reason === "bad_join" || e.reason === "invite_expired"
+              ? "expired"
+              : e.reason === "box_full"
+                ? "full"
+                : e.reason === "not_found"
+                  ? "gone"
+                  : e.reason === "offline"
+                    ? "offline"
+                    : "failed"
+            : "failed";
+        track("live_joined", { outcome: reason });
+        setLoaded({ kind: "join-failed", reason });
+      }
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [loaded, live]);
   // Re-resolve when the address changes from outside (a link, back/forward).
   const lastKey = useRef(location.key);
   const selfNavigation = useRef(false);
@@ -155,8 +229,17 @@ export const TalkRoute = ({ coach }: { coach?: CoachClient }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loaded]);
 
+  if (loaded.kind === "joining") {
+    return (
+      <div className="discuss-page">
+        <h1>Talk it through</h1>
+        <p role="status">Joining the conversation…</p>
+      </div>
+    );
+  }
+
   if (loaded.kind !== "ok") {
-    const message = {
+    const message = loaded.kind === "join-failed" ? JOIN_FAILED[loaded.reason] : {
       missing: "This conversation isn't saved in this browser. It may have been deleted, or saved in another browser.",
       broken: "This conversation link is damaged or incomplete. Ask for it to be sent again.",
       "too-few": "A conversation needs two or more menus. Add them on the Compare page first.",
@@ -190,8 +273,9 @@ export const TalkRoute = ({ coach }: { coach?: CoachClient }) => {
   };
 
   return (
-    <DiscussPage
+    <LiveDiscussPage
       key={conversation.id}
+      liveDeps={live}
       conversation={conversation}
       onChange={onChange}
       names={names}
@@ -208,4 +292,10 @@ export const TalkRoute = ({ coach }: { coach?: CoachClient }) => {
       onUseMenu={(u) => onChange(replaceMenu(conversation, u.index, u.slug))}
     />
   );
+};
+
+/** The page with live sharing kept in step (NT-30), when this browser has it. */
+const LiveDiscussPage = ({ liveDeps, ...props }: Parameters<typeof DiscussPage>[0] & { liveDeps?: LiveDeps }) => {
+  const live = useLive(liveDeps, props.conversation, props.onChange, platform().publicOrigin);
+  return <DiscussPage {...props} live={liveDeps ? live : undefined} />;
 };
