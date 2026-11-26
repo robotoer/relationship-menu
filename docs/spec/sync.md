@@ -145,9 +145,9 @@ sequenceDiagram
 | --- | --- | --- |
 | SY-15 | Each record is encrypted with AES-256-GCM. Every write gets a fresh random 96-bit nonce, stored in front of the ciphertext. The additional data is `"menu-sync/v1" ‖ accountId ‖ menuId ‖ version ‖ deleted`. So the server can't move a record to another menu, present an old record as a newer version, or flip the deleted flag without decryption failing. | Test (`src/sync/records.test.ts`: tamper: every byte flip, wrong menuId, wrong version, wrong flag → rejected) |
 | SY-16 | The plaintext is the whole menu document (title, encoded menu, person, created and updated times), plus the menu id, an edit id and a format version. It's padded to a multiple of 1 KiB, so the size doesn't give away how many items a menu has. | Test (`src/sync/records.test.ts`: ciphertext contains no plaintext, in raw, hex or base64 form; sizes are multiples of 1 KiB plus overhead) |
-| SY-17 | A record that fails to decrypt is skipped and counted, and sync settings show "Some synced data couldn't be read." It never replaces or deletes a local menu. | Property |
-| SY-18 | A device never accepts a lower version of a menu than one it has already seen (rollback protection). | Property |
-| SY-19 | A deletion only counts if it is an encrypted tombstone (SY-15 with `deleted = 1`). A bare "deleted" flag from the server never removes a local menu. | Property (merge, planned) + Test (`src/sync/records.test.ts`: tombstones are encrypted and bound to the deleted flag) |
+| SY-17 | A record that fails to decrypt is skipped and counted, and sync settings show "Some synced data couldn't be read." It never replaces or deletes a local menu. | Property (`sync.props`); the settings message: Test, with the UI |
+| SY-18 | A device never accepts a lower version of a menu than one it has already seen (rollback protection). | Proof (`Sync.tla` `SY18_NeverBackwards`) + Property (`sync.props`) |
+| SY-19 | A deletion only counts if it is an encrypted tombstone (SY-15 with `deleted = 1`). A bare "deleted" flag from the server never removes a local menu. | Property (`sync.props`) + Test (`src/sync/records.test.ts`: tombstones are encrypted and bound to the deleted flag) |
 
 ---
 
@@ -161,7 +161,7 @@ sequenceDiagram
 | SY-21 | Browser storage keeps one entry per menu id (`menu-v2:<id>`). Renaming keeps the id: it's an ordinary save. Nothing is deleted on rename (replaces the second half of SV-5). Two menus may share a title; the Library opens each by its id. | Proof (`Autosave.tla` `SV5_NeverRemoved`) + Property (`autosave.props`) + Test (`e2e/menu-ids.spec.ts`) |
 | SY-22 | **Server row:** `account_id, menu_id, version, seq, updated_at, deleted, ciphertext`. The nonce is the ciphertext's first 12 bytes, and the ciphertext is at most 64 KiB. Titles exist only inside the ciphertext. `seq` is the account's change counter at the time of the write. | Test (server schema) |
 | SY-23 | **Quotas per account:** 500 live menus, 64 KiB per menu, 4 MiB in total. Tombstones don't count toward these, and the server forgets them after 180 days. Over quota gets HTTP 507, and the app says "Sync storage is full. Your menus are still saved on this device." | Test (server) |
-| SY-24 | Each menu in browser storage has a **local revision** that goes up on every change, local or synced. A save says which revision it started from. A save that started from an older revision than the stored one is a conflict (SY-35), never an overwrite. | Property |
+| SY-24 | Each menu in browser storage has a **local revision** that goes up on every change, local or synced. A save says which revision it started from. A save that started from an older revision than the stored one is a conflict (SY-35), never an overwrite. | Property (`sync.props`, and stale-editor saves in its 2-device simulation) |
 
 Local sync state, per device, in localStorage:
 
@@ -217,15 +217,15 @@ When a pull brings a remote record newer than what this device has seen:
 | ID | Rule | Checked by |
 | --- | --- | --- |
 | SY-30 | **Local first.** A save writes to browser storage first (SV-10, unchanged). Sync never blocks, slows or fails a save. | Test (unit + e2e offline) |
-| SY-31 | **Push.** Changed menus are sent about 2 s after the last save, one request at a time, and retried with backoff (1 s up to 5 min) while offline. When the page is hidden, the queue is flushed with `fetch(…, {keepalive: true})`. Its 64 KB limit is why one menu is capped at 64 KiB. | Property (queue) + Test |
-| SY-32 | **Pull.** Pulls happen on load, when the tab becomes visible, every 5 minutes while it's visible, and after a rejected push. Each pull asks only for changes since the last one (`since=<seq>`), 100 rows per page. If the cursor is older than a tombstone the server has forgotten (SY-23), the reply says `resync`: the device pulls from 0 and treats synced menus that are now missing as deleted. | Test (`server/test/menus.test.ts`, `cron.test.ts`) |
+| SY-31 | **Push.** Changed menus are sent about 2 s after the last save, one request at a time, and retried with backoff (1 s up to 5 min) while offline. When the page is hidden, the queue is flushed with `fetch(…, {keepalive: true})`. Its 64 KB limit is why one menu is capped at 64 KiB. | Property (`sync.props`: queue, push delay, backoff) + Test (the `keepalive` flush, with the client) |
+| SY-32 | **Pull.** Pulls happen on load, when the tab becomes visible, every 5 minutes while it's visible, and after a rejected push. Each pull asks only for changes since the last one (`since=<seq>`), 100 rows per page. If the cursor is older than a tombstone the server has forgotten (SY-23), the reply says `resync`: the device pulls from 0 and treats synced menus that are now missing as deleted. | Test (`server/test/menus.test.ts`, `cron.test.ts`) + Property (`sync.props`: pages, `resync`, full listings) |
 | SY-33 | A synced change to a menu open in the editor with no unsaved edits replaces it in place, with a quiet "Updated on another device." If the editor has unsaved edits, SY-35 applies when they're saved. | Test (e2e) |
-| SY-34 | **Fast-forward.** A menu that hasn't changed here since its last sync takes the newer synced version. | Property |
-| SY-35 | **Conflict.** If a menu changed on this device and on another since they last synced, the newer edit (by its edit time, then device id) keeps the menu. The other is kept as a new menu titled "Title (from another device)", or "… (2)" and so on if that title is taken, using the copy logic already in `App.tsx`. Nothing is overwritten unseen. | Proof (TLC) + Property |
-| SY-36 | **Edit beats delete.** If one device deleted a menu that another changed without seeing the deletion, the change is kept and the menu comes back. A deletion only applies to the version the deleting device had. | Proof (TLC) + Property |
-| SY-37 | A write the server accepted, but whose reply was lost, is recognised by its edit id and isn't turned into a conflict copy. | Proof (TLC) + Property |
-| SY-38 | **Convergence.** Once edits stop and every device is online and has pulled, every device holds the same menus as the server. | Proof (TLC) + Property (2-device simulation) |
-| SY-39 | **No silent loss.** Every edit ends up in some menu on every device, unless a later edit or a deletion was made by a device that had already seen it. | Proof (TLC) + Property (2-device simulation) |
+| SY-34 | **Fast-forward.** A menu that hasn't changed here since its last sync takes the newer synced version. | Property (`sync.props`) |
+| SY-35 | **Conflict.** If a menu changed on this device and on another since they last synced, the newer edit (by its edit time, then device id) keeps the menu. The other is kept as a new menu titled "Title (from another device)", or "… (2)" and so on if that title is taken, using the copy logic already in `App.tsx`. Nothing is overwritten unseen. | Proof (`Sync.tla` `NoSilentLoss`) + Property (`sync.props`) |
+| SY-36 | **Edit beats delete.** If one device deleted a menu that another changed without seeing the deletion, the change is kept and the menu comes back. A deletion only applies to the version the deleting device had. | Proof (`Sync.tla` `NoSilentLoss`) + Property (`sync.props`) |
+| SY-37 | A write the server accepted, but whose reply was lost, is recognised by its edit id and isn't turned into a conflict copy. | Proof (`Sync.tla` `SY37_NoCopies`, `SyncOneWriter.cfg`) + Property (`sync.props`) |
+| SY-38 | **Convergence.** Once edits stop and every device is online and has pulled, every device holds the same menus as the server. | Proof (`Sync.tla` `SY38_Converges`, `SyncLiveness.cfg`) + Property (`sync.props`, 2-device simulation) |
+| SY-39 | **No silent loss.** Every edit ends up in some menu on every device, unless a later edit or a deletion was made by a device that had already seen it. | Proof (`Sync.tla` `NoSilentLoss`) + Property (`sync.props`, 2-device simulation) |
 
 ---
 
@@ -556,12 +556,12 @@ Things to confirm in test mode during Phase 1, before relying on it:
 
 | What | Rules | Where |
 | --- | --- | --- |
-| **TLA+ model `Sync.tla`** (new, beside `Autosave.tla`). Two devices, one server. Local edits and deletes; pushes that succeed, are rejected (412) or have their reply lost; pulls; offline periods. Each edit's content is the set of edit ids it has seen, so "lost" can be stated exactly. | SY-35…SY-39 | `docs/spec/formal/tla/Sync.tla`, run in `formal.yml` |
+| **TLA+ model `Sync.tla`** (new, beside `Autosave.tla`). Two devices, one server. Local edits and deletes; pushes that succeed, are rejected (412) or have their reply lost; pulls; offline periods. Each edit's content is the set of edit ids it has seen, so "lost" can be stated exactly. | SY-35…SY-39 | `docs/spec/formal/tla/Sync.tla` (`Sync.cfg`, `SyncLiveness.cfg`, `SyncOneWriter.cfg`), run in `formal.yml` |
 | Invariant `NoSilentLoss`: every edit made is in some live menu (on a device or the server), or in the history of a deletion or edit made by a device that had seen it. | SY-39 | ″ |
 | Liveness `Converges`: `<>[]` all devices' live menus equal the server's and nothing is dirty, under fairness on network and pull, with bounded edits. | SY-38 | ″ |
 | `Autosave.tla` updated: the save callback no longer deletes the old title. | SV-1…SV-3 | existing configs |
 | **fast-check** `src/__props__/sync.props.test.ts` | | |
-| merge is idempotent (the same pull twice = once); fast-forward; dirty content always survives (as the menu or a copy); tombstones and rollbacks without valid ciphertext are ignored | SY-17…SY-19, SY-34…SY-37 | real `sync-merge.ts` |
+| merge is idempotent (the same pull twice = once); fast-forward; dirty content always survives (as the menu or a copy); tombstones and rollbacks without valid ciphertext are ignored | SY-17…SY-19, SY-24, SY-34…SY-37 | real `src/sync/merge.ts` |
 | two simulated devices + an in-memory server, random interleavings (like `autosave.props`): converge, nothing lost | SY-38, SY-39 | real merge + push queue |
 | Crypto unit tests: HKDF RFC 5869 vectors through our wrapper; frozen derivation vectors; AES-GCM tamper and AAD tests; "ciphertext contains no plaintext" | SY-1, SY-2, SY-15, SY-16 | `src/sync-crypto.test.ts` |
 | Server: Vitest + `@cloudflare/vitest-plugin` (the renamed `vitest-pool-workers`; Miniflare, real D1): auth, If-Match, quotas, no CORS headers, rate limits, webhooks with Stripe fixture payloads, cron, no-content logging | SY-6…SY-8, SY-40…SY-46, SY-60…SY-68 | `server/test/` |

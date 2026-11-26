@@ -38,6 +38,7 @@ import { SupportPage } from "./pages/Support";
 import { DiscussPage } from "./pages/Discuss";
 import { buildAgenda, discussionKey } from "./discussion";
 import { countByFilter } from "./compare-filters";
+import { uniqueTitle } from "./unique-title";
 import {
   DecodedCompareSlug,
   decodeCompareSlug,
@@ -123,14 +124,6 @@ const sameMenu = (encoded: string, menu: RelationshipMenu): boolean => {
 
 /** The titles of saved menus. */
 const savedTitles = (saved: { [id: string]: SavedDocument }) => new Set(Object.values(saved).map((d) => d.title));
-
-/** "Title (2)", "Title (3)", ... — the first that isn't already a saved menu's title. */
-const uniqueTitle = (title: string, taken: Set<string>) => {
-  for (let n = 2; ; n++) {
-    const candidate = `${title || "Untitled"} (${n})`;
-    if (!taken.has(candidate)) return candidate;
-  }
-};
 
 /**
  * A wrapped version of the MenuPage component that handles state management and data encoding/decoding.
