@@ -1,0 +1,192 @@
+.sync-page {
+  max-width: 52rem;
+  margin: 0 auto;
+  padding: 0 1rem 3rem;
+}
+
+.sync-page h1 {
+  color: var(--c-yellow);
+  text-shadow: 3px 3px 0 var(--c-plum);
+  line-height: 1.5;
+}
+
+.sync-lead {
+  max-width: 44em;
+  font-size: 1.3rem;
+}
+
+.sync-outcome:empty {
+  display: none;
+}
+.sync-outcome {
+  padding: 0.75rem 1rem;
+  color: var(--c-ink);
+  background: var(--c-lime);
+  border: var(--line);
+}
+
+.sync-section {
+  margin-top: 2rem;
+}
+.sync-section h2 {
+  color: var(--c-cyan);
+}
+.sync-section h3 {
+  margin-top: 0.5rem;
+}
+
+.sync-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin: 0.75rem 0;
+}
+.sync-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.sync-hint {
+  color: var(--c-mist);
+  font-size: 1.05rem;
+}
+
+.sync-warning {
+  max-width: 44em;
+  padding: 0.75rem 1rem;
+  color: var(--c-ink);
+  background: var(--c-yellow);
+  border: var(--line);
+}
+
+.sync-error {
+  max-width: 44em;
+  padding: 0.5rem 0.75rem;
+  color: var(--c-white);
+  background: var(--c-red);
+  border: var(--line);
+}
+.sync-error a {
+  color: var(--c-white);
+}
+.sync-error p:last-child {
+  margin-bottom: 0;
+}
+
+.sync-notices {
+  margin: 0.5rem 0;
+  padding-left: 1.25rem;
+}
+.sync-notices li + li {
+  margin-top: 0.35rem;
+}
+
+/* The 24 words: numbered, in columns, and the numbers aren't copied along with them. */
+.sync-words {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.35rem 1.25rem;
+  margin: 1rem 0;
+  padding: 1rem 1.25rem;
+  list-style: none;
+  color: var(--c-ink);
+  background: var(--c-white);
+  border: var(--line);
+  box-shadow: var(--drop);
+  font-size: 1.3rem;
+}
+.sync-word-number {
+  display: inline-block;
+  min-width: 1.8em;
+  color: var(--c-slate);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.sync-code-panel,
+.sync-pairing,
+.sync-confirm {
+  margin: 1rem 0;
+}
+.sync-confirm {
+  padding: 1rem 1.25rem;
+  color: var(--c-ink);
+  background: var(--c-white);
+  border: var(--line);
+  box-shadow: var(--drop);
+}
+.sync-confirm-danger {
+  border-color: var(--c-red);
+  box-shadow: 6px 6px 0 0 var(--c-red);
+}
+.sync-confirm h3:focus,
+.sync-code-panel [tabindex="-1"]:focus,
+.sync-pairing [tabindex="-1"]:focus {
+  outline: none;
+}
+
+.sync-word-entry {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.4rem;
+  max-width: 40rem;
+  margin: 1rem 0;
+}
+.sync-word-entry label {
+  font-family: var(--font-pixel);
+  font-size: 0.7rem;
+  line-height: 1.6;
+}
+.sync-word-entry textarea {
+  width: 100%;
+  resize: vertical;
+}
+.sync-word-entry textarea:focus {
+  outline: var(--px) solid var(--focus);
+  outline-offset: 0;
+}
+.sync-word-entry p {
+  margin: 0;
+}
+.sync-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.sync-suggestion {
+  min-height: 36px;
+  padding: 0.25rem 0.75rem;
+  font-family: var(--font-body);
+  font-size: 1.15rem;
+  text-transform: none;
+}
+
+.sync-qr {
+  width: min(18rem, 100%);
+  margin: 1rem 0;
+  padding: 0.5rem;
+  background: #ffffff;
+  border: var(--line);
+}
+.sync-qr svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.sync-countdown-time {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 720px) {
+  .sync-words {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 420px) {
+  .sync-words {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

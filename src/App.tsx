@@ -36,6 +36,8 @@ import {
   trackOnce,
 } from "./analytics";
 import { SupportPage } from "./pages/Support";
+import { SyncSettingsRoute } from "./pages/SyncSettingsRoute";
+import { PairPage } from "./pages/Pair";
 import { DiscussPage } from "./pages/Discuss";
 import { createCoachClient } from "./coach";
 import { sameMenuContent } from "./storage";
@@ -784,6 +786,8 @@ export const App = () => {
         <Route path="/compare" element={comparePage} />
         <Route path="/discuss" element={<WrappedDiscussPage />} />
         <Route path="/support" element={<SupportPage />} />
+        <Route path="/sync" element={<SyncSettingsRoute />} />
+        <Route path="/pair" element={<PairPage />} />
         <Route path="/about" element={<Navigate to="/" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
