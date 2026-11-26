@@ -232,8 +232,8 @@ Use a separate key (ideally a separate Firebase project) per environment. To rot
 Leave everything else at None.
 
 **`STRIPE_WEBHOOK_SECRET`** is the endpoint's signing secret (`whsec_…`). Create the endpoint under Developers → Webhooks → Add endpoint:
-- URL: `https://wantsandwonts-test.<your-subdomain>.workers.dev/v1/stripe/webhook`
-- API version: `2025-03-31.basil`
+- URL: `https://wantsandwonts-test.<your-subdomain>.workers.dev/v1/stripe/webhook` in the sandbox, and `https://wantsandwonts.com/v1/stripe/webhook` in live mode (secrets with `--env production`)
+- API version: the newest `basil` release the dashboard offers (`2025-08-27.basil` for both destinations). The Worker calls the API at `2025-03-31.basil`. Releases within `basil` only add fields, so the events it reads have the same shape.
 - Events:
   - `checkout.session.completed`
   - `checkout.session.async_payment_succeeded`

@@ -629,9 +629,15 @@ What exists, and where. IDs here are not secrets: they go into `wrangler.toml`, 
 | 25 Nov 2026 | Customer Portal: change card, invoices, cancel at period end (with a reason survey), and switch between the three yearly products. Raising the amount applies now (prorated, invoiced at once); lowering it applies at renewal. | Stripe sandbox → Settings → Billing → Customer portal |
 | 25 Nov 2026 | D1 `menu-sync-test`, id `f14f5608-e4a9-4272-b136-8a5c928de807` | Cloudflare → D1 |
 | 25 Nov 2026 | D1 `menu-sync-prod`, id `be712c7e-c171-4e5b-b0cd-5a40096c0bed` | Cloudflare → D1 |
-| *to do* | Cloudflare API token (Workers + D1 edit) → GitHub secret `CLOUDFLARE_API_TOKEN`, plus `CLOUDFLARE_ACCOUNT_ID` | You, when PR 1 is ready to deploy |
-| *to do* | Stripe restricted key and webhook signing secret → `wrangler secret put` (test environment) | You, once the test Worker has a URL (end of Phase 2) |
-| *to do* | Card-statement text (decision 5) | You, before going live |
+| 26 Nov 2026 | Cloudflare API token "wantsandwonts GitHub Actions deploy": Workers Scripts and D1 edit on the account, Workers Routes edit and Zone read on `wantsandwonts.com`. It is the GitHub secret `CLOUDFLARE_API_TOKEN`, beside `CLOUDFLARE_ACCOUNT_ID`. | Cloudflare → My Profile → API Tokens; GitHub → Settings → Secrets and variables → Actions |
+| 26 Nov 2026 | Repository variable `DEPLOY_PRODUCTION` = `true`: every push to `main` now deploys production. | GitHub → Settings → Secrets and variables → Actions → Variables |
+| 26 Nov 2026 | Sandbox webhook destination `wantsandwonts-test`, to the test Worker's `/v1/stripe/webhook`, with the 5 events in `server/README.md`. Sandbox restricted key "wantsandwonts-test Worker" with the 4 permissions in `server/README.md`. Both are `wrangler secret`s in the `test` environment. | Stripe sandbox → Workbench → Webhooks, and API keys |
+| 26 Nov 2026 | Live account activation submitted, reusing the business and payout details of your other Stripe account. Public details: business name Wants & Won'ts, website `https://wantsandwonts.com`, and a support phone number used only for this. Fraud protection: Radar Lite (free). No Stripe Climate. | Stripe → Settings → Business details and Public details |
+| 26 Nov 2026 | Card-statement text (decision 5): `WANTS AND WONTS`, Stripe's suggestion. Under Managed Payments it shows as `LINK.COM* WANTS AND WONTS`. You haven't confirmed it yet; change it there for something more discreet. | Stripe → Settings → Public details |
+| 26 Nov 2026 | Products, prices (with the same lookup keys) and Managed Payments settings copied from the sandbox to live. The copy didn't bring "Include tax in prices: Yes", so it was set again in live. | Stripe → Product catalog, and Settings → Tax |
+| 26 Nov 2026 | Live Customer Portal set up as in the sandbox (see the 25 Nov row). | Stripe → Settings → Billing → Customer portal |
+| 26 Nov 2026 | Live webhook destination `wantsandwonts-production`, to `https://wantsandwonts.com/v1/stripe/webhook`, with the same 5 events. Live restricted key "wantsandwonts production Worker", with the same 4 permissions. Both are `wrangler secret`s in the `production` environment. Checked: production returns a live Checkout link for each of the 4 plans. | Stripe → Workbench → Webhooks, and API keys |
+| *to do* | A first real payment, to see the live webhook deliver (Workbench → Webhooks → Event deliveries) and the supporter heart appear | You |
 
 ---
 
