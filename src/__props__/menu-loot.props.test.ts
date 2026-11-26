@@ -4,7 +4,7 @@
 import fc from "fast-check";
 import { RARITIES } from "../insights-content";
 import { ANSWERS, menuInsights } from "../menu-insights";
-import { QUOTE_MAX, characterSheet, isSensitive, menuLoot, quote } from "../menu-loot";
+import { QUOTE_MAX, canQuote, characterSheet, menuLoot, quote } from "../menu-loot";
 import { RelationshipMenu, RelationshipMenuItemValue } from "../model/menu";
 import { answerArb, menuArb } from "./arbitraries";
 
@@ -83,7 +83,7 @@ describe("loot properties", () => {
     );
   });
 
-  it("IN-12: quotes are only non-sensitive item text with that answer, never notes, and at most 40 characters", () => {
+  it("IN-12: quotes are only item text with that answer, never notes, never a tender topic on a joke line, at most 40 characters", () => {
     fc.assert(
       fc.property(anyMenuArb, fc.integer({ min: 0, max: 20 }), (menu, variant) => {
         const loot = menuLoot(menu, menuInsights(menu), variant);
@@ -96,7 +96,7 @@ describe("loot properties", () => {
           expect(text).not.toContain(NOTE_MARK);
           const sources = items.filter(([item, value]) => value === answer && quote(item) === text);
           expect(sources.length).toBeGreaterThan(0);
-          expect(sources.some(([item]) => !isSensitive(item))).toBe(true);
+          expect(sources.some(([item, value]) => value !== undefined && canQuote(item, value))).toBe(true);
         }
         // No text is quoted twice.
         expect(new Set(quoted.map(([text]) => text)).size).toBe(quoted.length);

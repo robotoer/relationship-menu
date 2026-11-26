@@ -2,6 +2,7 @@ import { SENSITIVE_ITEMS } from "./insights-content";
 import { isTemplateItem, menuInsights } from "./menu-insights";
 import {
   QUOTE_MAX,
+  canQuote,
   characterSheet,
   isSensitive,
   levelFor,
@@ -77,6 +78,19 @@ describe("quoting (IN-12)", () => {
     }
   });
 
+  it("IN-12: tender topics can be quoted as wants, never on the Off limits or Maybe lines", () => {
+    for (const text of ["Sex", "Having or raising kids", "Talking about mental health", "Coming out to my parents"]) {
+      expect(canQuote(text, "must-have")).toBe(true);
+      expect(canQuote(text, "like-to-have")).toBe(true);
+      expect(canQuote(text, "maybe")).toBe(false);
+      expect(canQuote(text, "off-limits")).toBe(false);
+    }
+    expect(canQuote("Posting about us online", "off-limits")).toBe(true);
+    for (const text of ["Comedic timing", "Outdoor dates", "Being out about us at work", "My medication"]) {
+      expect(isSensitive(text)).toBe(text !== "Comedic timing" && text !== "Outdoor dates");
+    }
+  });
+
   it(`IN-12: quotes are cut to ${QUOTE_MAX} characters`, () => {
     expect(quote("  Holding   hands ")).toBe("Holding hands");
     const long = quote("A".repeat(60));
@@ -86,7 +100,7 @@ describe("quoting (IN-12)", () => {
 });
 
 describe("loot (IN-11)", () => {
-  it("IN-11: name, rarity, theme stats and lines, skipping sensitive items and never notes", () => {
+  it("IN-11, IN-12: name, rarity, theme stats and lines; tender topics only as wants, never notes", () => {
     const item = loot(otterMenu);
     expect(item).not.toBeNull();
     if (!item) return;
@@ -100,28 +114,29 @@ describe("loot (IN-11)", () => {
     ]);
     expect(item.lines).toEqual([
       { answer: "must-have", text: "Cuddling" },
-      { answer: "must-have", text: "Kissing" },
+      { answer: "must-have", text: "Sex" },
       { answer: "like-to-have", text: "Shared cooking" },
       { answer: "maybe", text: "Meeting family" },
       { answer: "off-limits", text: "Posting about us online" },
     ]);
-    expect(JSON.stringify(item)).not.toMatch(/Sex|kids|secret note/);
+    // "Having or raising kids" is Off limits, so it's never "Immune to".
+    expect(JSON.stringify(item)).not.toMatch(/kids|secret note/);
   });
 
   it("IN-11: Roll again changes the words and which items are quoted, nothing else", () => {
     const first = loot(otterMenu, 0);
     const second = loot(otterMenu, 1);
     expect(second && lootName(second)).toBe("Blazing Weighted Blanket of Cuddling");
-    expect(second?.lines.slice(0, 2).map((l) => l.text)).toEqual(["Kissing", "Hugging"]);
+    expect(second?.lines.slice(0, 2).map((l) => l.text)).toEqual(["Sex", "Kissing"]);
     expect(loot(otterMenu, 3)?.base).toBe("Cuddle Gauntlets");
     expect(second?.rarity).toBe(first?.rarity);
     expect(second?.themeStats).toEqual(first?.themeStats);
   });
 
-  it("IN-11: with no Must have to quote, the phrase of the streak's theme (or the animal's)", () => {
+  it("IN-11: with no Must haves, the phrase of the streak's theme (or the animal's)", () => {
     const menu: RelationshipMenu = {
       A: [
-        { item: "Sex", value: "must-have" },
+        { item: "Sex", value: "like-to-have" },
         { item: "Kissing", value: "like-to-have" },
         { item: "Hugging", value: "like-to-have" },
         { item: "Shared cooking", value: "like-to-have" },

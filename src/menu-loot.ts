@@ -24,9 +24,19 @@ export const MAX_LEVEL = 20;
 
 const SENSITIVE_LOOKUP = new Set(SENSITIVE_ITEMS.map(normalizeText));
 
-/** IN-12: a flagged template item, or own text that looks sensitive. */
+/** IN-12: a flagged template item, or own text on a tender topic. */
 export const isSensitive = (text: string) =>
   SENSITIVE_LOOKUP.has(normalizeText(text)) || SENSITIVE_KEYWORDS.test(text);
+
+/**
+ * IN-12: the lines where a quote could read as a dig ("Immune to", "Unidentified").
+ * Tender topics are quoted only as things wanted, never here.
+ */
+export const JOKE_LINES: readonly RelationshipMenuItemValue[] = ["maybe", "off-limits"];
+
+/** Whether this item may be quoted on the line for its answer (IN-12). */
+export const canQuote = (text: string, answer: RelationshipMenuItemValue) =>
+  !(JOKE_LINES.includes(answer) && isSensitive(text));
 
 /** Single spaces, cut to QUOTE_MAX characters with "…" (IN-12). */
 export const quote = (text: string) => {
@@ -105,7 +115,7 @@ export const menuLoot = (menu: RelationshipMenu, insights: MenuInsights, variant
     if (!Array.isArray(items)) continue;
     for (const entry of items) {
       if (!entry || typeof entry.item !== "string" || !entry.item.trim()) continue;
-      if (!isAnswer(entry.value) || isSensitive(entry.item)) continue;
+      if (!isAnswer(entry.value) || !canQuote(entry.item, entry.value)) continue;
       // By the quote itself, so two long items cut to the same text count once.
       const text = quote(entry.item);
       const key = normalizeText(text);
