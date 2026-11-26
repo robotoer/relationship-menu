@@ -1,8 +1,8 @@
 .app {
   min-height: 100vh;
   /* Notches, rounded corners and the home indicator (viewport-fit=cover). */
-  padding: 0 env(safe-area-inset-right, 0px) calc(3rem + env(safe-area-inset-bottom, 0px))
-    env(safe-area-inset-left, 0px);
+  padding: 0 var(--inset-right) calc(3rem + var(--inset-bottom))
+    var(--inset-left);
 }
 
 /* Page container used by every route. */

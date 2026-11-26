@@ -5,8 +5,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: calc(16px + env(safe-area-inset-top, 0px)) calc(16px + env(safe-area-inset-right, 0px))
-    calc(16px + env(safe-area-inset-bottom, 0px)) calc(16px + env(safe-area-inset-left, 0px));
+  padding: calc(16px + var(--inset-top)) calc(16px + var(--inset-right))
+    calc(16px + var(--inset-bottom)) calc(16px + var(--inset-left));
   background: rgba(26, 28, 44, 0.85);
 }
 

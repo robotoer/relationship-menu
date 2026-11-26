@@ -3,6 +3,13 @@
  * buttons, labels) and VT323 (body text), both self-hosted via @fontsource.
  */
 :root {
+  /* Space kept clear of notches, rounded corners and the home indicator
+     (index.html sets viewport-fit=cover). An app host may provide
+     --safe-area-inset-* where env() is unreliable (older Android WebViews). */
+  --inset-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  --inset-right: var(--safe-area-inset-right, env(safe-area-inset-right, 0px));
+  --inset-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+  --inset-left: var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
   --c-ink: #1a1c2c;
   --c-plum: #5d275d;
   --c-red: #b13e53;
