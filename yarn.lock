@@ -657,6 +657,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"fake-indexeddb@npm:^6.2.8":
+  version: 6.2.8
+  resolution: "fake-indexeddb@npm:6.2.8"
+  checksum: 10c0/69a85018a3a714e81ae88d9294ab54ed73f83a23dd28b926d41dabf892a939dd029207e8f2dca1238ed5ebde75f1971a7a8ab14f773d5fad396923e117b6e8fe
+  languageName: node
+  linkType: hard
+
 "fast-check@npm:^4":
   version: 4.11.0
   resolution: "fast-check@npm:4.11.0"
@@ -1205,6 +1212,7 @@ __metadata:
     "@types/react": "npm:^19.3.2"
     "@types/react-dom": "npm:^19.3.0"
     "@vitejs/plugin-react": "npm:^6.3.0"
+    fake-indexeddb: "npm:^6.2.8"
     fast-check: "npm:^4"
     jsdom: "npm:^31.0.1"
     pako: "npm:^2.1.0"

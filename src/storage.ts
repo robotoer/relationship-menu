@@ -1,5 +1,6 @@
 import { RelationshipMenuDocument } from "./model/menu";
 import { sanitizePerson } from "./compare-slug";
+import { ipfsPointerCid, recoverIpfsMenus } from "./ipfs-recovery";
 
 /**
  * Represents a storage interface for managing RelationshipMenuDocuments.
@@ -17,6 +18,8 @@ export type Storage = {
  * A menu document stored under a `menu:` key in localStorage. Formats, all still read:
  * - Current: key `menu:<title>`, value JSON `{ title, encoded, savedAt, ... }`.
  * - Older IPFS-era copies: key `menu:<CID>` or `menu:pending:<title>`, same JSON.
+ * - IPFS-era pointers (July 2024 to March 2026): key `menu:<CID>`, value only a date;
+ *   the menu itself was in IndexedDB. Hidden until recovered (SY-91, ipfs-recovery.ts).
  * - Oldest: key `menu:<title>`, value is the encoded menu itself.
  * When a title has several entries, the most recently saved wins, and the next
  * save removes the others.
@@ -34,6 +37,10 @@ export const parseLocalMenuEntry = (
   value: string | null
 ): LocalMenuEntry | null => {
   if (!key.startsWith("menu:") || value === null) {
+    return null;
+  }
+  // An IPFS-era pointer isn't a menu by itself; recovery turns it into one (SY-91).
+  if (ipfsPointerCid(key, value)) {
     return null;
   }
   try {
@@ -139,8 +146,15 @@ export const localStorageDeleteDocument = async (title: string) => {
  * @returns The local storage object.
  */
 export const createLocalStorage = (): Storage => {
+  // Before the first read, bring back menus only the IPFS version kept (SY-91).
+  // Never fails: if IndexedDB is unavailable, those menus just stay hidden.
+  let recovery: Promise<unknown> | null = null;
+  const recovered = () => (recovery ??= recoverIpfsMenus().catch(() => 0));
   return {
-    getDocuments: localStorageGetDocuments,
+    getDocuments: async (id?: string) => {
+      await recovered();
+      return localStorageGetDocuments(id);
+    },
     saveDocuments: localStorageSaveDocuments,
     deleteDocument: localStorageDeleteDocument,
   };

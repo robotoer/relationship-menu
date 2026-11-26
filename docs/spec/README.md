@@ -188,7 +188,7 @@ sequenceDiagram
 | SV-6 | Storage keeps one entry per title. When older duplicates exist, the most recently saved wins. | [Property](../../src/__props__/links-keyboard-library.props.test.ts) |
 | SV-7 | A menu is never saved under a title that belongs to a different saved menu; the editor says "Another menu already has this title" until it's renamed. | Test |
 | SV-8 | `createdAt` is set on the first save and never changes; `updatedAt` is set on every save. | Test |
-| SV-9 | Menus saved by older versions (raw `menu:<title>` entries, and IPFS-era `menu:<CID>` / `menu:pending:<title>` copies) are listed like any other; the next save of that menu tidies the old copies away. | Test |
+| SV-9 | Menus saved by older versions (raw `menu:<title>` entries, and IPFS-era `menu:<CID>` / `menu:pending:<title>` copies) are listed like any other; the next save of that menu tidies the old copies away. Menus the IPFS version kept only in its IndexedDB block store (saved July 2024 – March 2026, with just a date in browser storage) are read back from that store before the Library first loads, and are never shown as unreadable entries; the old store itself is left untouched ([SY-91, SY-92](sync.md#11-moving-off-ipfs)). | Test (unit + e2e) |
 | SV-10 | Saving writes to browser storage synchronously, so leaving or closing the page right after a save can't lose it. | Test |
 | LB-1 | The library shows each menu's title (or "Untitled menu"), person, item and group counts, answered progress, and edited/created dates when known. | Test |
 | LB-2 | Search matches title, person or item text, ignoring case. Sort by recently edited, newest, or title. Menus without dates sort last. | [Property](../../src/__props__/links-keyboard-library.props.test.ts) |
@@ -347,7 +347,7 @@ flowchart LR
 | Keyboard | KB-6, KB-7 | Test | `Menu.test.tsx`, `ShareDialog.test.tsx`, e2e |
 | Saving | SV-1, SV-2, SV-3, SV-5 | **Proof** (TLC, all interleavings up to the bounds) + Property | [`Autosave.tla`](formal/tla/Autosave.tla), [`autosave.props`](../../src/__props__/autosave.props.test.ts) |
 | Saving | SV-6 | Property | links-keyboard-library props |
-| Saving | SV-4, SV-7, SV-8, SV-9, SV-10 | Test | `storage.test.ts`, `App.test.tsx`, e2e |
+| Saving | SV-4, SV-7, SV-8, SV-9, SV-10 | Test | `storage.test.ts`, `ipfs-recovery.test.ts`, `App.test.tsx`, e2e (`ipfs-recovery.spec.ts`) |
 | Library | LB-2 | Property | links-keyboard-library props |
 | Library | LB-1, LB-3 | Test | `Library.test.tsx`, e2e |
 | Links | LK-1…LK-5, LK-9 | Property (incl. arbitrary junk input) | links-keyboard-library props |
@@ -361,6 +361,7 @@ flowchart LR
 
 | Found by | Bug | Fix |
 | --- | --- | --- |
+| Review (sync plan, Nov 2026) | After IPFS was removed, menus that the IPFS version had kept only in IndexedDB (browser storage held just a date under `menu:<CID>`) showed up in the Library as unreadable entries titled with a CID; their content was no longer read. | Read them back from the old block store with plain IndexedDB, checking each block's hash, and hide pointers that can't be resolved (SV-9, SY-91). |
 | e2e (analytics test) | An edit saved while the IPFS node was busy was lost if the page was closed or left during the save: the browser-storage copy was only written after the IPFS write finished. | Write the browser-storage copy first; later IPFS was removed altogether, so saves are now synchronous (SV-10). |
 | Property CP-1 | A group named `__proto__` vanished from Compare, from opened links and from the library's in-memory list. | Prototype-free objects in `data-comparer.ts`, `compare-slug.ts`, `providers/Storage.tsx`. |
 | Property LK-4 | A pasted link whose slug ended in `+` didn't open (the `+` arrived as a space and was trimmed off). | Restore `+` before trimming (`compare-slug.ts`). |
