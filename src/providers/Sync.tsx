@@ -26,6 +26,7 @@ export const SyncProvider = ({ runtime, children }: { runtime: SyncRuntime; chil
       offerPairing: runtime.offerPairing,
       turnOff: runtime.turnOff,
       replaceCode: runtime.replaceCode,
+      deleteSyncedMenus: runtime.deleteSyncedMenus,
       deleteSyncedData: runtime.deleteSyncedData,
       checkout: runtime.checkout,
       manageSubscription: runtime.manageSubscription,

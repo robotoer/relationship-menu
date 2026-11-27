@@ -48,7 +48,7 @@ In the drafts, `[FILL IN: …]` needs your details or a decision, and `[LAWYER: 
 
 These were written from [the plan](../spec/sync.md) and the server code. The sync client, checkout and the move to the new address weren't built then. Confirm each of these in what actually ships:
 
-- The labels **Show my sync code**, **Replace sync code**, **Turn off sync on this device**, **Manage subscription** and **Delete my synced data**.
+- The labels **Show my sync code**, **Replace sync code**, **Turn off sync on this device**, **Manage subscription**, **Delete synced menus** and **Delete my account**.
 - The lapse warning 30 days before deletion.
 - The browser check before checkout ([SY-14](../spec/sync.md#3-adding-a-device-and-restoring)).
 - The hand-off page on the old address has no analytics or payments ([HO-8](../spec/sync.md#12-hosting-domain-and-name)).
@@ -60,5 +60,5 @@ These were written from [the plan](../spec/sync.md) and the server code. The syn
 ## Gaps found while writing
 
 - **Menu links reach the web host.** The menu is in the `?encoded=` part of the address, so the host receives it when a link is opened. The [threat model](../spec/sync.md#10-privacy-and-threat-model) doesn't list this, and the Support page's "menus never leave your browser unless you choose to share them" is true only with that "unless". The privacy policy says it plainly.
-- **Refunds don't change supporter status by themselves.** The server doesn't listen for refund or dispute events, so a refunded lifetime payment stays lifetime.
-- **Deleting synced data loses lifetime status**, and there's no way back in the code. The app should warn about this before deleting.
+- **Refunds and disputes:** full refunds and new disputes now make supporter accounts read-only without deleting menus. A won dispute restores status; partial refunds don't change it.
+- **Deletion is now split:** deleting synced menus keeps supporter status and billing. Deleting the whole account cancels billing and ends lifetime status, with a warning.

@@ -47,6 +47,7 @@ Authorization: MenuSync v1 account=<id>, key=<pubkey>, ts=<unix seconds>, sig=<s
 | `DELETE /v1/account` | | 204 | 502 if Stripe can't cancel (nothing is deleted) |
 | `POST /v1/account/rotate` | `{key, proof}`, where `proof` is the new key's signature over `menu-sync/v1\nrotate\n<old id>\n<new id>\n<ts>` | `{accountId}` | 401, 402, 409, 503 `rotation_too_slow` (it commits within 60 s of arriving, or not at all) |
 | `GET /v1/menus?since=<seq>[&full=1]` | | `{menus:[{id, version, seq, deleted, updatedAt, ciphertext}], next, more, resync, purged}` | 402 |
+| `DELETE /v1/menus` | | 204; synced content deleted, account and billing kept | |
 | `PUT /v1/menus/:id` | ciphertext ≤ 64 KiB, with `If-None-Match: *` (new) or `If-Match: "<version>"` | `{version, seq}` | 402 `not_supporter` / `read_only`, 412 `{current}`, 413, 428, 507 |
 | `DELETE /v1/menus/:id` | encrypted tombstone ≤ 4 KiB, with `If-Match` | `{version, seq}` | as for PUT |
 | `POST /v1/checkout` | `{plan}`: one of `supporter_{6,12,24}_yearly` or `supporter_30_lifetime` | `{url}` | 400, 409 `already_supporter` |
@@ -228,6 +229,7 @@ Use a separate key (ideally a separate Firebase project) per environment. To rot
 - Checkout Sessions: Write
 - Customer portal: Write
 - Subscriptions: Write
+- Charges: Read (to connect dispute events to the supporter account)
 
 Leave everything else at None.
 
@@ -240,6 +242,12 @@ Leave everything else at None.
   - `customer.subscription.updated`
   - `customer.subscription.deleted`
   - `invoice.payment_failed`
+  - `invoice.payment_succeeded`
+  - `charge.refunded`
+  - `charge.dispute.created`
+  - `charge.dispute.closed`
+
+The last four plus full `charge.refunded` events keep refunded or disputed accounts read-only without deleting menus. A partial refund doesn't change supporter status.
 
 **`OPENROUTER_API_KEY`** is only for the AI coach, which also needs `COACH_ENABLED = "true"` in the environment's vars. It's an [OpenRouter](https://openrouter.ai) API key; give it a monthly credit limit. See [`docs/spec/coach.md`](../docs/spec/coach.md) ("Before switching it on").
 

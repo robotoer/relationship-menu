@@ -16,7 +16,7 @@ describe("SY-40: routing", () => {
     expect((await device.fetch("GET", "/v1/nope")).status).toBe(404);
     const wrong = await device.fetch("POST", "/v1/menus");
     expect(wrong.status).toBe(405);
-    expect(wrong.headers.get("allow")).toBe("GET");
+    expect(wrong.headers.get("allow")).toBe("DELETE, GET");
   });
 
   it("serves a health check without auth or D1 (SY-46)", async () => {

@@ -810,6 +810,18 @@ export const createSyncRuntime = (options: RuntimeOptions = {}): SyncRuntime => 
       }
     },
 
+    deleteSyncedMenus: async () => {
+      await rotation?.catch(() => undefined);
+      if (readNextSecret(kv)) throw new SyncError("code_unconfirmed", "The new sync code isn't confirmed yet.");
+      const on = requireOn();
+      try {
+        await on.api.deleteMenus();
+      } catch (error) {
+        throw toSyncError(error);
+      }
+      await actions.turnOff();
+    },
+
     deleteSyncedData: async () => {
       await rotation?.catch(() => undefined);
       if (readNextSecret(kv)) throw new SyncError("code_unconfirmed", "The new sync code isn't confirmed yet.");

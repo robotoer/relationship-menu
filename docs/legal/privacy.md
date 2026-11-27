@@ -157,20 +157,13 @@ Our database provider may keep recovery copies for a short time after data is de
 
 ## Deleting everything
 
-**Synced data:** choose **Delete my synced data** in the app. It:
+**Synced data:** choose **Delete synced menus** in the app. It deletes your synced menus and hosted live conversations, but keeps your account, supporter status and any subscription. It turns off sync on that device. Other devices keep their local menus and take a fresh, empty server listing.
 
-1. cancels any subscription, so you aren't charged again;
-2. deletes your synced menus and account record at once;
-3. turns off sync on that device.
+To delete the account itself, choose **Delete my account**. This also cancels any subscription, deletes the account record and ends lifetime supporter status. If the subscription can't be cancelled just then, nothing is deleted, so you can try again.
 
-If the subscription can't be cancelled just then, nothing is deleted, so you can try again.
+Menus on your devices stay in either case. Delete them in the app or clear the site's data on each device. Turning sync on again can upload menus kept on a device.
 
-Menus on your devices stay. Delete them in the app or clear the site's data on each device.
-
-Two things to know:
-
-- Deleting a **lifetime** supporter account ends the lifetime status. `[FILL IN: whether and how it can be restored.]`
-- **Turn off sync on this device** is different. It only removes the code from that device. Your synced menus and your subscription stay.
+**Turn off sync on this device** is different. It only removes the code from that device. Your synced menus and your subscription stay.
 
 **Payment records** are not deleted by us. Stripe and Link hold them. You can ask Stripe to delete your information for Managed Payments purchases, including your Link account. Stripe says this also cancels subscriptions bought that way. Start at [Link support](https://support.link.com/topics/sold-through-link) `[FILL IN: confirm the deletion request page or privacy email]`. Some records may be kept where the law requires.
 
@@ -179,7 +172,7 @@ Two things to know:
 Depending on where you live, you may have the right to see, correct, delete or export your data, to object to or limit its use, and to complain to a regulator.
 
 - Your menus are already with you. You can read, edit, copy as links and delete them in the app.
-- **Delete my synced data** works without contacting us.
+- **Delete synced menus** and **Delete my account** work without contacting us.
 - We don't know who owns which account. To act on a request, we may need you to make it from a device that has your sync code, or to give us a Stripe receipt.
 
 Contact `[FILL IN: privacy contact email]`.

@@ -4,6 +4,7 @@ import {
   Device,
   accountRow,
   call,
+  createMenu,
   env,
   event,
   mockStripe,
@@ -165,6 +166,18 @@ describe("SY-62: webhooks", () => {
     expect((await device.fetch("GET", "/v1/menus?since=0")).status).toBe(200);
   });
 
+  it("SY-64: keeps Stripe's cancel-at-period-end flag for the renewal wording", async () => {
+    const device = await Device.create();
+    await seedAccount(device.accountId, "active", { stripe_subscription_id: "sub_cancel", stripe_customer_id: "cus_cancel" });
+    mockStripe({
+      "GET /v1/subscriptions/sub_cancel": () =>
+        subscription({ id: "sub_cancel", customer: "cus_cancel", account_id: device.accountId, cancel_at_period_end: true }),
+    });
+    await call(await webhookRequest(event("customer.subscription.updated", subscription({ id: "sub_cancel" }))));
+    expect(await accountRow(device.accountId)).toMatchObject({ status: "active", cancel_at_period_end: 1 });
+    expect(await (await device.fetch("GET", "/v1/account")).json()).toMatchObject({ cancelAtPeriodEnd: true });
+  });
+
   it("checkout.session.completed (payment) makes a lifetime supporter, and stops any yearly renewal", async () => {
     const device = await Device.create();
     await seedAccount(device.accountId, "active", { stripe_subscription_id: "sub_yearly", stripe_customer_id: "cus_l" });
@@ -239,6 +252,62 @@ describe("SY-62: webhooks", () => {
     expect(await accountRow(device.accountId)).toMatchObject({ status: "lapsed", lapsed_at: 1000 });
   });
 
+  it("SY-62: a full refund makes even lifetime read-only; a partial refund doesn't", async () => {
+    const device = await Device.create();
+    await seedAccount(device.accountId, "lifetime", { stripe_customer_id: "cus_refund" });
+    await createMenu(device);
+    mockStripe({});
+    const charge = { object: "charge", id: "ch_refund", customer: "cus_refund", amount: 3000 };
+    await call(await webhookRequest(event("charge.refunded", { ...charge, amount_refunded: 500 })));
+    expect(await accountRow(device.accountId)).toMatchObject({ status: "lifetime" });
+    await call(await webhookRequest(event("charge.refunded", { ...charge, amount_refunded: 3000 })));
+    expect(await accountRow(device.accountId)).toMatchObject({ status: "lapsed" });
+    expect((await device.fetch("GET", "/v1/menus?since=0")).status).toBe(200);
+    const write = await device.fetch("PUT", "/v1/menus/AAAAAAAAAAAAAAAAAAAAAA", {
+      body: new Uint8Array(64),
+      headers: { "if-none-match": "*" },
+    });
+    expect(write.status).toBe(402);
+  });
+
+  it("SY-62: a dispute hold isn't lifted by an unrelated update, only by a successful invoice", async () => {
+    const device = await Device.create();
+    await seedAccount(device.accountId, "active", { stripe_customer_id: "cus_dispute", stripe_subscription_id: "sub_dispute" });
+    mockStripe({
+      "GET /v1/charges/ch_dispute": () => ({ id: "ch_dispute", customer: "cus_dispute", amount: 600, amount_refunded: 0 }),
+      "GET /v1/subscriptions/sub_dispute": () =>
+        subscription({ id: "sub_dispute", status: "active", customer: "cus_dispute", account_id: device.accountId }),
+    });
+    const dispute = { object: "dispute", id: "dp_dispute", charge: "ch_dispute", status: "needs_response" };
+    await call(await webhookRequest(event("charge.dispute.created", dispute)));
+    expect(await accountRow(device.accountId)).toMatchObject({ status: "lapsed" });
+
+    await call(await webhookRequest(event("customer.subscription.updated", subscription({ id: "sub_dispute", status: "active" }))));
+    expect(await accountRow(device.accountId)).toMatchObject({ status: "lapsed" });
+
+    await call(
+      await webhookRequest(
+        event("invoice.payment_succeeded", {
+          object: "invoice",
+          parent: { type: "subscription_details", subscription_details: { subscription: "sub_dispute" } },
+        })
+      )
+    );
+    expect(await accountRow(device.accountId)).toMatchObject({ status: "active" });
+  });
+
+  it("SY-62: winning a lifetime dispute restores supporter status", async () => {
+    const device = await Device.create();
+    await seedAccount(device.accountId, "lifetime", { stripe_customer_id: "cus_won" });
+    mockStripe({
+      "GET /v1/charges/ch_won": () => ({ id: "ch_won", customer: "cus_won", amount: 3000, amount_refunded: 0 }),
+    });
+    await call(await webhookRequest(event("charge.dispute.created", { object: "dispute", charge: "ch_won", status: "needs_response" })));
+    expect(await accountRow(device.accountId)).toMatchObject({ status: "lapsed" });
+    await call(await webhookRequest(event("charge.dispute.closed", { object: "dispute", charge: "ch_won", status: "won" })));
+    expect(await accountRow(device.accountId)).toMatchObject({ status: "lifetime" });
+  });
+
   it("handles each event id once", async () => {
     const device = await Device.create();
     await seedAccount(device.accountId, "active", { stripe_subscription_id: "sub_dup" });
@@ -288,6 +357,7 @@ describe("SY-63: the server stores no personal details", () => {
         "created_at",
         "lapsed_at",
         "paid_through",
+        "cancel_at_period_end",
         "plan",
         "purged_seq",
         "seq",

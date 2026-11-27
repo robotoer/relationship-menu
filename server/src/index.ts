@@ -4,7 +4,7 @@
  * docs/spec/notifications.md); each handler names the rules it implements.
  */
 
-import { deleteAccount, getAccountStatus, rotateAccount } from "./accounts";
+import { deleteAccount, deleteSyncedMenus, getAccountStatus, rotateAccount } from "./accounts";
 import { authenticate, authenticateMember, type Caller } from "./auth";
 import { handleWebhook, openPortal, startCheckout } from "./billing";
 import { createBox, deleteBox, joinBox, leaveBox, listCopies, loadMember, newInvite, putCopy, type Background, type Member } from "./boxes";
@@ -63,6 +63,10 @@ const ROUTES: Route[] = [
   {
     pattern: "DELETE /v1/account", method: "DELETE", path: /^\/v1\/account$/, maxBody: 0, auth: "sensitive",
     handle: ({ env }, _b, caller) => deleteAccount(env, signed(caller)),
+  },
+  {
+    pattern: "DELETE /v1/menus", method: "DELETE", path: /^\/v1\/menus$/, maxBody: 0, auth: "sensitive",
+    handle: ({ env }, _b, caller) => deleteSyncedMenus(env, signed(caller)),
   },
   {
     pattern: "POST /v1/account/rotate", method: "POST", path: /^\/v1\/account\/rotate$/, maxBody: LIMITS.jsonBytes, auth: "sensitive",

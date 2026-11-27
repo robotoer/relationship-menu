@@ -76,6 +76,7 @@ export const parseAccount = (value: unknown): SyncAccount => {
     status,
     plan: PLANS.find((p) => p === v.plan) ?? null,
     renewsAt: numOrNull(v.renewsAt),
+    cancelAtPeriodEnd: v.cancelAtPeriodEnd === true,
     readOnly: typeof v.readOnly === "boolean" ? v.readOnly : status === "none" || status === "lapsed",
     lapsedAt: numOrNull(v.lapsedAt),
     purgeAt: numOrNull(v.purgeAt),
@@ -254,7 +255,12 @@ export const createApi = (keys: Signer, options: ApiOptions = {}) => {
       return next.accountId;
     },
 
-    /** `DELETE /v1/account` (SY-68). */
+    /** `DELETE /v1/menus`: delete synced content, keeping the account and billing (SY-68). */
+    deleteMenus: async (): Promise<void> => {
+      await send("DELETE", "/v1/menus");
+    },
+
+    /** `DELETE /v1/account`: delete the account too, cancelling any subscription (SY-68). */
     deleteAccount: async (): Promise<void> => {
       await send("DELETE", "/v1/account");
     },

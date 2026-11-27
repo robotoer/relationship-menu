@@ -114,14 +114,15 @@ const SupporterStatus = ({
     return <p>You're a lifetime supporter. There's nothing to renew. Thank you!</p>;
   }
   const option = optionFor(account.plan);
-  // TODO(sync interface): `renewsAt` is the renewal date, or the end date if the plan
-  // was cancelled, and `SyncAccount` doesn't say which. "Paid through" is true either
-  // way; with a cancel-at-period-end flag this could say "Renews on" or "Ends on".
   return (
     <>
       <p>
         You're supporting at {option ? `$${option.amount} a year` : "a yearly amount"}.
-        {account.renewsAt !== null && <> Paid through {formatDate(account.renewsAt)}.</>}
+        {account.renewsAt !== null && (
+          <>
+            {" "}{account.cancelAtPeriodEnd ? "Ends" : "Renews"} on {formatDate(account.renewsAt)}.
+          </>
+        )}
       </p>
       {account.status === "past_due" && (
         <p>

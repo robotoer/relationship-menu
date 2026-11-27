@@ -478,6 +478,31 @@ describe("SY-8: replacing the sync code", () => {
 });
 
 describe("SY-68: deleting synced data", () => {
+  test("menu-only deletion keeps supporter status, and another device doesn't recreate the server copies", async () => {
+    const a = makeDevice(server);
+    const b = makeDevice(server);
+    await b.runtime.start();
+    a.save(menu(ID(1), "Ours"));
+    const accountId = await supporter(server, a);
+    await settle();
+    await b.runtime.restore((await a.runtime.syncCode()).join(" "));
+    await settle();
+    expect(b.menus().map((m) => m.title)).toEqual(["Ours"]);
+
+    await a.runtime.deleteSyncedMenus();
+    expect(server.accounts.has(accountId)).toBe(true);
+    expect(server.liveMenuIds(accountId)).toEqual([]);
+    expect(server.accounts.get(accountId)?.status).toBe("active");
+    expect(a.runtime.getState()).toEqual({ kind: "off" });
+    expect(a.menus().map((m) => m.title)).toEqual(["Ours"]);
+
+    // B's old server versions must not recreate the deleted rows: the advanced
+    // purge marker makes it take a fresh, empty listing instead.
+    await settle();
+    expect(server.liveMenuIds(accountId)).toEqual([]);
+    expect(b.menus().map((m) => m.title)).toEqual(["Ours"]);
+  });
+
   test("the account and its menus go from the server, sync turns off here, and local menus stay", async () => {
     const a = makeDevice(server);
     a.save(menu(ID(1), "Ours"));
