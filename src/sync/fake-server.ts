@@ -86,6 +86,7 @@ export const createFakeServer = (options: { now?: () => number } = {}) => {
       status: a.status,
       plan: a.plan,
       renewsAt: a.status === "lifetime" ? null : now() + 365 * 86_400_000,
+      cancelAtPeriodEnd: false,
       readOnly: !writable(a.status),
       lapsedAt: a.status === "lapsed" ? now() : null,
       purgeAt: a.status === "lapsed" ? now() + 365 * 86_400_000 : null,
@@ -115,6 +116,15 @@ export const createFakeServer = (options: { now?: () => number } = {}) => {
     const requireAccount = () => (a && a.status !== "none" ? a : null);
 
     if (method === "GET" && path === "/v1/account") return json(200, accountJson(a));
+
+    if (method === "DELETE" && path === "/v1/menus") {
+      if (a) {
+        a.menus.clear();
+        a.seq += 1;
+        a.purgedSeq = a.seq;
+      }
+      return new Response(null, { status: 204 });
+    }
 
     if (method === "GET" && path === "/v1/menus") {
       const acc = requireAccount();

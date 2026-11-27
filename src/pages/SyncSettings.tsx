@@ -465,7 +465,9 @@ const AccountStatus = ({ account }: { account: SyncAccount | null }) => {
           <p>
             You're a supporter. Thank you!
             {account.plan && ` Your plan: ${PLAN_TEXT[account.plan]}`}
-            {account.plan && account.renewsAt !== null && `, paid through ${formatDate(account.renewsAt)}`}
+            {account.plan &&
+              account.renewsAt !== null &&
+              `, ${account.cancelAtPeriodEnd ? "ends" : "renews"} on ${formatDate(account.renewsAt)}`}
             {account.plan && "."}
           </p>
           {purgeWarning}
@@ -806,20 +808,41 @@ const SyncOn = ({
             <p>Your other devices stop syncing until you enter the new code on each of them. Their menus stay.</p>
           </ConfirmAction>
           <ConfirmAction
-            label="Delete my synced data"
-            title="Delete your synced data?"
-            confirmLabel="Delete my synced data"
+            label="Delete synced menus"
+            title="Delete your synced menus?"
+            confirmLabel="Delete synced menus"
             danger
             onConfirm={async () => {
-              await sync.deleteSyncedData();
+              await sync.deleteSyncedMenus();
               announce(
-                "Your synced data is deleted, and sync is off on this device. Your menus are still on this device."
+                "Your synced menus are deleted, and sync is off on this device. Your supporter status is unchanged."
               );
             }}
           >
             <p>
-              <strong>This can't be undone.</strong> Every synced menu and your sync account are deleted from our
-              server now, and sync turns off on this device.
+              <strong>This can't be undone.</strong> Every synced menu and live conversation hosted by this account
+              is deleted from our server now, and sync turns off on this device.
+            </p>
+            <p>
+              Menus on this and your other devices stay. Your supporter status and any subscription stay active.
+              Turning sync on again can upload the menus kept on a device.
+            </p>
+          </ConfirmAction>
+          <ConfirmAction
+            label="Delete my account"
+            title="Delete your account and supporter status?"
+            confirmLabel="Delete my account"
+            danger
+            onConfirm={async () => {
+              await sync.deleteSyncedData();
+              announce(
+                "Your account and synced data are deleted, and sync is off on this device. Your menus are still on this device."
+              );
+            }}
+          >
+            <p>
+              <strong>This can't be undone.</strong> Every synced menu, live conversation and your sync account are
+              deleted from our server now, and sync turns off on this device.
             </p>
             <p>
               Menus on this device stay. Your other devices keep their menus, but stop syncing. Any subscription is

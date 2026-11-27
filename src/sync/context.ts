@@ -28,6 +28,8 @@ export type SyncAccount = {
   plan: CheckoutPlan | null;
   /** When a yearly plan renews, or ends if it was cancelled. Null for lifetime and `none`. */
   renewsAt: number | null;
+  /** True when the yearly plan ends at `renewsAt` instead of renewing then. */
+  cancelAtPeriodEnd: boolean;
   /** The server refuses pushes: no supporter status, or lapsed (SY-66). Pulls still work. */
   readOnly: boolean;
   lapsedAt: number | null;
@@ -149,6 +151,8 @@ export type SyncActions = {
   turnOff(): Promise<void>;
   /** Replaces the sync code (SY-8). Other devices then need the new code. */
   replaceCode(): Promise<void>;
+  /** Deletes synced content but keeps supporter status and billing, then turns off sync here (SY-68). */
+  deleteSyncedMenus(): Promise<void>;
   /** Deletes every synced menu and the account, cancels any subscription, and turns off sync here (SY-68). */
   deleteSyncedData(): Promise<void>;
   /** A Stripe Checkout URL for `plan` (SY-61). Turns sync on with a new code first if it's off. */
@@ -179,6 +183,7 @@ export const NO_SYNC: SyncContextValue = {
   offerPairing: unavailable,
   turnOff: unavailable,
   replaceCode: unavailable,
+  deleteSyncedMenus: unavailable,
   deleteSyncedData: unavailable,
   checkout: unavailable,
   manageSubscription: unavailable,

@@ -369,16 +369,24 @@ describe("SupportPage", () => {
     const renewsAt = Date.UTC(2027, 10, 25, 12);
     const date = new Date(renewsAt).toLocaleDateString(undefined, { dateStyle: "long" });
 
-    it("shows the plan, the date it's paid through and Manage subscription instead of the amounts", async () => {
+    it("shows the plan, when it renews and Manage subscription instead of the amounts", async () => {
       const sync = fakeSync({ state: on(fakeAccount({ status: "active", plan: "supporter_12_yearly", renewsAt })) });
       const { openStripe } = renderPage({ sync });
       expect(screen.getByRole("heading", { name: "Your support" })).toBeInTheDocument();
-      expect(screen.getByText(`You're supporting at $12 a year. Paid through ${date}.`)).toBeInTheDocument();
+      expect(screen.getByText(`You're supporting at $12 a year. Renews on ${date}.`)).toBeInTheDocument();
       expect(screen.queryByRole("group", { name: "Pay what you like" })).not.toBeInTheDocument();
 
       fireEvent.click(screen.getByRole("button", { name: "Manage subscription" }));
       await waitFor(() => expect(openStripe).toHaveBeenCalledWith("https://billing.stripe.test/session"));
       expect(sync.manageSubscription).toHaveBeenCalledTimes(1);
+    });
+
+    it("says when a cancelled plan ends instead of when it renews", () => {
+      const sync = fakeSync({
+        state: on(fakeAccount({ status: "active", plan: "supporter_12_yearly", renewsAt, cancelAtPeriodEnd: true })),
+      });
+      renderPage({ sync });
+      expect(screen.getByText(`You're supporting at $12 a year. Ends on ${date}.`)).toBeInTheDocument();
     });
 
     it("says when the last payment failed, and that sync keeps working (SY-65)", () => {
@@ -414,7 +422,7 @@ describe("SupportPage", () => {
       const { openStripe } = renderPage({ sync });
       fireEvent.click(amountButton(/\$12 \/ year/));
       expect(await screen.findByText(/already a supporter, so nothing was charged/)).toBeInTheDocument();
-      expect(screen.getByText(`You're supporting at $6 a year. Paid through ${date}.`)).toBeInTheDocument();
+      expect(screen.getByText(`You're supporting at $6 a year. Renews on ${date}.`)).toBeInTheDocument();
       expect(sent("checkout_started")).toEqual([]);
       expect(openStripe).not.toHaveBeenCalled();
     });

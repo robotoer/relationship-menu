@@ -59,6 +59,7 @@ export type StripeSubscription = {
   canceled_at?: number | null;
   ended_at?: number | null;
   current_period_end?: number;
+  cancel_at_period_end?: boolean;
   items: { data: { current_period_end?: number; price: { id: string; lookup_key: string | null } }[] };
 };
 
@@ -85,6 +86,17 @@ export const createPortalSession = (env: Env, customer: string, returnUrl: strin
 
 export const getSubscription = (env: Env, id: string) =>
   stripe<StripeSubscription>(env, "GET", `/v1/subscriptions/${encodeURIComponent(id)}`);
+
+/** Only the charge fields used to connect refund/dispute events to an account. */
+export type StripeCharge = {
+  id: string;
+  customer: string | null;
+  amount: number;
+  amount_refunded: number;
+};
+
+export const getCharge = (env: Env, id: string) =>
+  stripe<StripeCharge>(env, "GET", `/v1/charges/${encodeURIComponent(id)}`);
 
 /** Cancels at once (no more charges). Used when someone deletes everything (SY-68). */
 export const cancelSubscription = (env: Env, id: string) =>

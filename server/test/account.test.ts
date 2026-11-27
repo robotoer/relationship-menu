@@ -39,6 +39,26 @@ describe("GET /v1/account", () => {
   });
 });
 
+describe("SY-68: delete synced menus but keep the account", () => {
+  it("deletes the content, advances the resync marker, and leaves status and billing alone", async () => {
+    const device = await Device.create();
+    await seedAccount(device.accountId, "lifetime");
+    await createMenu(device);
+    await createMenu(device);
+    const before = await accountRow(device.accountId);
+    const calls = mockStripe({});
+
+    expect((await device.fetch("DELETE", "/v1/menus")).status).toBe(204);
+    const after = await accountRow(device.accountId);
+    expect(after).toMatchObject({ status: "lifetime", plan: "supporter_30_lifetime" });
+    expect(Number(after?.purged_seq)).toBe(Number(before?.seq ?? 0) + 1);
+    expect(after?.seq).toBe(after?.purged_seq);
+    expect(calls).toEqual([]);
+    const left = await env.DB.prepare("SELECT COUNT(*) AS n FROM menus WHERE account_id = ?").bind(device.accountId).first<{ n: number }>();
+    expect(left?.n).toBe(0);
+  });
+});
+
 describe("SY-68: delete everything", () => {
   it("cancels the subscription, then deletes every synced menu and the account", async () => {
     const device = await Device.create();

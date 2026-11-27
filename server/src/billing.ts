@@ -12,6 +12,7 @@ import {
   cancelSubscriptionAtPeriodEnd,
   createCheckoutSession,
   createPortalSession,
+  getCharge,
   getSubscription,
   priceForLookupKey,
   verifyWebhookSignature,
@@ -96,22 +97,32 @@ const periodEnd = (subscription: StripeSubscription) => {
  * Upserts the account from the subscription's current state. Never downgrades a
  * lifetime supporter; keeps the first lapse date so the purge clock isn't reset.
  */
-const applySubscription = async (env: Env, accountId: string, subscription: StripeSubscription) => {
+const applySubscription = async (
+  env: Env,
+  accountId: string,
+  subscription: StripeSubscription,
+  allowReactivation = false
+) => {
   const status = statusFromSubscription(subscription);
   if (!status) return;
+  const existing = await getAccount(env.DB, accountId);
+  // A refund/dispute hold isn't undone by an unrelated subscription update.
+  // A new successful invoice, a new Checkout, or a dispute won may lift it.
+  if (existing?.status === "lapsed" && status !== "lapsed" && !allowReactivation) return;
   const now = Date.now();
   const endedAt = subscription.ended_at ?? subscription.canceled_at;
   const lapsedAt = status === "lapsed" ? (endedAt ? endedAt * 1000 : now) : null;
   await env.DB.prepare(
     `INSERT INTO accounts (account_id, status, plan, stripe_customer_id, stripe_subscription_id, paid_through,
-       lapsed_at, created_at, updated_at, seq, purged_seq)
-     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?8, 0, 0)
+       cancel_at_period_end, lapsed_at, created_at, updated_at, seq, purged_seq)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?9, 0, 0)
      ON CONFLICT (account_id) DO UPDATE SET
        status = excluded.status,
        plan = excluded.plan,
        stripe_customer_id = excluded.stripe_customer_id,
        stripe_subscription_id = excluded.stripe_subscription_id,
        paid_through = excluded.paid_through,
+       cancel_at_period_end = excluded.cancel_at_period_end,
        lapsed_at = CASE WHEN excluded.status = 'lapsed' THEN COALESCE(accounts.lapsed_at, excluded.lapsed_at) ELSE NULL END,
        updated_at = excluded.updated_at
      WHERE accounts.status <> 'lifetime'`
@@ -123,6 +134,7 @@ const applySubscription = async (env: Env, accountId: string, subscription: Stri
       subscription.customer,
       subscription.id,
       periodEnd(subscription),
+      subscription.cancel_at_period_end === true ? 1 : 0,
       lapsedAt,
       now
     )
@@ -138,7 +150,7 @@ const applyLifetime = async (env: Env, accountId: string, customer: string | nul
      VALUES (?1, 'lifetime', ?2, ?3, NULL, NULL, NULL, ?4, ?4, 0, 0)
      ON CONFLICT (account_id) DO UPDATE SET
        status = 'lifetime', plan = ?2, stripe_customer_id = COALESCE(?3, accounts.stripe_customer_id),
-       paid_through = NULL, lapsed_at = NULL, updated_at = ?4`
+       paid_through = NULL, cancel_at_period_end = 0, lapsed_at = NULL, updated_at = ?4`
   )
     .bind(accountId, LIFETIME_PLAN, customer, now)
     .run();
@@ -168,10 +180,36 @@ const idOf = (value: unknown): string | null =>
   str(value) ?? (value && typeof value === "object" ? str((value as { id?: unknown }).id) : null);
 
 /** Re-reads the subscription from Stripe, so events arriving late or twice can't leave a stale state. */
-const syncSubscription = async (env: Env, subscriptionId: string, accountId?: string | null) => {
+const syncSubscription = async (
+  env: Env,
+  subscriptionId: string,
+  accountId?: string | null,
+  allowReactivation = false
+) => {
   const subscription = await getSubscription(env, subscriptionId);
   const owner = accountId ?? (await accountForSubscription(env, subscription));
-  if (owner) await applySubscription(env, owner, subscription);
+  if (owner) await applySubscription(env, owner, subscription, allowReactivation);
+};
+
+/** Full refunds and new disputes revoke write access, never the menus themselves. */
+const lapseForCustomer = async (env: Env, customerId: string) => {
+  const now = Date.now();
+  await env.DB.prepare(
+    `UPDATE accounts SET status = 'lapsed', lapsed_at = COALESCE(lapsed_at, ?2), updated_at = ?2
+     WHERE stripe_customer_id = ?1 AND status <> 'lapsed'`
+  ).bind(customerId, now).run();
+};
+
+/** Finds the account from a dispute's charge, whose customer id Stripe doesn't put on the dispute. */
+const accountForDispute = async (env: Env, object: Record<string, unknown>) => {
+  const chargeId = idOf(object.charge);
+  if (!chargeId) return null;
+  const charge = await getCharge(env, chargeId);
+  if (!charge.customer) return null;
+  const account = await env.DB.prepare("SELECT * FROM accounts WHERE stripe_customer_id = ? LIMIT 1")
+    .bind(charge.customer)
+    .first<AccountRow>();
+  return account ? { account, charge } : null;
 };
 
 const handleEvent = async (env: Env, event: StripeEvent) => {
@@ -183,7 +221,7 @@ const handleEvent = async (env: Env, event: StripeEvent) => {
       if (!accountId || !ID_PATTERN.test(accountId)) return;
       if (object.mode === "subscription") {
         const subscriptionId = idOf(object.subscription);
-        if (subscriptionId) await syncSubscription(env, subscriptionId, accountId);
+        if (subscriptionId) await syncSubscription(env, subscriptionId, accountId, true);
       } else if (object.mode === "payment" && object.payment_status === "paid") {
         await applyLifetime(env, accountId, idOf(object.customer));
       }
@@ -195,11 +233,36 @@ const handleEvent = async (env: Env, event: StripeEvent) => {
       if (subscriptionId) await syncSubscription(env, subscriptionId);
       return;
     }
-    case "invoice.payment_failed": {
+    case "invoice.payment_failed":
+    case "invoice.payment_succeeded": {
       // basil API: invoice.parent.subscription_details.subscription; older: invoice.subscription.
       const parent = object.parent as { subscription_details?: { subscription?: unknown } } | undefined;
       const subscriptionId = idOf(parent?.subscription_details?.subscription) ?? idOf(object.subscription);
-      if (subscriptionId) await syncSubscription(env, subscriptionId);
+      if (subscriptionId) await syncSubscription(env, subscriptionId, null, event.type === "invoice.payment_succeeded");
+      return;
+    }
+    case "charge.refunded": {
+      // Partial refunds don't revoke a whole plan. A full refund does, including lifetime.
+      const amount = Number(object.amount);
+      const refunded = Number(object.amount_refunded);
+      const customer = idOf(object.customer);
+      if (customer && amount > 0 && refunded >= amount) await lapseForCustomer(env, customer);
+      return;
+    }
+    case "charge.dispute.created": {
+      const found = await accountForDispute(env, object);
+      if (found?.account.stripe_customer_id) await lapseForCustomer(env, found.account.stripe_customer_id);
+      return;
+    }
+    case "charge.dispute.closed": {
+      // A lost dispute leaves the hold in place. A won one restores the current
+      // subscription state, or lifetime, unless the charge was also fully refunded.
+      if (str(object.status) !== "won") return;
+      const found = await accountForDispute(env, object);
+      if (!found || found.charge.amount_refunded >= found.charge.amount) return;
+      const { account } = found;
+      if (account.stripe_subscription_id) await syncSubscription(env, account.stripe_subscription_id, account.account_id, true);
+      else if (account.plan === LIFETIME_PLAN) await applyLifetime(env, account.account_id, account.stripe_customer_id);
       return;
     }
     default:

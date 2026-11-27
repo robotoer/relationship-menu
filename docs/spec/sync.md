@@ -247,9 +247,10 @@ When a pull brings a remote record newer than what this device has seen:
 | `GET /v1/menus?since=<seq>` | signed | Changed rows since `seq`, 100 per page, `{ menus, next, more }` |
 | `PUT /v1/menus/:id` | signed | Body: the ciphertext (`application/octet-stream`). `If-Match: "<version>"`, or `If-None-Match: *` for a new menu. → `200 { version, seq }` · `412 { current }` · `402` not a supporter or read-only · `413` too big · `507` over quota |
 | `DELETE /v1/menus/:id` | signed | Body: the encrypted tombstone. `If-Match` required. |
+| `DELETE /v1/menus` | signed | Delete all synced content but keep supporter status and billing (SY-68). |
 | `POST /v1/checkout` | signed | `{ plan }` → `{ url }` of a Stripe Checkout Session |
 | `POST /v1/portal` | signed | → `{ url }` of a Stripe Customer Portal session *(added)* |
-| `POST /v1/stripe/webhook` | Stripe signature | The four events in SY-62 |
+| `POST /v1/stripe/webhook` | Stripe signature | The events in SY-62 |
 | `POST /v1/pair` | signed | Stores a pairing blob for 10 min *(added)* |
 | `GET /v1/pair/:id` | none (rate-limited) | Returns the blob once, then deletes it *(added)* |
 | `POST /v1/account/rotate` | signed by old key + proof from new key | SY-8 *(added)* |
@@ -263,7 +264,7 @@ D1 tables:
 ```sql
 accounts (account_id TEXT PRIMARY KEY, status TEXT, plan TEXT,
           stripe_customer_id TEXT, stripe_subscription_id TEXT,
-          paid_through INTEGER, lapsed_at INTEGER, created_at INTEGER,
+          paid_through INTEGER, cancel_at_period_end INTEGER, lapsed_at INTEGER, created_at INTEGER,
           seq INTEGER, menu_count INTEGER, bytes_used INTEGER)
 menus    (account_id TEXT, menu_id TEXT, version INTEGER, seq INTEGER,
           updated_at INTEGER, deleted INTEGER, ciphertext BLOB,
@@ -295,6 +296,9 @@ stateDiagram-v2
   past_due --> active: paid on retry
   past_due --> lapsed: subscription ends
   active --> lapsed: cancelled, period ends
+  active --> lapsed: full refund or dispute
+  lifetime --> lapsed: full refund or dispute
+  lapsed --> lifetime: dispute won
   lapsed --> active: supports again
   lapsed --> purged: 12 months later (warned in-app from month 11)
   purged --> [*]
@@ -306,13 +310,13 @@ stateDiagram-v2
 | --- | --- | --- |
 | SY-60 | **Plans:** $6, $12 or $24 a year, as three Stripe subscription prices, and $30 once (lifetime), as a one-time price. Prices are found by lookup key (`supporter_6_yearly`, …, `supporter_30_lifetime`), so test and live price ids are never hard-coded. | Test (server; the Support page's plan ids: `src/pages/Support.test.tsx`) |
 | SY-61 | **Checkout.** The Support page asks the Worker for a Checkout Session for the chosen plan, and the browser goes to Stripe's page. `client_reference_id` and the session and subscription metadata carry only `account_id` and the plan id. Returning lands on `/support?checkout=done` or `=cancelled`. | Test (server; the page: `src/pages/Support.test.tsx`, and `e2e/support.spec.ts` with the real runtime against a stubbed server and Stripe) + e2e (Stripe test card, Phase 4) |
-| SY-62 | **Status comes only from verified webhooks:** `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted` and `invoice.payment_failed`. The `Stripe-Signature` header is checked (HMAC-SHA-256, 5-minute tolerance, constant-time compare). Each event id is handled once (`INSERT OR IGNORE`). Handlers re-read the subscription from Stripe and set the status from it, so events arriving out of order or twice can't leave the wrong state. | Test (server: Stripe fixture events, bad signature, duplicate, out of order) |
+| SY-62 | **Status comes only from verified webhooks:** Checkout completed/async success, subscription updated/deleted, invoice paid/failed, full charge refunds, and disputes opened/closed. The `Stripe-Signature` header is checked (HMAC-SHA-256, 5-minute tolerance, constant-time compare). Each event id is handled once (`INSERT OR IGNORE`). Handlers re-read the subscription from Stripe and set the status from it, so events arriving out of order or twice can't leave the wrong state. A full refund or new dispute makes the account lapsed/read-only without deleting menus; unrelated subscription updates can't lift that hold. A successful new invoice or a dispute won can lift it. Partial refunds don't change status. | Test (server: Stripe fixture events, bad signature, duplicate, out of order, refund/dispute holds and restoration) |
 | SY-63 | The server stores only `account_id ↔ stripe_customer_id`, the subscription id, plan, status and dates. Stripe keeps the email, name and card. | Review + Test (schema) |
-| SY-64 | **Manage subscription** opens the Stripe Customer Portal (cancel, change card, invoices). | Test (the button in settings: `src/pages/SyncSettings.test.tsx`; on the Support page, with its errors: `src/pages/Support.test.tsx`) + e2e (test mode, Phase 4) |
+| SY-64 | **Manage subscription** opens the Stripe Customer Portal (cancel, change card, invoices). Stripe's `cancel_at_period_end` is stored with the account, so the app says "Renews on" or "Ends on" correctly instead of the ambiguous "Paid through". | Test (the button in settings: `src/pages/SyncSettings.test.tsx`; on the Support page, with its errors: `src/pages/Support.test.tsx`) + e2e (test mode, Phase 4) |
 | SY-65 | **Payment failed** → `past_due`. Sync keeps working while Stripe retries. | Test (server; the settings text: `src/pages/SyncSettings.test.tsx`) |
 | SY-66 | **Lapsed means read-only.** Devices can still pull (restore), but pushes get 402. The app explains this, shows the purge date, and says that menus on this device aren't affected. | Test (server; `src/sync/runtime.test.ts`: pulls work, pushes wait, and resume when status returns; the explanation and purge date: `src/pages/SyncSettings.test.tsx`) |
-| SY-67 | **Purge.** 12 months after lapsing, the daily cron deletes the account's synced menus and its account row. The app warns from 30 days before, in the app only (we have no email address). Lifetime supporters never lapse. | Test (server, fake clock; the warning: `src/pages/SyncSettings.test.tsx`) |
-| SY-68 | **Delete everything.** "Delete my synced data" deletes every synced menu and the account immediately, cancels any subscription so there are no more charges, and turns off sync on this device. Local menus stay. | Test (server; `src/sync/runtime.test.ts`; the confirmation: `src/pages/SyncSettings.test.tsx`) |
+| SY-67 | **Purge.** 12 months after lapsing, the daily cron deletes the account's synced menus and its account row. The app warns from 30 days before, in the app only (we have no email address). Lifetime supporters don't lapse through subscription events, but can lapse after a full refund or dispute (SY-62). | Test (server, fake clock; the warning: `src/pages/SyncSettings.test.tsx`) |
+| SY-68 | **Two separate deletions.** "Delete synced menus" deletes synced menus and hosted live boxes but keeps supporter status and billing; it advances the account's purge cursor so other devices take a fresh empty listing and can't recreate old server rows. "Delete my account" additionally deletes the account and coach counters and cancels any subscription. Both turn off sync on this device and leave local menus on every device. The second warns a lifetime supporter that status ends. | Test (server; `src/sync/runtime.test.ts`, including a second device; the confirmations: `src/pages/SyncSettings.test.tsx`) |
 | SY-69 | **Honest copy.** The Support page says what is live. It only says "Thank you, you're a supporter" once the server reports the status. Before that it says "Waiting for Stripe to confirm…". It never implies a feature was locked before. | Test (`src/pages/Support.test.tsx`, `e2e/support.spec.ts`) |
 | SY-70 | **Never gate.** Every existing feature stays free and works without an account. Sync, backup and the heart are the only supporter features. | Test (e2e: the whole existing suite runs with no account; `src/pages/Support.test.tsx`: the copy, and a browser that can't sync is told everything else works) |
 | SY-71 | The supporter heart shows in the navbar on devices whose account is `active`, `past_due` or `lifetime`. | Test (`src/components/Navbar.test.tsx`; `e2e/support.spec.ts`) |
@@ -631,12 +635,12 @@ What exists, and where. IDs here are not secrets: they go into `wrangler.toml`, 
 | 25 Nov 2026 | D1 `menu-sync-prod`, id `be712c7e-c171-4e5b-b0cd-5a40096c0bed` | Cloudflare → D1 |
 | 26 Nov 2026 | Cloudflare API token "wantsandwonts GitHub Actions deploy": Workers Scripts and D1 edit on the account, Workers Routes edit and Zone read on `wantsandwonts.com`. It is the GitHub secret `CLOUDFLARE_API_TOKEN`, beside `CLOUDFLARE_ACCOUNT_ID`. | Cloudflare → My Profile → API Tokens; GitHub → Settings → Secrets and variables → Actions |
 | 26 Nov 2026 | Repository variable `DEPLOY_PRODUCTION` = `true`: every push to `main` now deploys production. | GitHub → Settings → Secrets and variables → Actions → Variables |
-| 26 Nov 2026 | Sandbox webhook destination `wantsandwonts-test`, to the test Worker's `/v1/stripe/webhook`, with the 5 events in `server/README.md`. Sandbox restricted key "wantsandwonts-test Worker" with the 4 permissions in `server/README.md`. Both are `wrangler secret`s in the `test` environment. | Stripe sandbox → Workbench → Webhooks, and API keys |
+| 26 Nov 2026 | Sandbox webhook destination `wantsandwonts-test`, to the test Worker's `/v1/stripe/webhook`, with the 9 events in `server/README.md`. Sandbox restricted key "wantsandwonts-test Worker" with the 4 permissions in `server/README.md`. Both are `wrangler secret`s in the `test` environment. | Stripe sandbox → Workbench → Webhooks, and API keys |
 | 26 Nov 2026 | Live account activation submitted, reusing the business and payout details of your other Stripe account. Public details: business name Wants & Won'ts, website `https://wantsandwonts.com`, and a support phone number used only for this. Fraud protection: Radar Lite (free). No Stripe Climate. | Stripe → Settings → Business details and Public details |
 | 26 Nov 2026 | Card-statement text (decision 5): `WANTS AND WONTS`, Stripe's suggestion. Under Managed Payments it shows as `LINK.COM* WANTS AND WONTS`. You haven't confirmed it yet; change it there for something more discreet. | Stripe → Settings → Public details |
 | 26 Nov 2026 | Products, prices (with the same lookup keys) and Managed Payments settings copied from the sandbox to live. The copy didn't bring "Include tax in prices: Yes", so it was set again in live. | Stripe → Product catalog, and Settings → Tax |
 | 26 Nov 2026 | Live Customer Portal set up as in the sandbox (see the 25 Nov row). | Stripe → Settings → Billing → Customer portal |
-| 26 Nov 2026 | Live webhook destination `wantsandwonts-production`, to `https://wantsandwonts.com/v1/stripe/webhook`, with the same 5 events. Live restricted key "wantsandwonts production Worker", with the same 4 permissions. Both are `wrangler secret`s in the `production` environment. Checked: production returns a live Checkout link for each of the 4 plans. | Stripe → Workbench → Webhooks, and API keys |
+| 26 Nov 2026 | Live webhook destination `wantsandwonts-production`, to `https://wantsandwonts.com/v1/stripe/webhook`, with the same 9 events. Live restricted key "wantsandwonts production Worker", with the same 4 permissions. Both are `wrangler secret`s in the `production` environment. Checked: production returns a live Checkout link for each of the 4 plans. | Stripe → Workbench → Webhooks, and API keys |
 | *to do* | A first real payment, to see the live webhook deliver (Workbench → Webhooks → Event deliveries) and the supporter heart appear | You |
 
 ---

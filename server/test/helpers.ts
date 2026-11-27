@@ -283,7 +283,7 @@ export const webhookRequest = async (event: object, options: { secret?: string; 
 
 /** A Stripe subscription object in the shape of API version 2025-03-31.basil. */
 export const subscription = (
-  over: Partial<{ id: string; status: string; customer: string; account_id: string; lookup_key: string; period_end: number; canceled_at: number; ended_at: number }> = {}
+  over: Partial<{ id: string; status: string; customer: string; account_id: string; lookup_key: string; period_end: number; canceled_at: number; ended_at: number; cancel_at_period_end: boolean }> = {}
 ) => ({
   id: over.id ?? "sub_test_1",
   object: "subscription",
@@ -292,6 +292,7 @@ export const subscription = (
   metadata: over.account_id ? { account_id: over.account_id, plan: over.lookup_key ?? "supporter_12_yearly" } : {},
   canceled_at: over.canceled_at ?? null,
   ended_at: over.ended_at ?? null,
+  cancel_at_period_end: over.cancel_at_period_end ?? false,
   items: {
     data: [
       {

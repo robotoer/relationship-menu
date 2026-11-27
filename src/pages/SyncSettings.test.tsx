@@ -200,10 +200,15 @@ describe("sync settings: supporter status", () => {
     expect(screen.queryByRole("button", { name: "Manage subscription" })).not.toBeInTheDocument();
   });
 
-  test("an active plan shows the amount and when it's paid through", () => {
+  test("an active plan shows the amount and when it renews or ends", () => {
     const renewsAt = Date.UTC(2027, 10, 25);
-    renderSettings(fakeSync({ state: on({ account: fakeAccount({ plan: "supporter_12_yearly", renewsAt }) }) }));
-    expect(screen.getByText(/You're a supporter/)).toHaveTextContent(`Your plan: $12 a year, paid through ${formatDate(renewsAt)}.`);
+    const { unmount } = renderSettings(fakeSync({ state: on({ account: fakeAccount({ plan: "supporter_12_yearly", renewsAt }) }) }));
+    expect(screen.getByText(/You're a supporter/)).toHaveTextContent(`Your plan: $12 a year, renews on ${formatDate(renewsAt)}.`);
+    unmount();
+    renderSettings(
+      fakeSync({ state: on({ account: fakeAccount({ plan: "supporter_12_yearly", renewsAt, cancelAtPeriodEnd: true }) }) })
+    );
+    expect(screen.getByText(/You're a supporter/)).toHaveTextContent(`Your plan: $12 a year, ends on ${formatDate(renewsAt)}.`);
   });
 
   test("SY-65: a failed payment keeps sync working while Stripe retries", () => {
@@ -474,12 +479,14 @@ describe("SY-8: while a new code waits to be confirmed", () => {
     const sync = fakeSync({
       state: on({ notices: ["offline"] }),
       turnOff: unconfirmed,
+      deleteSyncedMenus: unconfirmed,
       deleteSyncedData: unconfirmed,
     });
     const { user } = renderSettings(sync);
     for (const [label, confirm] of [
       ["Turn off on this device", "Turn off"],
-      ["Delete my synced data", "Delete my synced data"],
+      ["Delete synced menus", "Delete synced menus"],
+      ["Delete my account", "Delete my account"],
     ] as const) {
       await user.click(screen.getByRole("button", { name: label }));
       await user.click(within(screen.getByRole("group")).getByRole("button", { name: confirm }));
@@ -517,26 +524,40 @@ describe("SY-8: while a new code waits to be confirmed", () => {
 
 });
 
-describe("SY-68: Delete my synced data", () => {
-  test("says it can't be undone, local menus stay and the subscription is cancelled, then deletes", async () => {
+describe("SY-68: delete synced menus or the whole account", () => {
+  test("menu deletion keeps supporter status and billing, then turns sync off here", async () => {
     const sync = fakeSync({ state: on() });
     const { user } = renderSettings(sync);
-    await user.click(screen.getByRole("button", { name: "Delete my synced data" }));
-    const confirm = screen.getByRole("group", { name: "Delete your synced data?" });
+    await user.click(screen.getByRole("button", { name: "Delete synced menus" }));
+    const confirm = screen.getByRole("group", { name: "Delete your synced menus?" });
+    expect(confirm).toHaveTextContent("This can't be undone.");
+    expect(confirm).toHaveTextContent("Your supporter status and any subscription stay active.");
+    expect(confirm).toHaveTextContent("Turning sync on again can upload the menus kept on a device.");
+    await user.click(within(confirm).getByRole("button", { name: "Delete synced menus" }));
+    expect(sync.deleteSyncedMenus).toHaveBeenCalledTimes(1);
+    expect(sync.deleteSyncedData).not.toHaveBeenCalled();
+    expect(await screen.findByText(/Your supporter status is unchanged/)).toBeInTheDocument();
+  });
+
+  test("account deletion says it can't be undone, local menus stay and the subscription is cancelled, then deletes", async () => {
+    const sync = fakeSync({ state: on() });
+    const { user } = renderSettings(sync);
+    await user.click(screen.getByRole("button", { name: "Delete my account" }));
+    const confirm = screen.getByRole("group", { name: "Delete your account and supporter status?" });
     expect(confirm).toHaveTextContent("This can't be undone.");
     expect(confirm).toHaveTextContent("Menus on this device stay.");
     expect(confirm).toHaveTextContent("Any subscription is cancelled, so you won't be charged again.");
     expect(confirm).not.toHaveTextContent("lifetime");
-    await user.click(within(confirm).getByRole("button", { name: "Delete my synced data" }));
+    await user.click(within(confirm).getByRole("button", { name: "Delete my account" }));
     expect(sync.deleteSyncedData).toHaveBeenCalledTimes(1);
-    expect(await screen.findByText(/Your synced data is deleted/)).toBeInTheDocument();
+    expect(await screen.findByText(/Your account and synced data are deleted/)).toBeInTheDocument();
   });
 
   test("warns a lifetime supporter that the status ends for good", async () => {
     const sync = fakeSync({ state: on({ account: fakeAccount({ status: "lifetime", plan: "supporter_30_lifetime" }) }) });
     const { user } = renderSettings(sync);
-    await user.click(screen.getByRole("button", { name: "Delete my synced data" }));
-    expect(screen.getByRole("group", { name: "Delete your synced data?" })).toHaveTextContent(
+    await user.click(screen.getByRole("button", { name: "Delete my account" }));
+    expect(screen.getByRole("group", { name: "Delete your account and supporter status?" })).toHaveTextContent(
       "Your lifetime supporter status ends too, for good."
     );
   });
@@ -544,10 +565,10 @@ describe("SY-68: Delete my synced data", () => {
   test("a failure says why and leaves the confirmation open", async () => {
     const sync = fakeSync({ state: on(), deleteSyncedData: () => Promise.reject(new SyncError("offline")) });
     const { user } = renderSettings(sync);
-    await user.click(screen.getByRole("button", { name: "Delete my synced data" }));
-    await user.click(within(screen.getByRole("group")).getByRole("button", { name: "Delete my synced data" }));
+    await user.click(screen.getByRole("button", { name: "Delete my account" }));
+    await user.click(within(screen.getByRole("group")).getByRole("button", { name: "Delete my account" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(ERROR_TEXT.offline);
-    expect(screen.getByRole("group", { name: "Delete your synced data?" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Delete your account and supporter status?" })).toBeInTheDocument();
   });
 });
 

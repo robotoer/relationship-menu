@@ -17,6 +17,7 @@ export type AccountRow = {
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
   paid_through: number | null;
+  cancel_at_period_end: number;
   lapsed_at: number | null;
   created_at: number;
   updated_at: number;
@@ -65,6 +66,7 @@ export const getAccountStatus = async (env: Env, caller: Caller): Promise<Respon
     status: account.status,
     plan: account.plan,
     renewsAt: account.status === "lifetime" ? null : account.paid_through,
+    cancelAtPeriodEnd: account.cancel_at_period_end === 1,
     readOnly: !canWrite(account.status),
     lapsedAt: account.lapsed_at,
     purgeAt,
@@ -75,9 +77,30 @@ export const getAccountStatus = async (env: Env, caller: Caller): Promise<Respon
   });
 };
 
+/** Statements removing synced content while leaving the account itself alone. */
+const deleteContent = (db: D1Database, accountId: string) => [
+  db.prepare("DELETE FROM menus WHERE account_id = ?").bind(accountId),
+  ...deleteBoxesWhere(db, "host_account = ?", accountId),
+];
+
 /**
- * DELETE /v1/account (SY-68): cancel billing, then delete every synced menu, every
- * box the account hosts (with their members and copies, NT-16) and the account.
+ * DELETE /v1/menus (SY-68): delete synced content but keep supporter status and
+ * billing. Advancing purged_seq makes every other device take a full (now empty)
+ * listing, so its old server versions can't silently recreate the deleted menus.
+ */
+export const deleteSyncedMenus = async (env: Env, caller: Caller): Promise<Response> => {
+  await env.DB.batch([
+    ...deleteContent(env.DB, caller.accountId),
+    env.DB.prepare(
+      "UPDATE accounts SET seq = seq + 1, purged_seq = seq + 1, updated_at = ?2 WHERE account_id = ?1"
+    ).bind(caller.accountId, Date.now()),
+  ]);
+  return noContent();
+};
+
+/**
+ * DELETE /v1/account (SY-68): cancel billing, then delete every synced menu,
+ * every hosted box (NT-16), the coach's usage counters, and the account.
  */
 export const deleteAccount = async (env: Env, caller: Caller): Promise<Response> => {
   const account = await getAccount(env.DB, caller.accountId);
@@ -87,8 +110,7 @@ export const deleteAccount = async (env: Env, caller: Caller): Promise<Response>
     await cancelSubscription(env, account.stripe_subscription_id);
   }
   await env.DB.batch([
-    env.DB.prepare("DELETE FROM menus WHERE account_id = ?").bind(caller.accountId),
-    ...deleteBoxesWhere(env.DB, "host_account = ?", caller.accountId),
+    ...deleteContent(env.DB, caller.accountId),
     env.DB.prepare("DELETE FROM accounts WHERE account_id = ?").bind(caller.accountId),
     env.DB.prepare("DELETE FROM coach_usage WHERE key IN (?1, ?2)").bind(
       coachUsageKeys(caller.accountId).day,
@@ -138,8 +160,8 @@ export const rotateAccount = async (env: Env, caller: Caller, body: Uint8Array):
   await env.DB.batch([
     env.DB.prepare(
       `INSERT INTO accounts (account_id, status, plan, stripe_customer_id, stripe_subscription_id,
-         paid_through, lapsed_at, created_at, updated_at, seq, purged_seq)
-       SELECT ?2, status, plan, stripe_customer_id, stripe_subscription_id, paid_through, lapsed_at,
+         paid_through, cancel_at_period_end, lapsed_at, created_at, updated_at, seq, purged_seq)
+       SELECT ?2, status, plan, stripe_customer_id, stripe_subscription_id, paid_through, cancel_at_period_end, lapsed_at,
          created_at, ?3, 0, 0 FROM accounts WHERE account_id = ?1`
     ).bind(caller.accountId, newAccountId, now),
     env.DB.prepare("DELETE FROM menus WHERE account_id = ?").bind(caller.accountId),
