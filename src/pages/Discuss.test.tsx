@@ -124,11 +124,15 @@ describe("DiscussPage (DS-1..DS-8)", () => {
     expect(screen.getByRole("heading", { level: 1, name: "Pets" })).toBeInTheDocument();
   });
 
-  it("the AI teaser records interest and says nothing was sent (DS-8)", () => {
+  it("without the coach, Prepare with AI says it's for supporters and links to Support (DS-8)", () => {
     renderPage();
-    fireEvent.click(screen.getByRole("button", { name: /Prepare this conversation with AI/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Prepare this conversation with AI \(for supporters\)/ }));
     expect(gtag).toHaveBeenCalledWith("event", "ai_prep_interest", {});
-    expect(screen.getByRole("status")).toHaveTextContent("Nothing about your menus was sent");
+    const status = screen.getByRole("status");
+    expect(status).toHaveTextContent("It's a thank-you for supporters");
+    expect(status).toHaveTextContent("Nothing about your menus was sent");
+    expect(status).not.toHaveTextContent(/coming soon|isn't available yet/i);
+    expect(within(status).getByRole("link", { name: "Support Wants & Won'ts" })).toHaveAttribute("href", "/support");
   });
 
   it("always shows that it isn't therapy, with crisis resources (CO-11)", () => {

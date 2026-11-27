@@ -837,16 +837,26 @@ const SummaryItem = ({ topic, record, names }: { topic: Topic; record: TopicEntr
   </li>
 );
 
-/** "Prepare with AI" isn't built yet: measure interest honestly (like the Support page). */
+/**
+ * "Prepare with AI" for people who aren't supporters (DS-8): the coach is a thank-you
+ * for supporters, so this says so and points to the Support page. Opening it is
+ * counted (no parameters); nothing about the menus is sent.
+ */
 const AiPrepTeaser = () => {
   const [asked, setAsked] = useState(false);
   return (
     <div className="discuss-ai">
       {asked ? (
         <p role="status">
-          Thanks! An AI helper that prepares this conversation with you (suggested questions for your
-          specific answers, and a recap afterwards) isn't available yet. Knowing you'd use it helps us
-          decide to build it. Nothing about your menus was sent.
+          The AI coach prepares this conversation with you: questions for your specific answers, and
+          what to watch for. It's a thank-you for supporters, and only runs when everyone here agrees
+          to what's sent. Nothing about your menus was sent.{" "}
+          {platform().support && (
+            <Link to="/support" state={{ supportFrom: "coach" }}>
+              Support Wants &amp; Won'ts
+            </Link>
+          )}
+          {platform().support && " to turn it on."}
         </p>
       ) : (
         <button
@@ -857,7 +867,7 @@ const AiPrepTeaser = () => {
             setAsked(true);
           }}
         >
-          ✦ Prepare this conversation with AI (coming soon)
+          ✦ Prepare this conversation with AI (for supporters)
         </button>
       )}
     </div>

@@ -33,7 +33,7 @@ export type Platform = {
   saveFile(file: File): Promise<SaveOutcome>;
   /** Whether to show the Support page and links to it. */
   support: boolean;
-  /** Whether to show the "Prepare with AI (coming soon)" teaser. */
+  /** Whether to tell people who aren't supporters about the AI coach ("Prepare with AI (for supporters)"). */
   aiTeaser: boolean;
   /** Whether to show the "Add to Home Screen" tip (Safari on iPhone and iPad). */
   homeScreenHint: boolean;
