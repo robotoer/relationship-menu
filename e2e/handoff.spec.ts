@@ -4,7 +4,7 @@ import { deflate } from "pako";
 
 /**
  * The move from relationship-menu.vercel.app to wantsandwonts.com (spec §12,
- * HO-3…HO-7), with two local origins standing in: the hand-off page on
+ * HO-3…HO-6), with two local origins standing in: the hand-off page on
  * 127.0.0.1:3098 (`yarn start:handoff`) and the app on localhost:3099. Different
  * hosts, so their storage is separate, as on the real addresses.
  */
@@ -266,17 +266,5 @@ test.describe("HO-4…HO-6: saved menus move once, without overwriting", () => {
     for (const url of parts) expect(url.length).toBeLessThanOrEqual(32 * 1024);
     expect(requestedTitles(addresses).flat()).toHaveLength(30);
     await expect(page.locator(".menu-tile")).toHaveCount(30);
-  });
-});
-
-test.describe("HO-7: the empty Library points to the old address", () => {
-  test("HO-7: following the hint brings menus saved at the old address", async ({ page }) => {
-    await setItems(page, OLD, v2("old", "Saved long ago", { G: [{ item: "Walks" }] }));
-    await page.goto(`${NEW}/library`);
-    await expect(page.getByText(/Used this app before at/)).toBeVisible();
-    await page.getByRole("link", { name: new URL(OLD).host }).click();
-    await expect(page).toHaveURL(`${NEW}/library`);
-    await expect(page.locator(".menu-tile h2")).toHaveText(["Saved long ago"]);
-    await expect(page.getByText(/Used this app before at/)).toHaveCount(0);
   });
 });

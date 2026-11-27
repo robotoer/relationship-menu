@@ -89,7 +89,7 @@ export default defineConfig({
   ],
   
   // Run your local dev servers before starting the tests: the app, and the old
-  // address's hand-off page on another origin (e2e/handoff.spec.ts, spec HO-3…HO-7).
+  // address's hand-off page on another origin (e2e/handoff.spec.ts, spec HO-3…HO-6).
   // In dev builds each defaults to the other's address (src/handoff/origins.ts).
   webServer: [
     {
