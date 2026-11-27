@@ -6,11 +6,6 @@
   margin-bottom: 1.25rem;
 }
 
-/* HO-7: the empty Library's pointer to the old address. */
-.library-moved {
-  color: var(--c-yellow);
-}
-
 .library {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));

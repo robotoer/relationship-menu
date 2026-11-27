@@ -51,7 +51,6 @@ import { useSyncRuntime } from "./providers/Sync";
 import { ImportPage } from "./pages/Import";
 import { uniqueTitle } from "./menu-titles";
 import { importMenuText } from "./import-menus";
-import { OLD_ORIGIN } from "./handoff/origins";
 import { countByFilter } from "./compare-filters";
 import {
   DecodedCompareSlug,
@@ -121,11 +120,9 @@ const WrappedLibraryPage = () => {
       })),
     [documentsMap]
   );
-  // HO-7: point people who used the old address to the hand-off, except there.
-  const oldAddress = window.location.origin === OLD_ORIGIN ? undefined : OLD_ORIGIN;
   // SV-14: Import menus saves through storage, which shows the new menus straight away.
   const onImport = useCallback((text: string) => importMenuText(storage, text), [storage]);
-  return <LibraryPage menus={documents} onDelete={deleteDocument} onImport={onImport} oldAddress={oldAddress} />;
+  return <LibraryPage menus={documents} onDelete={deleteDocument} onImport={onImport} />;
 };
 
 /** The document the editor saves for this title, menu and person. */

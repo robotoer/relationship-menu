@@ -157,34 +157,6 @@ describe("LibraryPage", () => {
     expect(headings()).toEqual(["Alpha"]);
     expect(screen.getByText("1 of 2")).toBeInTheDocument();
   });
-
-  it("HO-7: an empty Library points to the old address, which brings menus over", () => {
-    render(
-      <MemoryRouter>
-        <LibraryPage menus={[]} oldAddress="https://relationship-menu.vercel.app" />
-      </MemoryRouter>
-    );
-    expect(screen.getByText(/Open that address once in this browser to bring your menus here/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "relationship-menu.vercel.app" })).toHaveAttribute(
-      "href",
-      "https://relationship-menu.vercel.app/library"
-    );
-  });
-
-  it("HO-7: says nothing about the old address once there are menus, or without one", () => {
-    const { rerender } = render(
-      <MemoryRouter>
-        <LibraryPage menus={menus} oldAddress="https://relationship-menu.vercel.app" />
-      </MemoryRouter>
-    );
-    expect(screen.queryByText(/Used this app before/)).not.toBeInTheDocument();
-    rerender(
-      <MemoryRouter>
-        <LibraryPage menus={[]} />
-      </MemoryRouter>
-    );
-    expect(screen.queryByText(/Used this app before/)).not.toBeInTheDocument();
-  });
 });
 
 describe("LibraryPage: keeping menus", () => {
