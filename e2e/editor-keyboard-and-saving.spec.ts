@@ -57,7 +57,7 @@ test.describe("Keyboard controls", () => {
     await page.keyboard.press("j");
     await page.keyboard.press("1"); // Alpha: must have
     await page.keyboard.press("ArrowDown");
-    await page.keyboard.press("4"); // Beta: off limits
+    await page.keyboard.press("5"); // Beta: off limits (4 is Soft no, SV-18)
     await expect(page.locator(".menu-item select").nth(0)).toHaveValue("must-have");
     await expect(page.locator(".menu-item select").nth(1)).toHaveValue("off-limits");
 
