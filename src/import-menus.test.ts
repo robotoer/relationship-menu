@@ -1,7 +1,10 @@
 import { encodeMenuSlug } from "./compare-slug";
 import { encodeData } from "./data-encoder";
 import { exportText, menuLink } from "./export-menus";
-import { importMenuText, importSummary, menuEntries, planTextImport, TextImport } from "./import-menus";
+import { importMenuText, importSummary, menuEntries, planStructuredImport, planTextImport, TextImport } from "./import-menus";
+import { readMenuFile } from "./import-formats";
+import { decodeCompareSlug } from "./compare-slug";
+import { decodeData } from "./data-encoder";
 import { RelationshipMenuDocument } from "./model/menu";
 
 const walks = encodeData({ G: [{ item: "Walks" }] });
@@ -135,5 +138,23 @@ describe("SV-14: importMenuText", () => {
   it("rejects when the menus weren't saved", async () => {
     const storage = storageWith([], () => []);
     await expect(importMenuText(storage, menuLink(ORIGIN, { title: "Us", encoded: walks }), 7)).rejects.toThrow();
+  });
+});
+
+describe("SV-16 + SV-18: Soft no survives an import", () => {
+  it("keeps Soft no in the saved menu, and through its link", () => {
+    const read = readMenuFile("Group,Item,Answer\nG,Children,Soft no\nG,Moving,rather not", "their-sheet.csv")!;
+    const planned = planStructuredImport([], read.menus, 1);
+    expect(planned.found).toBe(1);
+    const doc = planned.add[0];
+    expect(decodeData(doc.encoded)).toEqual({
+      G: [
+        { item: "Children", value: "soft-no" },
+        { item: "Moving", value: "soft-no" },
+      ],
+    });
+    // Stored and shared through a link, it stays Soft no (not "no answer").
+    const throughLink = decodeCompareSlug(encodeMenuSlug(doc.title, doc.encoded));
+    expect(throughLink?.menu).toEqual(decodeData(doc.encoded));
   });
 });

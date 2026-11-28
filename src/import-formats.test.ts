@@ -55,6 +55,10 @@ describe("SV-16: answers written in words, glyphs and tick boxes", () => {
     ["Maybe", "maybe"],
     ["not sure", "maybe"],
     ["🤷", "maybe"],
+    ["Soft no", "soft-no"],
+    ["soft-no", "soft-no"],
+    ["rather not", "soft-no"],
+    ["prefer not", "soft-no"],
     ["Off limits", "off-limits"],
     ["off-limits", "off-limits"],
     ["hard no", "off-limits"],
@@ -92,6 +96,7 @@ describe("SV-16: spreadsheet and form files", () => {
         { item: "Weekly time together", value: "must-have", note: "A protected evening" },
         { item: "Sharing a calendar", value: "maybe" },
         { item: "Overnights", value: "off-limits" },
+        { item: "Blank one" },
       ],
     });
   });
@@ -357,6 +362,33 @@ describe("SV-16: one answer per row, marked under its own column", () => {
       { item: "Kids", value: "must-have" },
       { item: "Moving", value: "like-to-have" },
       { item: "Pets", value: "off-limits" },
+    ]);
+  });
+});
+
+describe("SV-16: parsing sheets that use Soft no (SV-18)", () => {
+  it("reads Soft no in a plain answer column", () => {
+    const read = parseTable("Group,Item,Answer\nG,Children,Soft no\nG,Moving,rather not", "Their sheet");
+    expect(read?.menus[0].menu.G).toEqual([
+      { item: "Children", value: "soft-no" },
+      { item: "Moving", value: "soft-no" },
+    ]);
+  });
+
+  it("reads a Soft no column among the answer columns", () => {
+    const csv = ["Item,Must have,Like to have,Maybe,Soft no,Off limits", "Children,,,,X,", "Moving,,X,,,"].join("\n");
+    const read = parseTable(csv, "Their grid");
+    expect(read?.menus[0].menu.Menu).toEqual([
+      { item: "Children", value: "soft-no" },
+      { item: "Moving", value: "like-to-have" },
+    ]);
+  });
+
+  it("accepts 'Soft no' as the mark itself, as well as X", () => {
+    const csv = ["Item,Must,Soft no,Off", "Children,,soft no,", "Moving,X,,"].join("\n");
+    expect(parseTable(csv, "Marks")?.menus[0].menu.Menu).toEqual([
+      { item: "Children", value: "soft-no" },
+      { item: "Moving", value: "must-have" },
     ]);
   });
 });
