@@ -531,10 +531,8 @@ test.describe('Comprehensive Workflow Tests', () => {
       await page.goto('/compare');
       await page.waitForTimeout(2000);
 
-      // Compare page should have at least one compare-input for adding menus
-      const compareInputs = page.locator('.compare-input');
-      const inputCount = await compareInputs.count();
-      expect(inputCount).toBeGreaterThanOrEqual(1);
+      // No menus yet: the one "Add a menu" card is open with the paste field (SV-19)
+      await expect(page.getByLabel('Paste a menu link or share link')).toBeVisible();
     });
 
     test('Compare page loads with encoded menu params', async ({ page }) => {
@@ -580,9 +578,9 @@ test.describe('Comprehensive Workflow Tests', () => {
       await page.goto('/compare');
       await page.waitForTimeout(2000);
 
-      // Paste the slug into the compare input
-      const compareInput = page.locator('.compare-input input').last();
-      await compareInput.fill(menuSlug);
+      // Paste the slug into the add card (SV-19)
+      await page.getByLabel('Paste a menu link or share link').fill(menuSlug);
+      await page.getByRole('button', { name: 'Add', exact: true }).click();
       await page.waitForTimeout(2000);
 
       // URL should now have encoded param
@@ -631,8 +629,8 @@ test.describe('Comprehensive Workflow Tests', () => {
       // Should show the compare-section with inputs containing the encoded values
       const compareInputs = page.locator('.compare-input');
       const inputCount = await compareInputs.count();
-      // At least 2 pre-filled inputs + 1 empty "add new" input
-      expect(inputCount).toBeGreaterThanOrEqual(3);
+      // The two menus, and no empty "add new" box beside them.
+      expect(inputCount).toBe(2);
     });
   });
 

@@ -2,6 +2,17 @@ import { test, expect, Page, Browser } from "@playwright/test";
 import { getShareValues } from "./helpers";
 import { deflate } from "pako";
 
+/**
+ * Adds a menu through the one "Add a menu" card (SV-19): a box only exists once a
+ * menu is in the comparison, so there is no empty slot to type into.
+ */
+const addMenu = async (page: Page, slug: string) => {
+  const open = page.getByRole("button", { name: "+ Add a menu" });
+  if (await open.isVisible()) await open.click();
+  await page.getByLabel("Paste a menu link or share link").fill(slug);
+  await page.getByRole("button", { name: "Add", exact: true }).click();
+};
+
 // ---------------------------------------------------------------------------
 // Helper functions for creating menus in the Menu editor
 // ---------------------------------------------------------------------------
@@ -141,16 +152,12 @@ test.describe("Compare Feature", () => {
       await page.waitForLoadState("domcontentloaded");
       await page.waitForTimeout(2000);
 
-      // The CompareSection should render one empty CompareInput (the "add new" slot)
-      const compareInputs = page.locator(".compare-input");
-      await expect(compareInputs).toHaveCount(1);
-
-      // The single input should have label "Menu 1"
-      const label = compareInputs.first().locator("label");
-      await expect(label).toHaveText("Menu 1");
-
-      // The input should be empty
-      const input = compareInputs.first().locator("input");
+      // No menus yet: no boxes, and the one "Add a menu" card is open with the
+      // paste field ready (SV-19).
+      await expect(page.locator(".compare-input")).toHaveCount(0);
+      await expect(page.getByRole("heading", { name: "Add the first menu" })).toBeVisible();
+      const input = page.getByLabel("Paste a menu link or share link");
+      await expect(input).toBeVisible();
       await expect(input).toHaveValue("");
     });
 
@@ -199,29 +206,11 @@ test.describe("Compare Feature", () => {
         await page.waitForLoadState("domcontentloaded");
         await page.waitForTimeout(3000);
 
-        // Should have 2 CompareInputs: 1 filled + 1 empty
+        // One box for the one slug, and no empty "add new" box beside it.
         const compareInputs = page.locator(".compare-input");
-        const inputCount = await compareInputs.count();
-
-        // Verify first input has the slug value
-        const firstInputValue = await compareInputs
-          .first()
-          .locator("input")
-          .inputValue();
-
-        if (inputCount === 2) {
-          // First input filled with slug, second is the empty "add new"
-          expect(firstInputValue).toBe(slug);
-          const secondLabel = await compareInputs
-            .nth(1)
-            .locator("label")
-            .textContent();
-          expect(secondLabel).toBe("Menu 2");
-        } else {
-          // If only 1 input, the encoded param is the slug but the component
-          // may not have populated it (useDocuments issue)
-          expect(inputCount).toBeGreaterThanOrEqual(1);
-        }
+        await expect(compareInputs).toHaveCount(1);
+        await expect(compareInputs.first().locator("input")).toHaveValue(slug);
+        await expect(page.getByRole("button", { name: "+ Add a menu" })).toBeVisible();
 
         // Check whether the comparison grid rendered
         const gridRendered = await isComparisonGridRendered(page);
@@ -285,21 +274,13 @@ test.describe("Compare Feature", () => {
         await page.waitForLoadState("domcontentloaded");
         await page.waitForTimeout(3000);
 
-        // Should have 3 CompareInputs: 2 filled + 1 empty
+        // Two menus, two boxes: there is no third "add new" box.
         const compareInputs = page.locator(".compare-input");
-        const inputCount = await compareInputs.count();
-        expect(inputCount).toBe(3);
+        await expect(compareInputs).toHaveCount(2);
 
-        // Verify labels show the decoded menu titles; last slot is the empty "add new" input
-        await expect(compareInputs.nth(0).locator("label")).toHaveText(
-          "Menu Alpha"
-        );
-        await expect(compareInputs.nth(1).locator("label")).toHaveText(
-          "Menu Beta"
-        );
-        await expect(compareInputs.nth(2).locator("label")).toHaveText(
-          "Menu 3"
-        );
+        await expect(compareInputs.nth(0).locator("label")).toHaveText("Menu Alpha");
+        await expect(compareInputs.nth(1).locator("label")).toHaveText("Menu Beta");
+        await expect(page.getByRole("button", { name: "+ Add a menu" })).toBeVisible();
 
         // Verify the inputs contain the slugs
         const input1Value = await compareInputs
@@ -411,23 +392,12 @@ test.describe("Compare Feature", () => {
         await page.waitForLoadState("domcontentloaded");
         await page.waitForTimeout(3000);
 
-        // Should have 4 CompareInputs: 3 filled + 1 empty
+        // Three menus, three boxes, and the add card beside them.
         const compareInputs = page.locator(".compare-input");
-        await expect(compareInputs).toHaveCount(4);
-
-        // Labels should show the decoded menu titles; last slot is the empty "add new" input
-        await expect(compareInputs.nth(0).locator("label")).toHaveText(
-          "Triple A"
-        );
-        await expect(compareInputs.nth(1).locator("label")).toHaveText(
-          "Triple B"
-        );
-        await expect(compareInputs.nth(2).locator("label")).toHaveText(
-          "Triple C"
-        );
-        await expect(compareInputs.nth(3).locator("label")).toHaveText(
-          "Menu 4"
-        );
+        await expect(compareInputs).toHaveCount(3);
+        await expect(compareInputs.nth(0).locator("label")).toHaveText("Triple A");
+        await expect(compareInputs.nth(1).locator("label")).toHaveText("Triple B");
+        await expect(compareInputs.nth(2).locator("label")).toHaveText("Triple C");
 
         const gridRendered = await isComparisonGridRendered(page);
         if (gridRendered) {
@@ -480,34 +450,19 @@ test.describe("Compare Feature", () => {
         await page.waitForLoadState("domcontentloaded");
         await page.waitForTimeout(2000);
 
-        // Paste slug into the empty input
-        const emptyInput = page.locator(".compare-input input").first();
-        await emptyInput.click();
-        await emptyInput.fill(slug);
+        // Paste the slug into the add card (SV-19)
+        await page.getByLabel("Paste a menu link or share link").fill(slug);
+        await page.getByRole("button", { name: "Add", exact: true }).click();
         await page.waitForTimeout(1000);
 
         // Verify the URL updated with the encoded param
         const url = page.url();
         expect(url).toContain("encoded=");
 
-        // Should now have 2 inputs: 1 filled + 1 new empty
+        // One menu, one box: there is no second, empty one.
         const compareInputs = page.locator(".compare-input");
-        const count = await compareInputs.count();
-        expect(count).toBe(2);
-
-        // The first input should have the slug value
-        const filledValue = await compareInputs
-          .first()
-          .locator("input")
-          .inputValue();
-        expect(filledValue).toBe(slug);
-
-        // The new empty input should be cleared of text
-        const newEmptyValue = await compareInputs
-          .last()
-          .locator("input")
-          .inputValue();
-        expect(newEmptyValue).toBe("");
+        await expect(compareInputs).toHaveCount(1);
+        await expect(compareInputs.first().locator("input")).toHaveValue(slug);
       } finally {
         await context.close();
       }
@@ -533,10 +488,10 @@ test.describe("Compare Feature", () => {
         await page.waitForLoadState("domcontentloaded");
         await page.waitForTimeout(2000);
 
-        // The empty "add new" input should be the last one
-        const emptyInput = page.locator(".compare-input input").last();
-        await emptyInput.click();
-        await emptyInput.fill(slug2);
+        // Add the second through the card
+        await page.getByRole("button", { name: "+ Add a menu" }).click();
+        await page.getByLabel("Paste a menu link or share link").fill(slug2);
+        await page.getByRole("button", { name: "Add", exact: true }).click();
         await page.waitForTimeout(1000);
 
         // Verify URL has both encoded params
@@ -546,16 +501,10 @@ test.describe("Compare Feature", () => {
         expect(matches).toBeTruthy();
         expect(matches!.length).toBe(2);
 
-        // Should now have 3 inputs: 2 filled + 1 new empty
+        // Two menus, two boxes; no empty slot (SV-19).
         const compareInputs = page.locator(".compare-input");
-        await expect(compareInputs).toHaveCount(3);
-
-        // The new empty input should be cleared of text
-        const newEmptyValue = await compareInputs
-          .last()
-          .locator("input")
-          .inputValue();
-        expect(newEmptyValue).toBe("");
+        await expect(compareInputs).toHaveCount(2);
+        await expect(compareInputs.last().locator("input")).toHaveValue(slug2);
       } finally {
         await context.close();
       }
@@ -587,9 +536,9 @@ test.describe("Compare Feature", () => {
         await page.waitForLoadState("domcontentloaded");
         await page.waitForTimeout(2000);
 
-        // Verify 3 inputs initially (2 filled + 1 empty)
+        // Two menus, two boxes (SV-19: no empty slot).
         let compareInputs = page.locator(".compare-input");
-        await expect(compareInputs).toHaveCount(3);
+        await expect(compareInputs).toHaveCount(2);
 
         // Clear the first input to remove it
         const firstInput = compareInputs.first().locator("input");
@@ -599,9 +548,7 @@ test.describe("Compare Feature", () => {
 
         // After clearing, one menu should be removed
         compareInputs = page.locator(".compare-input");
-        const count = await compareInputs.count();
-        // Should now have 2 inputs: 1 filled + 1 empty
-        expect(count).toBe(2);
+        await expect(compareInputs).toHaveCount(1);
 
         // URL should now have only 1 encoded param
         const url = page.url();
@@ -636,10 +583,8 @@ test.describe("Compare Feature", () => {
         let url = page.url();
         expect(url).not.toContain("encoded=");
 
-        // Step 2: Add first slug
-        const input1 = page.locator(".compare-input input").first();
-        await input1.click();
-        await input1.fill(slug1);
+        // Step 2: Add first slug through the add card
+        await addMenu(page, slug1);
         await page.waitForTimeout(1000);
 
         url = page.url();
@@ -648,9 +593,7 @@ test.describe("Compare Feature", () => {
         expect(urlMatches!.length).toBe(1);
 
         // Step 3: Add second slug
-        const input2 = page.locator(".compare-input input").last();
-        await input2.click();
-        await input2.fill(slug2);
+        await addMenu(page, slug2);
         await page.waitForTimeout(1000);
 
         url = page.url();
@@ -759,9 +702,9 @@ test.describe("Compare Feature", () => {
       expect(url).toContain("/compare");
       expect(url).not.toContain("encoded=");
 
-      // Should show a single empty input
-      const compareInputs = page.locator(".compare-input");
-      await expect(compareInputs).toHaveCount(1);
+      // No menus: no boxes, and the add card is open ready for a link (SV-19).
+      await expect(page.locator(".compare-input")).toHaveCount(0);
+      await expect(page.getByLabel("Paste a menu link or share link")).toBeVisible();
     });
   });
 
@@ -1029,10 +972,9 @@ test.describe("Compare Feature", () => {
         const comparePage = page2.locator(".compare-page");
         await expect(comparePage).toBeVisible();
 
-        // Should have 3 CompareInputs: 2 filled + 1 empty
+        // Two menus, two boxes.
         const compareInputs = page2.locator(".compare-input");
-        const inputCount = await compareInputs.count();
-        expect(inputCount).toBe(3);
+        await expect(compareInputs).toHaveCount(2);
 
         // The first two inputs should contain the slugs
         const value1 = await compareInputs
@@ -1542,11 +1484,12 @@ test.describe("Compare Feature", () => {
     });
     const inputs = (page: Page) => page.locator(".compare-input input");
 
+
     test("comparison only appears after clicking Compare", async ({ page }) => {
       await page.goto("/compare");
-      await inputs(page).last().fill(alice);
+      await addMenu(page, alice);
       await expect(page.locator(".compare-button")).toBeDisabled();
-      await inputs(page).last().fill(bob);
+      await addMenu(page, bob);
       await expect(page.locator(".compare-button")).toBeEnabled();
       await expect(page.locator(".compare-page-grid")).toHaveCount(0);
 
@@ -1555,17 +1498,17 @@ test.describe("Compare Feature", () => {
       await expect(page.locator(".compare-key")).toBeVisible();
     });
 
-    test("typing a slug keeps every character and focus", async ({ page }) => {
+    test("a typed slug becomes one box, named from the menu", async ({ page }) => {
       await page.goto("/compare");
-      await inputs(page).last().click();
+      const field = page.getByLabel("Paste a menu link or share link");
+      await field.click();
       await page.keyboard.type(alice);
-      await expect(inputs(page)).toHaveCount(2);
+      await page.getByRole("button", { name: "Add", exact: true }).click();
+      await expect(inputs(page)).toHaveCount(1);
       await expect(inputs(page).first()).toHaveValue(alice);
-      await expect(inputs(page).first()).toBeFocused();
-      await expect(inputs(page).last()).toHaveValue("");
-      await expect(page.locator(".compare-input label").first()).toHaveText(
-        "Alice"
-      );
+      await expect(page.locator(".compare-input label").first()).toHaveText("Alice");
+      // The card closes once the menu is in.
+      await expect(page.getByRole("button", { name: "+ Add a menu" })).toBeVisible();
     });
 
     test("editing a slug keeps the input and shows an error", async ({
@@ -1586,7 +1529,8 @@ test.describe("Compare Feature", () => {
         el.setSelectionRange(el.value.length, el.value.length)
       );
       await page.keyboard.type("!");
-      await expect(inputs(page)).toHaveCount(3);
+      // No empty slot: the two menus, and nothing else.
+      await expect(inputs(page)).toHaveCount(2);
       await expect(inputs(page).nth(1)).toHaveValue(`${bob}!`);
       await expect(page.locator(".compare-input-error")).toBeVisible();
       await expect(page.locator(".compare-page-grid")).toHaveCount(0);
@@ -1599,9 +1543,10 @@ test.describe("Compare Feature", () => {
 
     test("a pasted share link is accepted", async ({ page }) => {
       await page.goto("/compare");
-      await inputs(page)
-        .last()
+      await page
+        .getByLabel("Paste a menu link or share link")
         .fill(`http://localhost:3099/menu?encoded=${encodeURIComponent(alice)}`);
+      await page.getByRole("button", { name: "Add", exact: true }).click();
       await expect(inputs(page).first()).toHaveValue(alice);
       await expect(page.locator(".compare-input label").first()).toHaveText(
         "Alice"

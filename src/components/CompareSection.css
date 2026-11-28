@@ -9,38 +9,75 @@
   box-shadow: var(--drop);
 }
 
-/* One box per menu, stacked: each gets the full width to show whose it is. */
+/* One box per menu, stacked, each with its own remove button (SV-19). */
 .compare-boxes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
 }
 
-.compare-section .compare-input {
-  flex: none;
-  width: 100%;
-}
-
-.compare-add {
+.compare-box {
   display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.5rem;
 }
 
-.compare-add-button {
+.compare-box .compare-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.compare-remove {
+  flex: none;
+  min-width: 2.25rem;
+  min-height: 2.25rem;
+  line-height: 1;
+  color: var(--c-ink);
+}
+
+/* The one way to add: a card with both paths, not a button plus a hidden box. */
+.compare-add-open {
+  align-self: flex-start;
   border-style: dashed;
 }
 
-.compare-add-note {
-  font-size: 0.85rem;
-  opacity: 0.75;
+.compare-add-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.9rem;
+  border: var(--line);
+  border-style: dashed;
 }
 
-.compare-library {
-  padding: 0.75rem;
-  background: var(--c-white);
-  border: var(--line);
+.compare-add-card h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.compare-add-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.compare-add-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.compare-add-or {
+  margin: 0.2rem 0 0;
+  font-size: 0.85rem;
+  opacity: 0.8;
+}
+
+.compare-add-empty {
+  margin: 0;
 }
 
 .compare-library-list {
@@ -59,26 +96,31 @@
   white-space: nowrap;
 }
 
-.compare-library-empty {
-  margin: 0;
+.compare-footer {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
 .compare-button {
   flex: none;
-  align-self: flex-start;
 }
 .compare-button:not(:disabled) {
   background: var(--c-yellow);
   box-shadow: inset calc(-1 * var(--px)) calc(-1 * var(--px)) 0 0 var(--c-orange);
 }
 
+.compare-add-note {
+  font-size: 0.85rem;
+  opacity: 0.75;
+}
+
 @media (max-width: 640px) {
   .compare-button {
     width: 100%;
-    align-self: stretch;
   }
-  .compare-add {
-    flex-direction: column;
-    align-items: stretch;
+  .compare-add-actions button {
+    flex: 1;
   }
 }
