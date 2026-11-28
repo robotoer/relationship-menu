@@ -113,6 +113,16 @@ describe("SV-16: Excel workbooks", () => {
     });
   });
 
+  it("keeps Soft no from a workbook's Selection column", () => {
+    const file = workbook([
+      ["Section", "Item", "Selection"],
+      ["Commitment", "Children", "Soft no"],
+      ["Commitment", "Marriage", ""],
+    ]);
+    const read = readMenuFile(sheetAsTsv(file), "menu.tsv")!;
+    expect(read.menus[0].menu.Commitment).toEqual([{ item: "Children", value: "soft-no" }, { item: "Marriage" }]);
+  });
+
   it("explains an unreadable workbook instead of guessing", () => {
     expect(() => unzip(new Uint8Array([1, 2, 3]))).toThrow();
     expect(() => sheetRows(zip({ "xl/worksheets/sheet1.xml": "<worksheet/>" }))).not.toThrow();

@@ -145,7 +145,21 @@ const pickDelimiter = (source: string) => {
 const HEADER_ALIASES = {
   group: ["group", "category", "categories", "section", "area", "topic", "theme", "type"],
   item: ["item", "items", "activity", "activities", "question", "questions", "action", "thing", "name", "statement"],
-  answer: ["answer", "answers", "preference", "preferences", "value", "importance", "rating", "response", "choice", "level"],
+  answer: [
+    "answer",
+    "answers",
+    "preference",
+    "preferences",
+    "value",
+    "importance",
+    "rating",
+    "response",
+    "choice",
+    "level",
+    "selection",
+    "selected",
+    "mark",
+  ],
   note: ["note", "notes", "comment", "comments", "detail", "details", "why", "explanation"],
   person: ["person", "people", "who", "respondent", "partner", "author"],
   title: ["title", "menu", "menu title", "name of menu"],
@@ -197,13 +211,9 @@ export const parseTable = (input: string, fallbackTitle: string): FormatImport |
           skipped++;
           continue;
         }
+        // An empty answer keeps the item, unanswered: in a menu sheet the item is
+        // still part of the menu, and an unfinished row is shown honestly as such.
         const value = answerAt >= 0 ? answerValue(cells[answerAt]) : undefined;
-        // A spreadsheet with an Answer column but nothing in it is an unfilled row,
-        // not an item: outlines are the place for items with no answer.
-        if (answerAt >= 0 && value === undefined) {
-          skipped++;
-          continue;
-        }
         addItem(
           menu,
           groupAt >= 0 ? text(cells[groupAt]) : "",
