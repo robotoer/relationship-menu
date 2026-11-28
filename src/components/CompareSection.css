@@ -1,3 +1,6 @@
+/* Choosing menus to compare (SV-19, SV-20). One card per menu while editing; one
+   compact line once the comparison exists, so the results get the page. */
+
 .compare-section {
   display: flex;
   flex-direction: column;
@@ -9,98 +12,187 @@
   box-shadow: var(--drop);
 }
 
-/* One box per menu, stacked, each with its own remove button (SV-19). */
-.compare-boxes {
+.compare-instructions {
+  margin: 0;
+  max-width: 60ch;
+  font-size: 0.95rem;
+}
+
+/* ---- the menus in the comparison ------------------------------------------- */
+
+.compare-slots {
   list-style: none;
   margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-}
-
-.compare-box {
-  display: flex;
-  align-items: flex-start;
   gap: 0.5rem;
 }
 
-.compare-box .compare-input {
-  flex: 1;
+.compare-slot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border: var(--line);
+}
+
+.compare-slot-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
   min-width: 0;
 }
 
-.compare-remove {
-  flex: none;
-  min-width: 2.25rem;
-  min-height: 2.25rem;
-  line-height: 1;
-  color: var(--c-ink);
+.compare-slot-name {
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-/* The one way to add: a card with both paths, not a button plus a hidden box. */
+.compare-slot-meta {
+  font-size: 0.8rem;
+  opacity: 0.85;
+}
+
+.compare-slot-error {
+  font-size: 0.8rem;
+  color: var(--c-red);
+}
+
+.compare-slot-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: none;
+}
+
+/* Same height for every control in the card, on a phone and a laptop. */
+.compare-slot-actions button {
+  min-height: 2.25rem;
+  padding: 0 0.6rem;
+  line-height: 1;
+}
+
+.compare-remove {
+  min-width: 2.25rem;
+  padding: 0;
+}
+
+/* "Your library" / "Pasted link": where this menu came from. */
+.compare-source {
+  display: inline-block;
+  padding: 0 0.35rem;
+  font-size: 0.72rem;
+  border: 1px solid currentColor;
+  opacity: 0.9;
+  vertical-align: middle;
+}
+.compare-source-library {
+  color: var(--c-teal);
+}
+.compare-source-link {
+  color: var(--c-blue);
+}
+
+/* ---- adding a menu --------------------------------------------------------- */
+
 .compare-add-open {
   align-self: flex-start;
   border-style: dashed;
 }
 
-.compare-add-card {
+.compare-picker {
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
+  gap: 0.75rem;
   padding: 0.9rem;
   border: var(--line);
   border-style: dashed;
 }
 
-.compare-add-card h2 {
+.compare-picker h2 {
   margin: 0;
   font-size: 1rem;
 }
 
-.compare-add-field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
+.compare-picker-title {
+  margin: 0 0 0.4rem;
+  font-weight: 700;
 }
 
-.compare-add-actions {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
+.compare-search input {
+  width: 100%;
 }
 
-.compare-add-or {
-  margin: 0.2rem 0 0;
-  font-size: 0.85rem;
-  opacity: 0.8;
-}
-
-.compare-add-empty {
-  margin: 0;
-}
-
-.compare-library-list {
+.compare-picker-list {
   list-style: none;
-  margin: 0;
+  margin: 0.5rem 0 0;
   padding: 0;
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-height: 15rem;
+  overflow-y: auto;
 }
 
-.compare-library-list button {
-  max-width: 100%;
+.compare-picker-list button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  text-align: left;
+}
+
+.compare-picker-name {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.compare-picker-empty {
+  margin: 0.25rem 0 0;
+  font-size: 0.9rem;
+}
+
+.compare-picker-paste {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.compare-picker-paste label {
+  flex: 1 1 16rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.compare-picker-paste input {
+  width: 100%;
+}
+
+.compare-picker-cancel {
+  align-self: flex-start;
+}
+
+/* ---- footer and the collapsed line ---------------------------------------- */
 
 .compare-footer {
   display: flex;
   align-items: center;
   gap: 0.75rem;
   flex-wrap: wrap;
+}
+
+.compare-add-note {
+  font-size: 0.85rem;
+  opacity: 0.8;
 }
 
 .compare-button {
@@ -111,16 +203,73 @@
   box-shadow: inset calc(-1 * var(--px)) calc(-1 * var(--px)) 0 0 var(--c-orange);
 }
 
-.compare-add-note {
+.compare-section-collapsed {
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  padding: 0.75rem 1.1rem;
+}
+
+.compare-summary-label {
   font-size: 0.85rem;
-  opacity: 0.75;
+  opacity: 0.8;
+}
+
+.compare-chips {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1 1 auto;
+}
+
+.compare-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.2rem 0.5rem;
+  border: var(--line);
+}
+
+.compare-chip-name {
+  font-weight: 700;
+}
+
+.compare-edit {
+  flex: none;
 }
 
 @media (max-width: 640px) {
-  .compare-button {
+  /* Comfortable touch targets on a phone: 44px, per the app's other controls. */
+  .compare-slot-actions button,
+  .compare-remove {
+    min-height: 2.75rem;
+  }
+  .compare-remove {
+    min-width: 2.75rem;
+  }
+  .compare-slot {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .compare-slot-actions {
+    margin-left: auto;
+  }
+  .compare-picker-paste button {
     width: 100%;
   }
-  .compare-add-actions button {
-    flex: 1;
+  .compare-footer .compare-button {
+    width: 100%;
+  }
+  .compare-section-collapsed {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .compare-edit {
+    width: 100%;
   }
 }

@@ -434,10 +434,11 @@ test.describe("Phone editing and comparing (320px)", () => {
     const menus = [slug("Ana", LONG_ITEMS), slug("Ben", LONG_ITEMS)];
     await page.goto(`/compare?${menus.map((m) => `encoded=${encodeURIComponent(m)}`).join("&")}`);
     await expect(page.locator(".menu-item-compare").first()).toBeVisible();
-    for (const box of await page.locator(".compare-input").all()) {
-      expect((await box.boundingBox())!.height).toBeLessThan(120);
+    // A compare link opens collapsed: one compact summary line, then the results.
+    await expect(page.locator(".compare-chip")).toHaveCount(2);
+    for (const chip of await page.locator(".compare-chip").all()) {
+      expect((await chip.boundingBox())!.height).toBeLessThan(60);
     }
-    // The one way to add sits under the menus, still compact.
-    await expect(page.getByRole("button", { name: "+ Add a menu" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Edit menus" })).toBeVisible();
   });
 });

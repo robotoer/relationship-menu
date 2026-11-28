@@ -37,10 +37,14 @@ describe("ComparePage", () => {
     expect(screen.getByText("Bob")).toBeInTheDocument();
   });
 
-  it("should render encoded values in inputs", () => {
+  it("shows the menus as cards, not as raw links", () => {
     render(<ComparePage {...defaultProps} />);
-    expect(screen.getByDisplayValue("encoded1")).toBeInTheDocument();
-    expect(screen.getByDisplayValue("encoded2")).toBeInTheDocument();
+    const cards = screen.getAllByRole("listitem");
+    expect(cards).toHaveLength(2);
+    expect(cards[0]).toHaveTextContent("Alice");
+    expect(cards[1]).toHaveTextContent("Bob");
+    // The encoded value is behind the card, never the main thing on screen.
+    expect(screen.queryByDisplayValue("encoded1")).toBeNull();
   });
 
   it("should render the Compare button", () => {
