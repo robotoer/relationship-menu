@@ -95,6 +95,9 @@ export const ComparePage = ({
   const columnTitles = (legendTitles ?? titles).map(
     (title, index) => title || `Menu ${index + 1}`,
   );
+  // While the builder is open the page is about choosing menus; once Compare is
+  // pressed it collapses to a summary line and the page belongs to the results.
+  const [editing, setEditing] = useState(!showComparison);
   const [filter, setFilter] = useState<FocusFilter>("all");
   const [query, setQuery] = useState("");
   const [groupFilter, setGroupFilter] = useState("");
@@ -154,17 +157,30 @@ export const ComparePage = ({
       ?.scrollIntoView?.({ behavior: "smooth" });
   return (
     <div className="compare-page">
-      <h1 className="sr-only">Compare menus</h1>
+      <header className="compare-header">
+        <h1>Compare menus</h1>
+        {!showComparison && (
+          <p>
+            See where two or more menus agree, where they differ, and what is worth talking
+            about. Nothing is uploaded.
+          </p>
+        )}
+      </header>
       <CompareSection
         titles={titles}
         menus={encoded}
         errors={errors}
         onChange={onChangeCompared}
-        onCompare={onCompare}
+        onCompare={() => {
+          setEditing(false);
+          onCompare();
+        }}
         canCompare={
           canCompare ?? encoded.filter((e) => e.trim().length > 0).length >= 2
         }
         library={library}
+        collapsed={showComparison && !editing}
+        onEdit={() => setEditing(true)}
       />
       {showComparison && (
         <>
