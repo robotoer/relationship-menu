@@ -14,7 +14,7 @@ import {
   MenuItemCompare,
 } from "../components/MenuItemCompare";
 import { MenuComparison } from "../model/compare";
-import { CompareSection } from "../components/CompareSection";
+import { CompareSection, type LibraryMenu } from "../components/CompareSection";
 import { ReactNode, useMemo, useState } from "react";
 import {
   FOCUS_FILTERS,
@@ -74,6 +74,7 @@ export const ComparePage = ({
   onCompare,
   discussLink,
   saveControls,
+  library,
 }: {
   titles: string[];
   encoded: string[];
@@ -88,6 +89,8 @@ export const ComparePage = ({
   discussLink?: string;
   /** Saving and sharing this comparison as a conversation (spec CV-1). */
   saveControls?: ReactNode;
+  /** Menus saved in this browser, offered in "+ Add a menu" (SV-19). */
+  library?: LibraryMenu[];
 }) => {
   const columnTitles = (legendTitles ?? titles).map(
     (title, index) => title || `Menu ${index + 1}`,
@@ -161,6 +164,7 @@ export const ComparePage = ({
         canCompare={
           canCompare ?? encoded.filter((e) => e.trim().length > 0).length >= 2
         }
+        library={library}
       />
       {showComparison && (
         <>

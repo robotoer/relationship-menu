@@ -38,7 +38,7 @@ export const ITEM_THEMES: Record<Theme, string[]> = {
     "Holding hands",
     "Kissing",
     "Cuddling",
-    "Sex",
+    "Sex with each other",
     "Sleeping over",
     "Saying 'I love you'",
     "Hugging",
@@ -255,7 +255,6 @@ export const ITEM_THEMES: Record<Theme, string[]> = {
     "Checking in when things are hard",
     "Rides to appointments",
     "Keeping secrets private",
-    "Emotional support",
     "Caring when sick",
     "Help with practical tasks",
     "Using barriers with each other",
@@ -583,7 +582,7 @@ export const BADGE_TEXT: Record<
     kind: "answers",
     emoji: "🌈",
     name: "Full Spectrum",
-    earned: "Used all four answers.",
+    earned: "Used all five answers.",
   },
 };
 
@@ -597,7 +596,7 @@ export const BADGE_TEXT: Record<
  * starts these quotes unticked.)
  */
 export const SENSITIVE_ITEMS: string[] = [
-  "Sex",
+  "Sex with each other",
   "Sharing sexual health information",
   "Regular testing",
   "Using barriers with each other",

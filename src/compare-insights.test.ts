@@ -73,7 +73,7 @@ describe("bucketOf (CP-30, CP-31)", () => {
 
 describe("answerGap and differenceScore", () => {
   it("measures how far apart answers are, ignoring missing ones", () => {
-    expect(answerGap(["must-have", "off-limits"])).toBe(3);
+    expect(answerGap(["must-have", "off-limits"])).toBe(4);
     expect(answerGap(["like-to-have", "maybe"])).toBe(1);
     expect(answerGap(["maybe", "maybe"])).toBe(0);
     expect(answerGap(["must-have", null])).toBeNull();

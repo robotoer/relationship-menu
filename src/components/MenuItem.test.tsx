@@ -7,6 +7,13 @@ describe("MenuItem", () => {
     expect(screen.getByDisplayValue("Kissing")).toBeInTheDocument();
   });
 
+  it("hints when an item is too vague to compare (SV-17)", () => {
+    const { rerender } = render(<MenuItem item="Trust" onChange={vi.fn()} />);
+    expect(screen.getByRole("note")).toHaveTextContent(/could mean different things/);
+    rerender(<MenuItem item="Trust with money" onChange={vi.fn()} />);
+    expect(screen.queryByRole("note")).toBeNull();
+  });
+
   it("should render with a selected value", () => {
     render(
       <MenuItem item="Kissing" value="must-have" onChange={vi.fn()} />
@@ -41,12 +48,13 @@ describe("MenuItem", () => {
   it("should render all preference options", () => {
     render(<MenuItem item="Test" onChange={vi.fn()} />);
     const options = screen.getAllByRole("option");
-    expect(options).toHaveLength(5);
+    expect(options).toHaveLength(6);
     expect(options[0]).toHaveTextContent("---");
     expect(options[1]).toHaveTextContent("Must Have");
     expect(options[2]).toHaveTextContent("Like to Have");
     expect(options[3]).toHaveTextContent("Maybe");
-    expect(options[4]).toHaveTextContent("Off Limits");
+    expect(options[4]).toHaveTextContent("Soft No");
+    expect(options[5]).toHaveTextContent("Off Limits");
   });
 
   it("should render a delete button when onDelete is provided", () => {

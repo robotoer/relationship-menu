@@ -1,4 +1,5 @@
 import { GROUP_TEMPLATES, MENU_TEMPLATES, templateMenu } from "./templates";
+import { isVagueItem } from "./menu-specificity";
 
 // Same matching as adding a ready-made group (spec ED-8).
 const key = (text: string) => text.trim().toLowerCase();
@@ -35,6 +36,12 @@ describe("templates", () => {
     for (const item of items) {
       expect(item).not.toMatch(/\bmy partner\b|^I\b/i);
     }
+  });
+
+  // SV-17: "Trust" or "Quality time" on its own compares words, not what people
+  // mean. A template item must at least say what it's about ("Trust with money").
+  it.each(allGroups)("$where has no bare one-word item that means different things to different people", ({ items }) => {
+    expect(items.filter(isVagueItem)).toEqual([]);
   });
 
   it("start menus with no answers or notes", () => {

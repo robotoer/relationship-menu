@@ -74,6 +74,7 @@ const PREFERENCES: ReadonlySet<string> = new Set<RelationshipMenuItemValue>([
   "must-have",
   "like-to-have",
   "maybe",
+  "soft-no",
   "off-limits",
 ]);
 

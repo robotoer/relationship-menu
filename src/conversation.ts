@@ -36,6 +36,12 @@ export type Comment = {
 /** What was said and decided about one topic (an item). */
 export type TopicEntry = {
   note?: string;
+  /**
+   * What each person means by this item, keyed by column ("0", "1", …) (CV-19).
+   * Menus share item text but not meaning: "Quality time" can be a nightly call to
+   * one person and one weekend a month to the other.
+   */
+  meanings?: Record<string, string>;
   outcome?: Outcome;
   followUp?: string;
   /** When note, outcome or follow-up last changed (they merge together). */
@@ -129,6 +135,7 @@ const dict = <T>(): Record<string, T> => Object.create(null);
 export const CONVERSATION_LIMITS = {
   title: 120,
   note: 4000,
+  meaning: 400,
   followUp: 400,
   partTitle: 120,
   comment: 1000,
@@ -209,8 +216,16 @@ const parseTopic = (raw: unknown): TopicEntry | null => {
   const outcome = OUTCOMES.some((o) => o.id === v.outcome) ? (v.outcome as Outcome) : undefined;
   const note = text(v.note, CONVERSATION_LIMITS.note);
   const followUp = text(v.followUp, CONVERSATION_LIMITS.followUp);
+  const meanings = dict<string>();
+  if (v.meanings && typeof v.meanings === "object" && !Array.isArray(v.meanings)) {
+    for (const [k, value] of Object.entries(v.meanings as Record<string, unknown>)) {
+      const said = text(value, CONVERSATION_LIMITS.meaning);
+      if (said && /^\d{1,2}$/.test(k) && Number(k) < CONVERSATION_LIMITS.menus) meanings[k] = said;
+    }
+  }
   return {
     ...(note ? { note } : {}),
+    ...(Object.keys(meanings).length ? { meanings } : {}),
     ...(outcome ? { outcome } : {}),
     ...(followUp ? { followUp } : {}),
     updatedAt: time(v.updatedAt),
@@ -473,6 +488,25 @@ export const updateTopic = (
   const topics = Object.assign(dict<TopicEntry>(), c.topics);
   const prev = topics[key] ?? { updatedAt: 0, comments: [] };
   topics[key] = { ...prev, ...change, updatedAt: now };
+  return touch(c, now, { topics });
+};
+
+/**
+ * CV-19: what one person means by a topic's item. Kept per person, so each side
+ * writes their own and both are shown side by side.
+ */
+export const setMeaning = (c: Conversation, key: string, person: number, said: string, now = Date.now()) => {
+  const topics = Object.assign(dict<TopicEntry>(), c.topics);
+  const prev = topics[key] ?? { updatedAt: 0, comments: [] };
+  const meanings = Object.assign(dict<string>(), prev.meanings);
+  const trimmed = said.slice(0, CONVERSATION_LIMITS.meaning);
+  if (trimmed.trim()) meanings[String(person)] = trimmed;
+  else delete meanings[String(person)];
+  topics[key] = {
+    ...prev,
+    ...(Object.keys(meanings).length ? { meanings } : { meanings: undefined }),
+    updatedAt: now,
+  };
   return touch(c, now, { topics });
 };
 
@@ -874,6 +908,10 @@ export const conversationSummary = (c: Conversation, agenda: Topic[], names: str
             outcome ? ` → **${outcome}**` : ""
           }`
         );
+        if (r?.meanings && Object.values(r.meanings).some((said) => said.trim())) {
+          const said = Object.entries(r.meanings).map(([p, meaning]) => `${who(Number(p))}: ${flat(meaning)}`);
+          lines.push(`  - What it means: ${said.join(" · ")}`);
+        }
         if (r?.note?.trim()) lines.push(`  - Notes: ${flat(r.note)}`);
         if (r?.followUp?.trim()) lines.push(`  - Next step: ${flat(r.followUp)}`);
         for (const x of r?.comments ?? []) if (!x.deleted) lines.push(`  - 💬 ${who(x.by)}: ${flat(x.text)}`);

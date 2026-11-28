@@ -34,6 +34,7 @@
   --pref-must-have: var(--c-blue);
   --pref-like-to-have: var(--c-green);
   --pref-maybe: var(--c-yellow);
+  --pref-soft-no: var(--c-orange);
   --pref-off-limits: var(--c-red);
   --pref-none: var(--c-mist);
 

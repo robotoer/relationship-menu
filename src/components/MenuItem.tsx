@@ -2,6 +2,7 @@ import "./MenuItem.css";
 import { useLayoutEffect, useRef, useState } from "react";
 import { RelationshipMenuItem, RelationshipMenuItemValue } from "../model/menu";
 import { MoveButtons, MoveControls } from "./MoveButtons";
+import { SPECIFICITY_HINT, isVagueItem } from "../menu-specificity";
 
 /**
  * The text of a menu item: a one-row textarea that grows to fit, so long items
@@ -144,6 +145,7 @@ export const MenuItem = ({
         <option value="must-have">Must Have</option>
         <option value="like-to-have">Like to Have</option>
         <option value="maybe">Maybe</option>
+        <option value="soft-no">Soft No</option>
         <option value="off-limits">Off Limits</option>
       </select>
       <label>
@@ -154,6 +156,12 @@ export const MenuItem = ({
           onChange={(e) => onChange({ item: e.target.value })}
         />
       </label>
+      {/* SV-17: a bare "Trust" or "Quality time" reads differently to each person. */}
+      {isVagueItem(item) && (
+        <p className="menu-item-hint" role="note">
+          {SPECIFICITY_HINT}
+        </p>
+      )}
       {move && <MoveButtons name={item ? `"${item}"` : "this item"} controls={move} />}
       {!move && onDelete && (
         <button

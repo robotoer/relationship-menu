@@ -18,6 +18,7 @@ import { COMPARE_VALUE_LABELS, compareValueClass } from "../components/MenuItemC
 import { GROUND_RULES, OUTCOMES, Outcome, Topic, topicLabel } from "../discussion";
 import {
   Conversation,
+  setMeaning,
   TopicEntry,
   agendaAreas,
   areaInsights,
@@ -49,6 +50,10 @@ export type MenuUpdate = { index: number; name: string; slug: string };
 
 const isCovered = (r: TopicEntry | undefined) =>
   !!r && (!!r.outcome || !!r.note?.trim() || !!r.followUp?.trim());
+
+/** Whether anyone has said what the item means to them (CV-19). */
+const hasMeaning = (r: TopicEntry | undefined) =>
+  !!r?.meanings && Object.values(r.meanings).some((said) => said.trim());
 
 /**
  * "Talk it through" (spec §7b, §7c): a conversation about a comparison, in parts. It
@@ -456,7 +461,10 @@ export const DiscussPage = ({
           );
         })}
         {(() => {
-          const unsettled = agenda.filter((t) => isCovered(record.topics[t.key]) && !record.topics[t.key]?.outcome);
+          // A definition alone belongs here too: it's something said, with no outcome yet.
+          const unsettled = agenda.filter(
+            (t) => (isCovered(record.topics[t.key]) || hasMeaning(record.topics[t.key])) && !record.topics[t.key]?.outcome
+          );
           return unsettled.length > 0 ? (
             <section className="discuss-outcome">
               <h2>
@@ -597,6 +605,24 @@ export const DiscussPage = ({
         {settings.menuNotes !== "show" && (
           <MenuNotes key={topic.key} topic={topic} names={names} view={settings.menuNotes} />
         )}
+
+        <fieldset className="discuss-meanings">
+          <legend>What do you each mean by this?</legend>
+          <p className="conv-hint">
+            The same words can mean different things. In your own words, what would this look like?
+          </p>
+          {names.map((name, i) => (
+            <label className="discuss-field" key={i}>
+              <span>{name}</span>
+              <textarea
+                rows={2}
+                value={r?.meanings?.[i] ?? ""}
+                placeholder="e.g. One evening a week, phones away"
+                onChange={(e) => onChange(setMeaning(conversation, topic.key, i, e.target.value))}
+              />
+            </label>
+          ))}
+        </fieldset>
 
         {record.coach?.topics[topic.key] && (
           <section className="discuss-coach" aria-label="Suggested by the AI coach">
@@ -821,6 +847,14 @@ const SummaryItem = ({ topic, record, names }: { topic: Topic; record: TopicEntr
         {" "}
         ({topic.values.map((v, i) => `${names[i]}: ${COMPARE_VALUE_LABELS[compareValueClass(v)]}`).join(", ")})
       </span>
+      {record.meanings && Object.values(record.meanings).some((said) => said.trim()) && (
+        <p className="discuss-summary-meaning">
+          {Object.entries(record.meanings)
+            .filter(([, said]) => said.trim())
+            .map(([i, said]) => `${names[Number(i)] ?? `Person ${Number(i) + 1}`}: ${said.trim()}`)
+            .join(" · ")}
+        </p>
+      )}
       {record.note?.trim() && <p>{record.note}</p>}
       {record.followUp?.trim() && (
         <p className="discuss-next">

@@ -79,10 +79,11 @@ describe("scores (IN-3)", () => {
         ["   ", "off-limits"],
       ])
     );
+    // Must have (4) and Maybe (2) average to 3 on the five-answer scale (SV-18).
     expect(two.themes.find((t) => t.theme === "closeness")).toEqual({
       theme: "closeness",
       answered: 2,
-      score: 2,
+      score: 3,
     });
     expect(two.items).toBe(3);
     expect(two.answered).toBe(2);
@@ -152,6 +153,7 @@ describe("animal and style (IN-4, IN-5)", () => {
       "must-have": m,
       "like-to-have": l,
       maybe: y,
+      "soft-no": 0,
       "off-limits": o,
     });
     expect(styleOf(counts(5, 0, 4, 1), 10)).toBe("curious");
@@ -190,9 +192,10 @@ describe("badges (IN-7)", () => {
       ["Kissing", "must-have"],
       ["Hugging", "like-to-have"],
       ["Cuddling", "maybe"],
+      ["Overnights", "soft-no"],
       ["Sex", "off-limits"],
     ]);
-    expect(ids(answers)).toEqual(["boundary-keeper", "full-spectrum"]);
+    expect(ids(answers)).toEqual(["hatched", "boundary-keeper", "full-spectrum"]);
     const noted: RelationshipMenu = {
       A: Array.from({ length: 5 }, (_, i) => ({ item: "Kissing", note: i ? `note ${i}` : " " })),
     };

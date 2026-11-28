@@ -37,7 +37,7 @@ describe("menu insight properties", () => {
     );
   });
 
-  it("IN-3: scores are 0–3 from THEME_MIN answers, and never more answers than were given", () => {
+  it("IN-3: scores are 0–4 from THEME_MIN answers, and never more answers than were given", () => {
     fc.assert(
       fc.property(menuArb, (menu) => {
         const insights = menuInsights(menu);
@@ -46,7 +46,7 @@ describe("menu insight properties", () => {
           if (t.answered < THEME_MIN) expect(t.score).toBeNull();
           else {
             expect(t.score).toBeGreaterThanOrEqual(0);
-            expect(t.score).toBeLessThanOrEqual(3);
+            expect(t.score).toBeLessThanOrEqual(4);
           }
         }
         const themed = insights.themes.reduce((n, t) => n + t.answered, 0);

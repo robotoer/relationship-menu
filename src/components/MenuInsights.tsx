@@ -27,6 +27,7 @@ const LINE_LABEL: Record<RelationshipMenuItemValue, string> = {
   "must-have": "+3",
   "like-to-have": "+1",
   maybe: "Unidentified:",
+  "soft-no": "Wary of:",
   "off-limits": "Immune to:",
 };
 
@@ -157,7 +158,7 @@ const CreatureCard = ({
                   ) : (
                     <>
                       {score.toFixed(1)}
-                      <span className="sr-only"> out of 3</span>
+                      <span className="sr-only"> out of 4</span>
                     </>
                   )}
                 </span>

@@ -16,7 +16,8 @@ describe("resolveKey", () => {
 
   it("maps number keys to preferences", () => {
     expect(row("1").action).toEqual({ type: "set-preference", value: "must-have" });
-    expect(row("4").action).toEqual({ type: "set-preference", value: "off-limits" });
+    expect(row("4").action).toEqual({ type: "set-preference", value: "soft-no" });
+    expect(row("5").action).toEqual({ type: "set-preference", value: "off-limits" });
     expect(row("0").action).toEqual({ type: "set-preference", value: undefined });
   });
 

@@ -17,6 +17,7 @@ export type Cell =
   | "must-have"
   | "like-to-have"
   | "maybe"
+  | "soft-no"
   | "off-limits";
 
 //@ pure
