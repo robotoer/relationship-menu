@@ -5,6 +5,7 @@ import {
   parseOutline,
   parseRelationshipMenuFile,
   parseRows,
+  parseSectionGrid,
   parseTable,
   readMenuFile,
   titleFromFileName,
@@ -270,5 +271,59 @@ describe("SV-16: imported menus follow the usual rules", () => {
     const renamed = planStructuredImport(first.add, [{ title: "Ana", menu: { Time: [{ item: "Something else" }] } }], 3000);
     expect(renamed.renamed).toEqual([{ from: "Ana", to: "Ana (2)" }]);
     expect(other.people).toHaveLength(1);
+  });
+});
+
+describe("SV-16: side-by-side section sheets (non-escalator)", () => {
+  // The shape of the widely shared sheet: a preamble, a legend, stretched section
+  // titles in the answer column, and blocks of (answer, item) side by side.
+  const sheet = [
+    ",Instructions: Make a copy of this document and fill it out,,,,,",
+    ",🔴 MUST HAVE   ⭕ LIKE TO HAVE   ❓ MAYBE   ❓❌❓ LET'S TALK   ❌ OFF LIMITS,,,,,",
+    ",C O M M I T M E N T,,,E M O T I O N A L   I N T I M A C Y,",
+    ",❓❌❓,Marriage,,🔴 ,Expressing happiness and joy",
+    ",❓,Marriage w/ another partner,,🔴 ,Sharing vulnerable feelings",
+    ",⭕,Sharing pet(s),,⭕,Sharing about mental health challenges",
+    ",❓❓,Coparenting,,⬜,",
+    ",,,,C O M M U N I C A T I O N,",
+    ",,,,⭕,Daily or frequent check-ins",
+    ",🔴 ,Planning for future,,❌,Don't Ask Don't Tell",
+  ].join("\n");
+
+  it("reads every block, its section titles and the emoji answers", () => {
+    const read = parseTable(sheet, "Their sheet");
+    expect(read?.menus).toHaveLength(1);
+    const menu = read!.menus[0].menu;
+    expect(Object.keys(menu)).toEqual(["Commitment", "Emotional Intimacy", "Communication"]);
+    expect(menu.Commitment).toEqual([
+      { item: "Marriage", value: "maybe" },
+      { item: "Marriage w/ another partner", value: "maybe" },
+      { item: "Sharing pet(s)", value: "like-to-have" },
+      { item: "Coparenting", value: "maybe" },
+      { item: "Planning for future", value: "must-have" },
+    ]);
+    expect(menu["Emotional Intimacy"]).toEqual([
+      { item: "Expressing happiness and joy", value: "must-have" },
+      { item: "Sharing vulnerable feelings", value: "must-have" },
+      { item: "Sharing about mental health challenges", value: "like-to-have" },
+    ]);
+    // A title part-way down a column applies to what follows it.
+    expect(menu.Communication).toEqual([
+      { item: "Daily or frequent check-ins", value: "like-to-have" },
+      { item: "Don't Ask Don't Tell", value: "off-limits" },
+    ]);
+  });
+
+  it("needs a real grid, not a one-off table", () => {
+    expect(parseSectionGrid([["", "❓", "Marriage"]], "X")).toBeNull();
+  });
+
+  it("reads the emoji answers on their own", () => {
+    expect(answerValue("🔴")).toBe("must-have");
+    expect(answerValue("⭕")).toBe("like-to-have");
+    expect(answerValue("❓❓")).toBe("maybe");
+    expect(answerValue("❓❌❓")).toBe("maybe");
+    expect(answerValue("❌")).toBe("off-limits");
+    expect(answerValue("⬜")).toBeUndefined();
   });
 });

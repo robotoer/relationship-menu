@@ -35,12 +35,12 @@ const text = (value: unknown): string => (typeof value === "string" ? value.trim
 
 /** Words people answer with, in every spelling we've seen, mapped to our four values. */
 const ANSWER_WORDS: [RegExp, RelationshipMenuItemValue][] = [
-  [/^(must|must[-\s]?have|must have|need|needed|required|essential|yes|yep|definitely|absolutely|😍|❤️|♥️|⭐|🌟|★|✅|✔️|☑️|✔|2)$/i, "must-have"],
+  [/^(must|must[-\s]?have|must have|need|needed|required|essential|yes|yep|definitely|absolutely|😍|❤️|♥️|⭐|🌟|★|✅|✔️|☑️|✔|🔴|2)$/i, "must-have"],
   [
-    /^(like|like[-\s]?to[-\s]?have|like to have|would like|want|wanted|prefer|preferred|happy with|nice to have|would be nice|🙂|😊|👍|💚|💙|🟢|✅✅|1)$/i,
+    /^(like|like[-\s]?to[-\s]?have|like to have|would like|want|wanted|prefer|preferred|happy with|nice to have|would be nice|🙂|😊|👍|💚|💙|🟢|✅✅|⭕|1)$/i,
     "like-to-have",
   ],
-  [/^(maybe|perhaps|unsure|not sure|open|open to it|sometimes|it depends|depends|neut(ral)?|🤷|🤔|❔|❓|🟡|0)$/i, "maybe"],
+  [/^(maybe|perhaps|unsure|not sure|open|open to it|sometimes|it depends|depends|neut(ral)?|🤷|🤔|❔|❓|❓❓|❓❌❓|🟡|0)$/i, "maybe"],
   [/^(soft[\s-]?no|rather not|would rather not|prefer not|i'd rather not|leaning no|not really|🔶|🟠)$/i, "soft-no"],
   [
     /^(off|off[-\s]?limits|off limits|no|nope|never|hard no|not for me|boundary|deal ?breaker|🚫|⛔|❌|✖️|✖|✕|✗|🛑|🔴)$/i,
@@ -217,6 +217,9 @@ export const parseTable = (input: string, fallbackTitle: string): FormatImport |
     }
   }
 
+  const grid = parseSectionGrid(rows, fallbackTitle);
+  if (grid) return grid;
+
   const nameAt =
     personAt >= 0
       ? personAt
@@ -303,6 +306,68 @@ const stripPersonSuffix = (header: string): { item: string; person?: string } =>
   const dashed = header.match(/^([^—–:|]{1,30})\s*[—–:|]\s*(.+)$/);
   if (dashed) return { item: dashed[2].trim(), person: dashed[1].trim() };
   return { item: header };
+};
+
+/** "C O M M I T M E N T" stretched across a row, as these sheets type it. */
+const tidyTitle = (raw: string): string => {
+  const words = raw.trim().split(/\s{2,}/);
+  return words
+    .map((word) => (/^(?:\S )+\S$/.test(word) ? word.replace(/ /g, "") : word.replace(/\s+/g, " ")))
+    .filter(Boolean)
+    .map((word) =>
+      word === word.toUpperCase() && word.length > 1 ? word[0] + word.slice(1).toLowerCase() : word
+    )
+    .join(" ");
+};
+
+/** A cell that is only a glyph (⬜, a tick, an emoji): status, never a title or item. */
+const glyphOnly = (value: string) => !/[\p{L}\p{N}]/u.test(value);
+
+/**
+ * A spreadsheet laid out in side-by-side sections, the way the widely shared
+ * "non-escalator relationship menu" sheets are: an answer (often an emoji) in one
+ * column and its item in the next, repeated across the page, with a section title
+ * appearing in that same answer column when a section starts. Each title applies to
+ * the items below it in its own columns.
+ *
+ * The sheet's preamble (instructions, a legend of what each glyph means) is skipped:
+ * reading starts two rows above the first row that holds an answer and its item.
+ */
+export const parseSectionGrid = (rows: string[][], fallbackTitle: string): FormatImport | null => {
+  const isItemRow = (cells: string[]) =>
+    cells.some((cell, column) => {
+      const answer = answerValue(text(cell));
+      if (!answer) return false;
+      const next = text(cells[column + 1] ?? "");
+      return !!next && answerValue(next) === undefined && !glyphOnly(next);
+    });
+  const firstItem = rows.findIndex(isItemRow);
+  if (firstItem < 0) return null;
+
+  const menu = newMenu();
+  const groupForColumn = new Map<number, string>();
+  let items = 0;
+  for (const cells of rows.slice(Math.max(0, firstItem - 2))) {
+    for (let column = 0; column < cells.length; column++) {
+      const value = text(cells[column]);
+      if (!value) continue;
+      const answer = answerValue(value);
+      // A glyph that isn't an answer (⬜, a stray tick) is status, not a title.
+      if (!answer && glyphOnly(value)) continue;
+      const next = text(cells[column + 1] ?? "");
+      if (answer && next && answerValue(next) === undefined && !glyphOnly(next)) {
+        addItem(menu, groupForColumn.get(column) ?? "", next, answer);
+        items++;
+        continue;
+      }
+      // A title: no answer, a short label, and nothing beside it.
+      if (!answer && !next && value.length <= 40 && !/[.:;!?]$/.test(value)) {
+        groupForColumn.set(column, tidyTitle(value));
+      }
+    }
+  }
+  if (items < 5) return null;
+  return { source: "table", menus: [{ title: fallbackTitle, menu }], skipped: 0 };
 };
 
 // ---- relationshipmenu.org files --------------------------------------------------
