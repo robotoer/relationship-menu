@@ -166,6 +166,22 @@ export const LibraryPage = ({
       setImported("That file is too big to be a menu. Choose the menu file, spreadsheet or backup itself.");
       return;
     }
+    // An Excel workbook (Google Sheets' "Download → Microsoft Excel", and the
+    // popular web menu's own export): read as the table it is. Lazy, like the PDF.
+    if (/\.xls[xm]$/i.test(file.name)) {
+      setImporting(true);
+      try {
+        const { sheetAsTsv } = await import("../import-xlsx");
+        const tsv = sheetAsTsv(new Uint8Array(await file.arrayBuffer()));
+        await importFile(tsv, file.name.replace(/\.xls[xm]$/i, ".tsv"));
+      } catch (e) {
+        console.error("Failed to read the workbook:", e);
+        setImported("Couldn't read that workbook. In Excel or Google Sheets, save it as CSV and choose that instead.");
+      } finally {
+        setImporting(false);
+      }
+      return;
+    }
     // A relationshipmenu.org PDF carries its menu as an attached JSON file. The PDF
     // reader is a separate download, loaded only when a PDF is actually chosen.
     if (/\.pdf$/i.test(file.name)) {
@@ -302,7 +318,7 @@ export const LibraryPage = ({
             />
             <p id="library-import-note" className="library-import-note">
               Menu links, a list of items, or a file: a backup, a relationshipmenu.org menu (.json,
-              .rmenu, .relationshipmenu or .pdf), a spreadsheet (.csv or .tsv) or a form's responses.
+              .rmenu, .relationshipmenu or .pdf), a spreadsheet (.csv, .tsv or .xlsx) or a form's responses.
               Everything is read on this device; nothing is uploaded. A menu you already have is
               skipped, and one whose title is taken is added as a copy, so nothing is replaced.
             </p>
@@ -315,7 +331,7 @@ export const LibraryPage = ({
                 Choose a file
                 <input
                   type="file"
-                  accept=".txt,.md,.markdown,text/plain,text/markdown,.csv,.tsv,text/csv,text/tab-separated-values,.json,.rmenu,.relationshipmenu,application/json,.pdf,application/pdf"
+                  accept=".txt,.md,.markdown,text/plain,text/markdown,.csv,.tsv,text/csv,text/tab-separated-values,.json,.rmenu,.relationshipmenu,application/json,.pdf,application/pdf,.xlsx,.xlsm,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                   disabled={importing}
                   onChange={(e) => void handleImportFile(e.currentTarget)}
                 />

@@ -35,15 +35,15 @@ const text = (value: unknown): string => (typeof value === "string" ? value.trim
 
 /** Words people answer with, in every spelling we've seen, mapped to our four values. */
 const ANSWER_WORDS: [RegExp, RelationshipMenuItemValue][] = [
-  [/^(must|must[-\s]?have|must have|need|needed|required|essential|yes|yep|definitely|absolutely|😍|❤️|♥️|⭐|🌟|★|✅|✔️|☑️|✔|🔴|2)$/i, "must-have"],
+  [/^(must|must[-\s]?have|must have|need|needed|required|essential|yes|yep|definitely|absolutely|😍|❤️|♥️|⭐|🌟|★|✅|✔️|☑️|✔|🔴|■|▪|2)$/i, "must-have"],
   [
-    /^(like|like[-\s]?to[-\s]?have|like to have|would like|want|wanted|prefer|preferred|happy with|nice to have|would be nice|🙂|😊|👍|💚|💙|🟢|✅✅|⭕|1)$/i,
+    /^(like|like[-\s]?to[-\s]?have|like to have|would like|want|wanted|prefer|preferred|happy with|nice to have|would be nice|🙂|😊|👍|💚|💙|🟢|✅✅|⭕|♥|1)$/i,
     "like-to-have",
   ],
-  [/^(maybe|perhaps|unsure|not sure|open|open to it|sometimes|it depends|depends|neut(ral)?|🤷|🤔|❔|❓|❓❓|❓❌❓|🟡|0)$/i, "maybe"],
+  [/^(maybe|perhaps|unsure|not sure|open|open to it|sometimes|it depends|depends|neut(ral)?|🤷|🤔|❔|❓|❓❓|❓❌❓|\?|🟡|0)$/i, "maybe"],
   [/^(soft[\s-]?no|rather not|would rather not|prefer not|i'd rather not|leaning no|not really|🔶|🟠)$/i, "soft-no"],
   [
-    /^(off|off[-\s]?limits|off limits|no|nope|never|hard no|not for me|boundary|deal ?breaker|🚫|⛔|❌|✖️|✖|✕|✗|🛑|🔴)$/i,
+    /^(off|off[-\s]?limits|off limits|no|nope|never|hard no|not for me|boundary|deal ?breaker|🚫|⛔|❌|✖️|✖|✕|✗|✘|🛑|🔴)$/i,
     "off-limits",
   ],
 ];
@@ -55,7 +55,7 @@ export const answerValue = (raw: unknown): RelationshipMenuItemValue | undefined
     .replace(/[()[\]{}"'.:;!*_`]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-  if (!value || /^(n\/?a|none|null|-|—|–|\?)$/i.test(value)) return undefined;
+  if (!value || /^(n\/?a|none|null|-|—|–)$/i.test(value)) return undefined;
   for (const [pattern, answer] of ANSWER_WORDS) if (pattern.test(value)) return answer;
   return undefined;
 };
@@ -178,6 +178,11 @@ export const parseTable = (input: string, fallbackTitle: string): FormatImport |
   const personAt = headerIndex(headers, "person");
   const titleAt = headerIndex(headers, "title");
   const body = rows.slice(1);
+
+  // A mark under a column per answer ("Item | Must have | Like | Maybe | Off") is a
+  // different layout from a title/answer pair, and would look like person columns.
+  const answerGrid = parseAnswerColumns(headers, body, groupAt, itemAt, noteAt, fallbackTitle);
+  if (answerGrid) return answerGrid;
 
   // "Item, Group, Answer" (one menu) — also covers "Question, Answer" with no group.
   if (itemAt >= 0 && (answerAt >= 0 || (groupAt >= 0 && noteAt >= 0))) {
@@ -368,6 +373,63 @@ export const parseSectionGrid = (rows: string[][], fallbackTitle: string): Forma
   }
   if (items < 5) return null;
   return { source: "table", menus: [{ title: fallbackTitle, menu }], skipped: 0 };
+};
+
+
+/** Headers that name an answer rather than hold text: "Must", "Must have", "Off limits"… */
+const answerColumn = (header: string): RelationshipMenuItemValue | undefined => {
+  const name = normalizeHeader(header);
+  if (!name) return undefined;
+  if (/^(must|must have|need|needs|required|essential)$/.test(name)) return "must-have";
+  if (/^(like|like to have|would like|want|wants|nice to have|prefer)$/.test(name)) return "like-to-have";
+  if (/^(maybe|unsure|open|sometimes|perhaps)$/.test(name)) return "maybe";
+  if (/^(soft no|rather not|prefer not|soft)$/.test(name)) return "soft-no";
+  if (/^(off|off limits|no|never|boundary|hard no)$/.test(name)) return "off-limits";
+  return undefined;
+};
+
+/** Whether a cell marks its column, as these sheets do: X, ✓, 1, or the answer itself. */
+const marked = (value: string): boolean => {
+  const cell = value.trim();
+  if (!cell) return false;
+  if (/^(x|✓|✔|✔️|☑|☑️|y|yes|true|1|✓)$/i.test(cell)) return true;
+  return answerValue(cell) !== undefined;
+};
+
+/**
+ * A sheet with one answer per row written as a mark under a column per answer:
+ * `Item | Must have | Like to have | Maybe | Off limits`, with an X (or the answer
+ * itself) in one of them. Common in spreadsheet templates, and easy to misread as
+ * four person columns, so it's recognised before that.
+ */
+export const parseAnswerColumns = (
+  headers: string[],
+  body: string[][],
+  groupAt: number,
+  itemAt: number,
+  noteAt: number,
+  fallbackTitle: string
+): FormatImport | null => {
+  const columns = headers.map(answerColumn);
+  const answerColumns = columns
+    .map((answer, index) => ({ answer, index }))
+    .filter((entry): entry is { answer: RelationshipMenuItemValue; index: number } => !!entry.answer);
+  if (answerColumns.length < 2) return null;
+  const menu = newMenu();
+  let items = 0;
+  let skipped = 0;
+  for (const cells of body) {
+    const item = text(cells[itemAt]);
+    if (!item) {
+      skipped++;
+      continue;
+    }
+    const value = answerColumns.find(({ index }) => marked(cells[index] ?? ""))?.answer;
+    addItem(menu, groupAt >= 0 ? text(cells[groupAt]) : "", item, value, noteAt >= 0 ? text(cells[noteAt]) : undefined);
+    items++;
+  }
+  if (items === 0) return null;
+  return { source: "table", menus: [{ title: fallbackTitle, menu }], skipped };
 };
 
 // ---- relationshipmenu.org files --------------------------------------------------

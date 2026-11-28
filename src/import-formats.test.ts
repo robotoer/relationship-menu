@@ -327,3 +327,36 @@ describe("SV-16: side-by-side section sheets (non-escalator)", () => {
     expect(answerValue("⬜")).toBeUndefined();
   });
 });
+
+describe("SV-16: one answer per row, marked under its own column", () => {
+  it("reads a Must / Like / Maybe / Off limits sheet", () => {
+    const csv = [
+      "Group,Item,Must have,Like to have,Maybe,Off limits,Notes",
+      "Time,Weekly time together,X,,,,A protected evening",
+      "Time,Sharing a calendar,,X,,,",
+      "Time,Overnights,,,,X,",
+      "Time,Pets,,,x,,",
+      "Time,Marriage,,,,,",
+    ].join("\n");
+    const read = parseTable(csv, "Their grid");
+    expect(read?.menus[0].menu).toEqual({
+      Time: [
+        { item: "Weekly time together", value: "must-have", note: "A protected evening" },
+        { item: "Sharing a calendar", value: "like-to-have" },
+        { item: "Overnights", value: "off-limits" },
+        { item: "Pets", value: "maybe" },
+        { item: "Marriage" },
+      ],
+    });
+  });
+
+  it("also takes the answer itself or a tick as the mark", () => {
+    const csv = ["Item,Must,Like,Off", "Kids,✓,,", "Moving,,must-have,", "Pets,,,✘"].join("\n");
+    const read = parseTable(csv, "Marks");
+    expect(read?.menus[0].menu.Menu).toEqual([
+      { item: "Kids", value: "must-have" },
+      { item: "Moving", value: "like-to-have" },
+      { item: "Pets", value: "off-limits" },
+    ]);
+  });
+});
