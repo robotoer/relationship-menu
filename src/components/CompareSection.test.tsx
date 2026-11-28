@@ -20,17 +20,20 @@ describe("CompareSection", () => {
     expect(screen.getByDisplayValue("encoded2")).toBeInTheDocument();
   });
 
-  it("should render an empty input for adding a new menu", () => {
+  it("shows no empty box: one box per menu, and one way to add (SV-19)", () => {
     render(
-      <CompareSection
-        titles={["Alice"]}
-        menus={["encoded1"]}
-        onChange={vi.fn()}
-        onCompare={vi.fn()}
-        canCompare={false}
-      />
+      <CompareSection titles={["Alice"]} menus={["encoded1"]} onChange={vi.fn()} onCompare={vi.fn()} canCompare={false} />
     );
-    expect(screen.getByText("Menu 2")).toBeInTheDocument();
+    expect(screen.getAllByRole("textbox")).toHaveLength(1);
+    expect(screen.queryByText("Menu 2")).toBeNull();
+    expect(screen.getByRole("button", { name: "+ Add a menu" })).toBeInTheDocument();
+  });
+
+  it("opens the add card on an empty comparison, with the paste field ready", () => {
+    render(<CompareSection titles={[]} menus={[]} onChange={vi.fn()} onCompare={vi.fn()} canCompare={false} />);
+    expect(screen.getByRole("heading", { name: "Add the first menu" })).toBeInTheDocument();
+    expect(screen.getByRole("textbox")).toHaveFocus();
+    expect(screen.queryByRole("button", { name: "+ Add a menu" })).toBeNull();
   });
 
   it("should render the Compare button", () => {
@@ -103,22 +106,42 @@ describe("CompareSection", () => {
     expect(onChange).toHaveBeenCalledWith(["new-encoded"]);
   });
 
-  it("should call onChange to add a new menu when the empty input gets a value", () => {
+  it("adds a pasted link through the add card", () => {
+    const onChange = vi.fn();
+    render(
+      <CompareSection titles={["Alice"]} menus={["encoded1"]} onChange={onChange} onCompare={vi.fn()} canCompare={false} />
+    );
+    fireEvent.click(screen.getByRole("button", { name: "+ Add a menu" }));
+    fireEvent.change(screen.getByLabelText("Paste a menu link or share link"), { target: { value: "  new-menu  " } });
+    fireEvent.click(screen.getByRole("button", { name: "Add" }));
+    expect(onChange).toHaveBeenCalledWith(["encoded1", "new-menu"]);
+  });
+
+  it("removes a menu with its ✕", () => {
     const onChange = vi.fn();
     render(
       <CompareSection
-        titles={["Alice"]}
-        menus={["encoded1"]}
+        titles={["Alice", "Bob"]}
+        menus={["encoded1", "encoded2"]}
         onChange={onChange}
         onCompare={vi.fn()}
-        canCompare={false}
+        canCompare={true}
       />
     );
-    // The empty input is the one labeled "Menu 2"
-    const inputs = screen.getAllByRole("textbox");
-    const emptyInput = inputs[inputs.length - 1];
-    fireEvent.change(emptyInput, { target: { value: "new-menu" } });
-    expect(onChange).toHaveBeenCalledWith(["encoded1", "new-menu"]);
+    fireEvent.click(screen.getByRole("button", { name: "Remove Alice" }));
+    expect(onChange).toHaveBeenCalledWith(["encoded2"]);
+  });
+
+  it("keeps Cancel available only when there are menus to return to", () => {
+    const { unmount } = render(
+      <CompareSection titles={[]} menus={[]} onChange={vi.fn()} onCompare={vi.fn()} canCompare={false} />
+    );
+    // Nothing to go back to on an empty comparison, so no Cancel.
+    expect(screen.queryByRole("button", { name: "Cancel" })).toBeNull();
+    unmount();
+    render(<CompareSection titles={["A"]} menus={["e1"]} onChange={vi.fn()} onCompare={vi.fn()} canCompare={false} />);
+    fireEvent.click(screen.getByRole("button", { name: "+ Add a menu" }));
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
   });
 
   it("should call onChange to remove a menu when its input is cleared", () => {
@@ -150,33 +173,21 @@ describe("CompareSection", () => {
     expect(screen.getByText("Menu 1")).toBeInTheDocument();
   });
 
-  it("should keep the same input element (and focus) when the empty input becomes a new entry", () => {
-    const { rerender } = render(
-      <CompareSection
-        titles={[]}
-        menus={[]}
-        onChange={vi.fn()}
-        onCompare={vi.fn()}
-        canCompare={false}
-      />
-    );
-    const emptyInput = screen.getByRole("textbox");
-    emptyInput.focus();
-    rerender(
-      <CompareSection
-        titles={[]}
-        menus={["a"]}
-        onChange={vi.fn()}
-        onCompare={vi.fn()}
-        canCompare={false}
-      />
-    );
-    const inputs = screen.getAllByRole("textbox");
-    expect(inputs).toHaveLength(2);
-    expect(inputs[0]).toBe(emptyInput);
-    expect(inputs[0]).toHaveValue("a");
-    expect(inputs[0]).toHaveFocus();
-    expect(inputs[1]).toHaveValue("");
+  it("closes the add card as part of adding, not a render later", () => {
+    const onChange = vi.fn();
+    render(<CompareSection titles={[]} menus={[]} onChange={onChange} onCompare={vi.fn()} canCompare={false} />);
+    fireEvent.change(screen.getByLabelText("Paste a menu link or share link"), { target: { value: "a" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add" }));
+    expect(onChange).toHaveBeenCalledWith(["a"]);
+    expect(screen.queryByRole("heading", { name: /Add/ })).toBeNull();
+    expect(screen.queryByLabelText("Paste a menu link or share link")).toBeNull();
+  });
+
+  it("shows a menu as one box, with the add card closed", () => {
+    render(<CompareSection titles={["A"]} menus={["a"]} onChange={vi.fn()} onCompare={vi.fn()} canCompare={false} />);
+    expect(screen.getAllByRole("textbox")).toHaveLength(1);
+    expect(screen.getByDisplayValue("a")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "+ Add a menu" })).toBeInTheDocument();
   });
 
   it("should show errors for invalid entries", () => {
@@ -208,7 +219,6 @@ describe("CompareSection", () => {
       />
     );
     expect(screen.getByLabelText("Alice")).toHaveValue("encoded1");
-    expect(screen.getByLabelText("Menu 2")).toHaveValue("");
   });
 });
 
@@ -230,7 +240,7 @@ describe("CompareSection: adding menus (SV-19)", () => {
         library={library}
       />
     );
-    fireEvent.click(screen.getByRole("button", { name: /Add a menu/ }));
+    fireEvent.click(screen.getByRole("button", { name: "+ Add a menu" }));
     // Ana is already in the comparison, so only Ben is offered.
     expect(screen.queryByRole("button", { name: "Ana" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Ben" }));
@@ -244,8 +254,7 @@ describe("CompareSection: adding menus (SV-19)", () => {
     render(
       <CompareSection titles={[]} menus={[]} onChange={vi.fn()} onCompare={vi.fn()} canCompare={false} library={[]} />
     );
-    fireEvent.click(screen.getByRole("button", { name: /Add a menu/ }));
-    expect(screen.getByText(/haven't saved any menus/)).toBeInTheDocument();
+    expect(screen.getByText(/Nothing saved in this browser yet/)).toBeInTheDocument();
   });
 
   it("stops at the comparison limit", () => {
@@ -260,8 +269,7 @@ describe("CompareSection: adding menus (SV-19)", () => {
         library={library}
       />
     );
-    expect(screen.queryByRole("button", { name: /Add a menu/ })).toBeNull();
-    // No trailing empty box once it's full: every box holds a menu.
+    expect(screen.queryByRole("button", { name: "+ Add a menu" })).toBeNull();
     expect(screen.getAllByRole("textbox")).toHaveLength(COMPARE_LIMIT);
   });
 

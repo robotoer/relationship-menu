@@ -437,5 +437,7 @@ test.describe("Phone editing and comparing (320px)", () => {
     for (const box of await page.locator(".compare-input").all()) {
       expect((await box.boundingBox())!.height).toBeLessThan(120);
     }
+    // The one way to add sits under the menus, still compact.
+    await expect(page.getByRole("button", { name: "+ Add a menu" })).toBeVisible();
   });
 });
