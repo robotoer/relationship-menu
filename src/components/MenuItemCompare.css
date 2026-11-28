@@ -134,6 +134,7 @@
 .swatch.must-have { background: var(--pref-must-have); color: var(--c-white); }
 .swatch.like-to-have { background: var(--pref-like-to-have); }
 .swatch.maybe { background: var(--pref-maybe); }
+.swatch.soft-no { background: var(--pref-soft-no); }
 .swatch.off-limits { background: var(--pref-off-limits); color: var(--c-white); }
 .swatch.unknown { background: var(--pref-none); }
 .swatch.absent { background: transparent; border-style: dashed; border-color: var(--c-slate); }

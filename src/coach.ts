@@ -12,7 +12,7 @@ import type { Topic } from "./discussion";
 /** Must match server/src/coach.ts. */
 export const COACH_LIMITS = { maxTopics: 15, maxItemChars: 160, maxGroupChars: 80, maxPeople: 6 } as const;
 
-type Answer = "must-have" | "like-to-have" | "maybe" | "off-limits" | "no answer" | "not on menu";
+type Answer = "must-have" | "like-to-have" | "maybe" | "soft-no" | "off-limits" | "no answer" | "not on menu";
 export type CoachRequest = {
   people: number;
   topics: { id: string; group: string; item: string; kind: Topic["kind"]; answers: Answer[] }[];
@@ -73,6 +73,7 @@ const ANSWER_LABEL: Record<Answer, string> = {
   "must-have": "Must have",
   "like-to-have": "Like to have",
   maybe: "Maybe",
+  "soft-no": "Soft no",
   "off-limits": "Off limits",
   "no answer": "no answer",
   "not on menu": "not on menu",

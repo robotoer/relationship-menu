@@ -80,6 +80,11 @@ const AGREED_PROMPTS: Partial<Record<Bucket, string[]>> = {
     "What would you need to know or feel first?",
     "Is there a small, low-stakes way to try it and see?",
   ],
+  "shared-soft-no": [
+    "You both leaned no. Is that a firm limit, or a \"not for now\"?",
+    "What would make either of you more comfortable with it?",
+    "Is it worth saying why, so it's understood rather than assumed?",
+  ],
   "shared-no": [
     "You both ruled this out. Is it worth saying why, so it's understood?",
     "Is this a firm limit for both of you, or a 'not now'?",
@@ -89,6 +94,7 @@ const AGREED_PROMPTS: Partial<Record<Bucket, string[]>> = {
 /** How topics of a bucket are labelled when it says more than their kind. */
 export const BUCKET_LABELS: Partial<Record<Bucket, { label: string; intro: string }>> = {
   "shared-maybe": { label: "Both unsure", intro: "You both answered Maybe." },
+  "shared-soft-no": { label: "Both leaned no", intro: "You both answered Soft no." },
   "shared-no": { label: "Shared limit", intro: "You both marked it Off limits." },
 };
 
@@ -129,6 +135,7 @@ const KIND_OF_BUCKET: Record<Bucket, TopicKind> = {
   open: "check-in",
   "shared-want": "celebrate",
   "shared-maybe": "celebrate",
+  "shared-soft-no": "celebrate",
   "shared-no": "celebrate",
 };
 

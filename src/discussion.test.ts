@@ -45,8 +45,8 @@ describe("buildAgenda (DS-2, DS-3)", () => {
     expect(agenda.map((t) => [t.item, t.kind])).toEqual([
       ["Kissing", "celebrate"], // Must have from both comes first
       ["Hiking", "celebrate"],
-      ["Cuddling", "explore"], // Like vs Maybe and Maybe vs Off limits: both gap 1,
-      ["Travel", "explore"], //   so menu order; Maybe vs Off limits isn't a conflict
+      ["Travel", "explore"], // Maybe vs Off limits: the widest gap, still not a conflict
+      ["Cuddling", "explore"], // Like vs Maybe: one step apart
       ["Kids", "conflict"],
       ["Marriage", "check-in"],
     ]);
@@ -132,7 +132,7 @@ describe("agendaFor: what's on the agenda, and in which order (CV-15, CV-17)", (
 
   it("can include what you agree on: every shared want, and items you're both unsure about", () => {
     const agenda = agendaFor(comparison, include({ "shared-want": true, "shared-maybe": true }));
-    expect(agenda.map((t) => t.item)).toEqual(["Kissing", "Hiking", "Pets", "Cuddling", "Travel", "Kids", "Marriage"]);
+    expect(agenda.map((t) => t.item)).toEqual(["Kissing", "Hiking", "Pets", "Travel", "Cuddling", "Kids", "Marriage"]);
     const pets = agenda.find((t) => t.item === "Pets")!;
     expect(pets.bucket).toBe("shared-maybe");
     expect(topicLabel(pets).label).toBe("Both unsure");
@@ -141,10 +141,10 @@ describe("agendaFor: what's on the agenda, and in which order (CV-15, CV-17)", (
 
   it("can leave kinds out, and choose how many shared wants to warm up with", () => {
     expect(items(include({ talk: false, open: false }))).toEqual(["Kissing", "Hiking", "Kids"]);
-    expect(items({ ...DEFAULT_AGENDA, warmUp: 0 })).toEqual(["Cuddling", "Travel", "Kids", "Marriage"]);
+    expect(items({ ...DEFAULT_AGENDA, warmUp: 0 })).toEqual(["Travel", "Cuddling", "Kids", "Marriage"]);
   });
 
   it("can put the hardest first, ending on what you share", () => {
-    expect(items({ ...DEFAULT_AGENDA, order: "hardest" })).toEqual(["Kids", "Cuddling", "Travel", "Marriage", "Kissing", "Hiking"]);
+    expect(items({ ...DEFAULT_AGENDA, order: "hardest" })).toEqual(["Kids", "Travel", "Cuddling", "Marriage", "Kissing", "Hiking"]);
   });
 });

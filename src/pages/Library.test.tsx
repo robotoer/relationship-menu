@@ -318,7 +318,7 @@ describe("LibraryPage: Import menus (SV-14)", () => {
       </MemoryRouter>
     );
     expect(screen.getByRole("button", { name: "Import menus" })).toHaveAccessibleDescription(
-      "Bring menus here from a backup file or menu links, for example into a Home Screen app."
+      "Bring menus here from a backup file, menu links, a relationshipmenu.org file, a spreadsheet, a form's responses or a list."
     );
     unmount();
     render(
@@ -339,7 +339,7 @@ describe("LibraryPage: Import menus (SV-14)", () => {
       </MemoryRouter>
     );
     open();
-    const field = screen.getByLabelText("Paste menu links");
+    const field = screen.getByLabelText("Paste menu links — or a list of items");
     expect(field).toHaveFocus();
     const add = screen.getByRole("button", { name: "Add menus" });
     expect(add).toBeDisabled();
@@ -364,7 +364,7 @@ describe("LibraryPage: Import menus (SV-14)", () => {
       </MemoryRouter>
     );
     open();
-    const input = screen.getByLabelText("Choose backup file") as HTMLInputElement;
+    const input = screen.getByLabelText("Choose a file") as HTMLInputElement;
     expect(input).toHaveAttribute("type", "file");
     const file = new File(["Wants & Won'ts: 1 menu\n\n1. A\nhttps://example.test/menu?encoded=a\n"], "backup.txt", {
       type: "text/plain",
@@ -376,6 +376,39 @@ describe("LibraryPage: Import menus (SV-14)", () => {
     expect(screen.getByText("Added 1 menu.")).toBeInTheDocument();
   });
 
+  it("reads a spreadsheet as one menu per person, through the file importer (SV-16)", async () => {
+    const onImportFile = vi.fn().mockResolvedValue(result({ add: [{ title: "Ana", encoded: "x" }, { title: "Ben", encoded: "y" }], found: 2 }));
+    render(
+      <MemoryRouter>
+        <LibraryPage menus={[]} onImport={vi.fn()} onImportFile={onImportFile} />
+      </MemoryRouter>
+    );
+    open();
+    const file = new File(["Item,Ana,Ben\nWeekly time together,Must have,Off limits\n"], "menus.csv", { type: "text/csv" });
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText("Choose a file"), { target: { files: [file] } });
+    });
+    expect(onImportFile).toHaveBeenCalledWith("Item,Ana,Ben\nWeekly time together,Must have,Off limits\n", "menus.csv");
+    expect(screen.getByText("Added 2 menus.")).toBeInTheDocument();
+    expect(gtag).toHaveBeenCalledWith("event", "menus_imported", {});
+  });
+
+  it("explains that a noescalator.com link can't be read here (SV-16)", async () => {
+    const onImport = vi.fn();
+    render(
+      <MemoryRouter>
+        <LibraryPage menus={[]} onImport={onImport} />
+      </MemoryRouter>
+    );
+    open();
+    fireEvent.change(screen.getByLabelText("Paste menu links — or a list of items"), {
+      target: { value: "https://noescalator.com/?view=abc123" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add menus" }));
+    expect(await screen.findByText(/keeps its menu on their site/)).toBeInTheDocument();
+    expect(onImport).not.toHaveBeenCalled();
+  });
+
   it("keeps the form open when nothing was found, and counts nothing", async () => {
     const onImport = vi.fn().mockResolvedValue(result({ unreadable: 1 }));
     render(
@@ -384,13 +417,13 @@ describe("LibraryPage: Import menus (SV-14)", () => {
       </MemoryRouter>
     );
     open();
-    fireEvent.change(screen.getByLabelText("Paste menu links"), { target: { value: "https://x.test/menu?encoded=cut" } });
+    fireEvent.change(screen.getByLabelText("Paste menu links — or a list of items"), { target: { value: "https://x.test/menu?encoded=cut" } });
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Add menus" }));
     });
-    expect(screen.getByText("That link couldn't be read. It may have been cut off when it was copied.")).toBeInTheDocument();
+    expect(screen.getByText("That link or file couldn't be read. A link may have been cut off; a file may not be a menu.")).toBeInTheDocument();
     expect(screen.getByRole("form", { name: "Import menus" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Paste menu links")).toHaveValue("https://x.test/menu?encoded=cut");
+    expect(screen.getByLabelText("Paste menu links — or a list of items")).toHaveValue("https://x.test/menu?encoded=cut");
     expect(gtag).not.toHaveBeenCalledWith("event", "menus_imported", expect.anything());
   });
 
@@ -403,7 +436,7 @@ describe("LibraryPage: Import menus (SV-14)", () => {
       </MemoryRouter>
     );
     open();
-    fireEvent.change(screen.getByLabelText("Paste menu links"), { target: { value: "link" } });
+    fireEvent.change(screen.getByLabelText("Paste menu links — or a list of items"), { target: { value: "link" } });
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Add menus" }));
     });
@@ -422,7 +455,7 @@ describe("LibraryPage: Import menus (SV-14)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(screen.queryByRole("form", { name: "Import menus" })).not.toBeInTheDocument();
     open();
-    fireEvent.keyDown(screen.getByLabelText("Paste menu links"), { key: "Escape" });
+    fireEvent.keyDown(screen.getByLabelText("Paste menu links — or a list of items"), { key: "Escape" });
     expect(screen.queryByRole("form", { name: "Import menus" })).not.toBeInTheDocument();
     expect(onImport).not.toHaveBeenCalled();
   });

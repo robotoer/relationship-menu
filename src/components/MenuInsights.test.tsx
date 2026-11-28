@@ -62,7 +62,7 @@ describe("MenuInsights", () => {
     const stats = screen.getByRole("list", { name: "Stats" });
     expect(
       within(stats).getByText("Closeness").closest("li"),
-    ).toHaveTextContent("Closeness3.0 out of 3");
+    ).toHaveTextContent("Closeness4.0 out of 4");
     expect(within(stats).getByText("Talk").closest("li")).toHaveTextContent(
       "not enough answers yet",
     );
@@ -108,7 +108,7 @@ describe("MenuInsights", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Epic")).toBeInTheDocument();
     expect(
-      screen.getByText("+3.0 Closeness · +2.0 Hearth"),
+      screen.getByText("+4.0 Closeness · +3.0 Hearth"),
     ).toBeInTheDocument();
     const lines = within(
       screen.getByRole("list", { name: "Loot lines" }),

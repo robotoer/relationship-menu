@@ -108,6 +108,7 @@ export const menuLoot = (menu: RelationshipMenu, insights: MenuInsights, variant
     "must-have": [],
     "like-to-have": [],
     maybe: [],
+    "soft-no": [],
     "off-limits": [],
   };
   const seen = new Set<string>();

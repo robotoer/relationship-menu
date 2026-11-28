@@ -128,7 +128,7 @@ describe("MenuPage editing", () => {
       await userEvent.keyboard("1");
       await userEvent.keyboard("{ArrowDown}");
       expect(row("b")).toHaveFocus();
-      await userEvent.keyboard("4");
+      await userEvent.keyboard("5");
       expect(items()).toEqual([
         ["Kissing", "must-have"],
         ["Hugging", "off-limits"],
@@ -137,15 +137,20 @@ describe("MenuPage editing", () => {
       expect(items()[1]).toEqual(["Hugging", null]);
     });
 
-    it("cycles preferences with h/l", async () => {
+    it("cycles preferences with h/l, through Soft no (SV-18)", async () => {
       render(<Editor initial={menu} />);
       row("b").focus();
+      // From "maybe": forward is soft no, then off limits, then unanswered.
+      await userEvent.keyboard("l");
+      expect(items()[1][1]).toBe("soft-no");
       await userEvent.keyboard("l");
       expect(items()[1][1]).toBe("off-limits");
       await userEvent.keyboard("l");
       expect(items()[1][1]).toBeNull();
       await userEvent.keyboard("h");
       expect(items()[1][1]).toBe("off-limits");
+      await userEvent.keyboard("h");
+      expect(items()[1][1]).toBe("soft-no");
     });
 
     it("Enter edits a row, Esc returns to the row, Enter while typing goes to the next row", async () => {

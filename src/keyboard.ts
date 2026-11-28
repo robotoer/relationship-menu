@@ -45,6 +45,7 @@ export const PREFERENCE_CYCLE: (RelationshipMenuItemValue | undefined)[] = [
   "must-have",
   "like-to-have",
   "maybe",
+  "soft-no",
   "off-limits",
 ];
 
@@ -53,7 +54,8 @@ const NUMBER_PREFERENCES: { [key: string]: RelationshipMenuItemValue | undefined
   "1": "must-have",
   "2": "like-to-have",
   "3": "maybe",
-  "4": "off-limits",
+  "4": "soft-no",
+  "5": "off-limits",
 };
 
 /** Multi-key sequences (`gg`, `dd`) wait this long for their second key. */

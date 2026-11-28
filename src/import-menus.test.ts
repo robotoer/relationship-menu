@@ -101,13 +101,13 @@ describe("SV-14: the summary", () => {
 
   it("says when there was nothing to import", () => {
     expect(importSummary(plan({}))).toBe(
-      "No menu links found. Paste a menu link, or choose a file made with Export all menus."
+      "Nothing to import. Paste a menu link, or choose a menu file: a relationshipmenu.org file, a spreadsheet (CSV or TSV), a form's responses, or a list."
     );
     expect(importSummary(plan({ unreadable: 1 }))).toBe(
-      "That link couldn't be read. It may have been cut off when it was copied."
+      "That link or file couldn't be read. A link may have been cut off; a file may not be a menu."
     );
     expect(importSummary(plan({ unreadable: 3 }))).toBe(
-      "3 links couldn't be read. They may have been cut off when they were copied."
+      "3 links or files couldn't be read. A link may have been cut off; a file may not be a menu."
     );
   });
 });

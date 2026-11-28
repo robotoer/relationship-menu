@@ -184,3 +184,11 @@
   opacity: 0.3;
   cursor: default;
 }
+
+/* SV-17: the "say what this looks like" hint under an underspecified item. */
+.menu-item-hint {
+  flex-basis: 100%;
+  margin: 0 0 0 2.2rem;
+  font-size: 0.8rem;
+  color: var(--c-ink-soft, #444);
+}

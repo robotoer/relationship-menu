@@ -16,6 +16,7 @@ import {
   updateSettings,
   updateTopic,
   mergeConversations,
+  setMeaning,
 } from "./conversation";
 import { dictationHint } from "./dictation";
 import { TIPS, TIP_SOURCES, tipFor } from "./conversation-tips";
@@ -180,5 +181,50 @@ describe("conversation settings (CV-15…CV-18)", () => {
     const read = parseConversation(JSON.parse(JSON.stringify({ ...mine, settings: { ...mine.settings, menuNotes: "shout", warmUp: 99, include: { conflict: "yes", "shared-no": true } } })))!;
     expect(read.settings).toMatchObject({ menuNotes: "show", warmUp: 5, include: { conflict: true, "shared-no": true } });
     expect(parseConversation(JSON.parse(JSON.stringify(mine)))!.settings).toEqual(mine.settings);
+  });
+});
+
+describe("what it means to each person (CV-19)", () => {
+  const topicKey = (c: ReturnType<typeof newConversation>, item: string) =>
+    conversationAgenda(c).find((t) => t.item === item)!.key;
+
+  it("keeps one answer per person, and both are exported", () => {
+    let c = newConversation([ana, ben]);
+    const key = topicKey(c, "Kids");
+    c = setMeaning(c, key, 0, "Not for me, now or later");
+    c = setMeaning(c, key, 1, "Maybe in a few years");
+    expect(c.topics[key].meanings).toEqual({ "0": "Not for me, now or later", "1": "Maybe in a few years" });
+
+    const summary = conversationSummary(c, conversationAgenda(c), ["Ana", "Ben"]);
+    expect(summary).toContain("What it means: Ana: Not for me, now or later · Ben: Maybe in a few years");
+  });
+
+  it("clears one person's answer without touching the other's", () => {
+    let c = newConversation([ana, ben]);
+    const key = topicKey(c, "Kids");
+    c = setMeaning(c, key, 0, "First");
+    c = setMeaning(c, key, 1, "Second");
+    c = setMeaning(c, key, 0, "   ");
+    expect(c.topics[key].meanings).toEqual({ "1": "Second" });
+    c = setMeaning(c, key, 1, "");
+    expect(c.topics[key].meanings).toBeUndefined();
+  });
+
+  it("is capped, and read back from storage and links", () => {
+    let c = newConversation([ana, ben]);
+    const key = topicKey(c, "Kids");
+    c = setMeaning(c, key, 0, "x".repeat(CONVERSATION_LIMITS.meaning + 50));
+    expect(c.topics[key].meanings!["0"]).toHaveLength(CONVERSATION_LIMITS.meaning);
+    const again = parseConversation(JSON.parse(JSON.stringify(c)))!;
+    expect(again.topics[key].meanings!["0"]).toHaveLength(CONVERSATION_LIMITS.meaning);
+  });
+
+  it("drops answers for people who aren't in the comparison", () => {
+    let c = newConversation([ana, ben]);
+    const key = topicKey(c, "Kids");
+    c = setMeaning(c, key, 0, "Mine");
+    const raw = JSON.parse(JSON.stringify(c));
+    raw.topics[key].meanings = { "0": "Mine", "9": "Nobody", "x": "Junk" };
+    expect(parseConversation(raw)!.topics[key].meanings).toEqual({ "0": "Mine" });
   });
 });

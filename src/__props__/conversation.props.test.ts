@@ -62,7 +62,16 @@ const edit: fc.Arbitrary<Edit> = fc.oneof(
           {
             menuNotes: hide ? "hide" : "highlight",
             order: hardest ? "hardest" : "gentle",
-            include: { ...(c.settings?.include ?? { conflict: true, talk: true, open: true, degree: true, "shared-maybe": false, "shared-want": false, "shared-no": false }), "shared-want": wants },
+            include: { ...(c.settings?.include ?? {
+                conflict: true,
+                talk: true,
+                open: true,
+                degree: true,
+                "shared-maybe": false,
+                "shared-want": false,
+                "shared-soft-no": false,
+                "shared-no": false,
+              }), "shared-want": wants },
           },
           now
         )

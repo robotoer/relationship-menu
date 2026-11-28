@@ -109,8 +109,8 @@ describe("loot (IN-11)", () => {
     // 10 of 11 items answered.
     expect(item.rarity).toBe("epic");
     expect(item.themeStats).toEqual([
-      { theme: "closeness", score: 3 },
-      { theme: "hearth", score: 2 },
+      { theme: "closeness", score: 4 },
+      { theme: "hearth", score: 3 },
     ]);
     expect(item.lines).toEqual([
       { answer: "must-have", text: "Cuddling" },

@@ -16,6 +16,7 @@
 
 import { decodeCompareSlug, encodeMenuSlug, expandCompareEntry } from "./compare-slug";
 import { encodeData } from "./data-encoder";
+import { readMenuFile, type FormatSource, type ImportedMenu } from "./import-formats";
 import { isNumberedCopyOf, uniqueTitle } from "./menu-titles";
 import { Person, RelationshipMenu, RelationshipMenuDocument } from "./model/menu";
 import type { Storage } from "./storage";
@@ -95,6 +96,27 @@ const plan = (existing: readonly RelationshipMenuDocument[], incoming: readonly 
   return result;
 };
 
+/**
+ * SV-16: what importing menus read from another format (a relationshipmenu.org file,
+ * a spreadsheet, a form or a pasted outline) adds. Same rules as any import: nothing
+ * is overwritten, a menu already here is skipped, and each added menu is new and
+ * dated `now`.
+ */
+export const planStructuredImport = (
+  existing: readonly RelationshipMenuDocument[],
+  imported: readonly ImportedMenu[],
+  now: number
+): ImportPlan & { found: number } => {
+  const incoming: IncomingMenu[] = imported.map((entry) => ({
+    title: entry.title.trim(),
+    encoded: encodeData(entry.menu),
+    ...(entry.person?.name ? { person: entry.person } : {}),
+    createdAt: now,
+    updatedAt: now,
+  }));
+  return { ...plan(existing, incoming), found: incoming.length };
+};
+
 /** The menus to add, in order. `existing` is never changed. */
 export const planImport = (
   existing: readonly RelationshipMenuDocument[],
@@ -165,6 +187,36 @@ export const planTextImport = (
  * Imports pasted text or a backup file into `storage` (SV-14): reads what's saved
  * now, adds only new menus, and rejects if they couldn't all be saved.
  */
+/**
+ * SV-16: reads a chosen file of any supported kind. Menu links (a backup file) win
+ * when there are any; otherwise the file is read as a relationshipmenu.org menu, a
+ * spreadsheet or form, or a pasted outline. Never overwrites.
+ */
+export const importMenuFile = async (
+  storage: Pick<Storage, "getDocuments" | "saveDocuments">,
+  content: string,
+  fileName: string,
+  now = Date.now()
+): Promise<TextImport & { source?: FormatSource }> => {
+  const existing = Object.values(await storage.getDocuments());
+  const links = planTextImport(existing, content, now);
+  const result =
+    links.found > 0
+      ? { ...links, source: undefined }
+      : (() => {
+          const read = readMenuFile(content, fileName);
+          if (!read) return null;
+          const planned = planStructuredImport(existing, read.menus, now);
+          return { ...planned, unreadable: 0, source: read.source };
+        })();
+  if (!result) return { add: [], alreadyHere: 0, renamed: [], found: 0, unreadable: 0 };
+  if (result.add.length > 0) {
+    const ids = await storage.saveDocuments(...result.add);
+    if (ids.length !== result.add.length) throw new Error("Imported menus weren't saved");
+  }
+  return result;
+};
+
 export const importMenuText = async (
   storage: Pick<Storage, "getDocuments" | "saveDocuments">,
   text: string,
@@ -186,11 +238,11 @@ const shownTitle = (title: string) => `"${title || "Untitled menu"}"`;
 export const importSummary = ({ add, alreadyHere, renamed, found, unreadable }: TextImport): string => {
   if (found === 0) {
     if (unreadable === 0) {
-      return "No menu links found. Paste a menu link, or choose a file made with Export all menus.";
+      return "Nothing to import. Paste a menu link, or choose a menu file: a relationshipmenu.org file, a spreadsheet (CSV or TSV), a form's responses, or a list.";
     }
     return unreadable === 1
-      ? "That link couldn't be read. It may have been cut off when it was copied."
-      : `${unreadable} links couldn't be read. They may have been cut off when they were copied.`;
+      ? "That link or file couldn't be read. A link may have been cut off; a file may not be a menu."
+      : `${unreadable} links or files couldn't be read. A link may have been cut off; a file may not be a menu.`;
   }
   const parts: string[] = [];
   if (add.length === 0) {

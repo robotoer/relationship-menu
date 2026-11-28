@@ -4,12 +4,15 @@
  * - "must-have"
  * - "like-to-have"
  * - "maybe"
+ * - "soft-no"
  * - "off-limits"
  */
 export type RelationshipMenuItemValue =
   | "must-have"
   | "like-to-have"
   | "maybe"
+  /** A lean-no: not a boundary, but not something they want (spec SV-18). */
+  | "soft-no"
   | "off-limits";
 
 /**

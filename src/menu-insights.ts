@@ -109,6 +109,7 @@ export const menuInsights = (menu: RelationshipMenu): MenuInsights => {
     "must-have": 0,
     "like-to-have": 0,
     maybe: 0,
+    "soft-no": 0,
     "off-limits": 0,
   };
   const sums = new Map<Theme, { answered: number; total: number }>();

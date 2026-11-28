@@ -35,18 +35,22 @@ const MAX_IMPORT_FILE_BYTES = 10 * 1024 * 1024;
  * @param {RelationshipMenuDocument[]} props.menus - The array of relationship menus to display.
  * @param {function} [props.onDelete] - Optional callback to delete a menu by its id.
  * @param {function} [props.onImport] - Optional callback that imports pasted text or a backup file (SV-14).
+ * @param {function} [props.onImportFile] - Optional callback that reads a chosen menu file from another format (SV-16).
  * @returns {JSX.Element} The rendered Library page.
  */
 export const LibraryPage = ({
   menus,
   onDelete,
   onImport,
+  onImportFile,
 }: {
   /** Saved menus: `id` is the menu id (SY-20); `link` is the slug its tile opens. */
   menus: (RelationshipMenuDocument & { id: string; link: string })[];
   onDelete?: (id: string) => void | Promise<void>;
   /** Saves the menus in pasted text or a backup file without overwriting any (SV-14). */
   onImport?: (text: string) => Promise<TextImport>;
+  /** Reads a menu file in another format and saves what it holds, without overwriting (SV-16). */
+  onImportFile?: (content: string, fileName: string) => Promise<TextImport>;
 }) => {
   // Id of the menu whose Delete was clicked and is waiting for confirmation.
   const [confirming, setConfirming] = useState<string | null>(null);
@@ -109,6 +113,14 @@ export const LibraryPage = ({
   };
   const runImport = async (text: string) => {
     if (!onImport || importing) return;
+    // noescalator.com (and so relationshipmenu.com) keeps a shared menu on its own
+    // server and loads it with its own code, so another site can't read it (SV-16).
+    if (/noescalator\.com|relationshipmenu\.com/i.test(text) && !/encoded=/.test(text)) {
+      setImported(
+        "That noescalator.com link keeps its menu on their site, so it can't be read here. Open it, copy the items into a list like “Weekly time together — must have”, and paste that instead."
+      );
+      return;
+    }
     setImporting(true);
     try {
       const result = await onImport(text);
@@ -125,13 +137,55 @@ export const LibraryPage = ({
       setImporting(false);
     }
   };
+  /** A chosen file: another format when we can read one, else a backup file's links (SV-14). */
+  const importFile = async (content: string, fileName: string) => {
+    if (importing) return;
+    setImporting(true);
+    try {
+      const result = onImportFile ? await onImportFile(content, fileName) : await onImport?.(content);
+      if (!result) return;
+      setImported(importSummary(result));
+      if (result.found > 0) {
+        // Only that it happened: never what, from where, or how many.
+        track("menus_imported");
+        closeImport();
+      }
+    } catch (e) {
+      console.error("Failed to import the menu file:", e);
+      setImported("Couldn't save the menus. Try again: any that were saved are skipped.");
+    } finally {
+      setImporting(false);
+    }
+  };
   const handleImportFile = async (input: HTMLInputElement) => {
     const file = input.files?.[0];
     // Let the same file be chosen again later.
     input.value = "";
     if (!file) return;
     if (file.size > MAX_IMPORT_FILE_BYTES) {
-      setImported("That file is too big to be a menu backup. Choose the file Export all menus made.");
+      setImported("That file is too big to be a menu. Choose the menu file, spreadsheet or backup itself.");
+      return;
+    }
+    // A relationshipmenu.org PDF carries its menu as an attached JSON file. The PDF
+    // reader is a separate download, loaded only when a PDF is actually chosen.
+    if (/\.pdf$/i.test(file.name)) {
+      setImporting(true);
+      try {
+        const { menuJsonFromPdf } = await import("../import-pdf");
+        const json = await menuJsonFromPdf(await file.arrayBuffer());
+        if (!json) {
+          setImported(
+            "That PDF doesn't have a menu inside it. Export the menu from relationshipmenu.org as a .json, .rmenu or .relationshipmenu file instead."
+          );
+          return;
+        }
+        await importFile(json, file.name.replace(/\.pdf$/i, ".json"));
+      } catch (e) {
+        console.error("Failed to read the PDF:", e);
+        setImported("Couldn't read that PDF. Try the .json, .rmenu or .relationshipmenu file instead.");
+      } finally {
+        setImporting(false);
+      }
       return;
     }
     let text: string;
@@ -143,7 +197,7 @@ export const LibraryPage = ({
       setImported("Couldn't read that file. Try choosing it again.");
       return;
     }
-    await runImport(text);
+    await importFile(text, file.name);
   };
 
   return (
@@ -216,7 +270,7 @@ export const LibraryPage = ({
             </button>
             <span id="library-import-about" aria-live="polite">
               {imported ??
-                "Bring menus here from a backup file or menu links, for example into a Home Screen app."}
+                "Bring menus here from a backup file, menu links, a relationshipmenu.org file, a spreadsheet, a form's responses or a list."}
             </span>
           </div>
         )}
@@ -230,7 +284,7 @@ export const LibraryPage = ({
               void runImport(pasted);
             }}
           >
-            <label htmlFor="library-import-text">Paste menu links</label>
+            <label htmlFor="library-import-text">Paste menu links — or a list of items</label>
             <textarea
               id="library-import-text"
               ref={pasteField}
@@ -240,14 +294,16 @@ export const LibraryPage = ({
               onKeyDown={(e) => {
                 if (e.key === "Escape") closeImport();
               }}
-              placeholder="https://…/menu?encoded=…"
+              placeholder={"https://…/menu?encoded=…\n\nWeekly time together — must have\nSharing a calendar — maybe"}
               aria-describedby="library-import-note"
               spellCheck={false}
               autoCapitalize="off"
               autoCorrect="off"
             />
             <p id="library-import-note" className="library-import-note">
-              Links and files are read on this device; nothing is uploaded. A menu you already have is
+              Menu links, a list of items, or a file: a backup, a relationshipmenu.org menu (.json,
+              .rmenu, .relationshipmenu or .pdf), a spreadsheet (.csv or .tsv) or a form's responses.
+              Everything is read on this device; nothing is uploaded. A menu you already have is
               skipped, and one whose title is taken is added as a copy, so nothing is replaced.
             </p>
             <div className="library-import-actions">
@@ -256,10 +312,10 @@ export const LibraryPage = ({
               </button>
               {/* A label, so the file picker opens natively everywhere (iPhone included). */}
               <label className="button library-import-file">
-                Choose backup file
+                Choose a file
                 <input
                   type="file"
-                  accept=".txt,text/plain"
+                  accept=".txt,.md,.markdown,text/plain,text/markdown,.csv,.tsv,text/csv,text/tab-separated-values,.json,.rmenu,.relationshipmenu,application/json,.pdf,application/pdf"
                   disabled={importing}
                   onChange={(e) => void handleImportFile(e.currentTarget)}
                 />

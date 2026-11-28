@@ -100,6 +100,28 @@ describe("DiscussPage (DS-1..DS-8)", () => {
     );
   });
 
+  it("asks each person what the item means to them, and shows both in the summary (CV-19)", () => {
+    renderPage();
+    fireEvent.click(screen.getByRole("button", { name: "▶ Start" }));
+    fireEvent.click(screen.getByRole("button", { name: /Skip for now/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Skip for now/ }));
+    expect(screen.getByRole("heading", { level: 1, name: "Kids" })).toBeInTheDocument();
+
+    const group = screen.getByRole("group", { name: "What do you each mean by this?" });
+    expect(within(group).getByText(/same words can mean different things/)).toBeInTheDocument();
+    fireEvent.change(within(group).getByRole("textbox", { name: "Ana" }), { target: { value: "Not for me, now or later" } });
+    fireEvent.change(within(group).getByRole("textbox", { name: "Ben" }), { target: { value: "Maybe in a few years" } });
+    expect(Object.values(saved().topics)[0].meanings).toEqual({
+      "0": "Not for me, now or later",
+      "1": "Maybe in a few years",
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /Finish/ }));
+    expect(screen.getByRole("heading", { level: 1, name: "Your discussion" })).toBeInTheDocument();
+    expect(screen.queryByText(/What it means/)).toBeNull();
+    expect(screen.getByText(/Ana: Not for me, now or later · Ben: Maybe in a few years/)).toBeInTheDocument();
+  });
+
   it("copies the summary as text (DS-7)", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });

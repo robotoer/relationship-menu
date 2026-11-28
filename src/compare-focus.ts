@@ -18,6 +18,7 @@ export type Bucket =
   | "degree"
   | "shared-maybe"
   | "shared-want"
+  | "shared-soft-no"
   | "shared-no";
 
 /** The five groups the compare page shows and filters by. */
@@ -66,6 +67,12 @@ export const BUCKETS: Record<
     zone: "aligned",
     minutes: 2,
   },
+  "shared-soft-no": {
+    label: "Everyone would rather not",
+    description: "Everyone answered Soft no",
+    zone: "aligned",
+    minutes: 1,
+  },
   "shared-no": {
     label: "Shared limit",
     description: "Everyone marked it Off limits",
@@ -86,7 +93,7 @@ export const ZONES: { id: Zone; label: string; description: string }[] = [
   {
     id: "aligned",
     label: "Same page",
-    description: "Everyone gave the same yes, or everyone marked it Off limits",
+    description: "Everyone gave the same answer: a yes, Soft no, or Off limits",
   },
 ];
 
@@ -96,7 +103,7 @@ export const ZONE_BUCKETS: Record<Zone, Bucket[]> = {
   talk: ["talk"],
   open: ["open"],
   quick: ["degree", "shared-maybe"],
-  aligned: ["shared-want", "shared-no"],
+  aligned: ["shared-want", "shared-soft-no", "shared-no"],
 };
 
 export const FOCUS_FILTERS: { id: FocusFilter; label: string; description: string }[] = [
@@ -116,6 +123,7 @@ export const bucketOf = (values: ComparedMenuItemValue[]): Bucket => {
   if (cells.length === 0 || isUnanswered(cells) || isMissing(cells)) return "open";
   if (isAgree(cells)) {
     if (cells[0] === "maybe") return "shared-maybe";
+    if (cells[0] === "soft-no") return "shared-soft-no";
     if (cells[0] === "off-limits") return "shared-no";
     return "shared-want";
   }

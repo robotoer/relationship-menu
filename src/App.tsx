@@ -50,7 +50,7 @@ import { isSupporter, useSync } from "./sync/context";
 import { useSyncRuntime } from "./providers/Sync";
 import { ImportPage } from "./pages/Import";
 import { uniqueTitle } from "./menu-titles";
-import { importMenuText } from "./import-menus";
+import { importMenuFile } from "./import-menus";
 import { countByFilter } from "./compare-filters";
 import {
   DecodedCompareSlug,
@@ -120,9 +120,20 @@ const WrappedLibraryPage = () => {
       })),
     [documentsMap]
   );
-  // SV-14: Import menus saves through storage, which shows the new menus straight away.
-  const onImport = useCallback((text: string) => importMenuText(storage, text), [storage]);
-  return <LibraryPage menus={documents} onDelete={deleteDocument} onImport={onImport} />;
+  // SV-14, SV-16: Import menus saves through storage, which shows the new menus straight away.
+  const onImport = useCallback((text: string) => importMenuFile(storage, text, ""), [storage]);
+  const onImportFile = useCallback(
+    (content: string, fileName: string) => importMenuFile(storage, content, fileName),
+    [storage]
+  );
+  return (
+    <LibraryPage
+      menus={documents}
+      onDelete={deleteDocument}
+      onImport={onImport}
+      onImportFile={onImportFile}
+    />
+  );
 };
 
 /** The document the editor saves for this title, menu and person. */
@@ -561,6 +572,17 @@ const MenuRoute = () => {
  */
 const WrappedComparePage = () => {
   const [params] = useSearchParams();
+  // This browser's saved menus, to add to the comparison without pasting a link.
+  const { documents: libraryDocuments } = useStorage();
+  const library = useMemo(
+    () =>
+      Object.values(libraryDocuments).map((doc) => ({
+        title: doc.title,
+        encoded: doc.encoded,
+        ...(doc.person ? { person: doc.person } : {}),
+      })),
+    [libraryDocuments]
+  );
   // Changes on every router navigation (but not on our own replaceState calls).
   const { key: navigationKey, state: navigationState } = useLocation();
   const paramEntries = useMemo(
@@ -684,6 +706,7 @@ const WrappedComparePage = () => {
       onCompare={() => setCompareClicked(true)}
       discussLink={canCompare ? `/discuss?${menuParams(encodedList)}` : undefined}
       saveControls={canCompare ? <SaveComparison entries={encodedList} /> : undefined}
+      library={library}
     />
   );
 };

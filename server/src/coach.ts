@@ -46,7 +46,7 @@ export const COACH_LIMITS = {
 } as const;
 
 export const TOPIC_KINDS = ["celebrate", "explore", "conflict", "check-in"] as const;
-export const ANSWERS = ["must-have", "like-to-have", "maybe", "off-limits", "no answer", "not on menu"] as const;
+export const ANSWERS = ["must-have", "like-to-have", "maybe", "soft-no", "off-limits", "no answer", "not on menu"] as const;
 type TopicKind = (typeof TOPIC_KINDS)[number];
 type Answer = (typeof ANSWERS)[number];
 
@@ -146,6 +146,7 @@ const ANSWER_WORDS: Record<Answer, string> = {
   "must-have": "Must have",
   "like-to-have": "Like to have",
   maybe: "Maybe",
+  "soft-no": "Soft no",
   "off-limits": "Off limits",
   "no answer": "no answer yet",
   "not on menu": "not on their menu",

@@ -17,6 +17,7 @@ const ANSWERS: { className: string; label: string; meaning: string }[] = [
   { className: "must-have", label: "Must have", meaning: "I need this to be happy." },
   { className: "like-to-have", label: "Like to have", meaning: "I'd enjoy this." },
   { className: "maybe", label: "Maybe", meaning: "Open to talking about it." },
+  { className: "soft-no", label: "Soft no", meaning: "Not something I want, but not a line I'd draw." },
   { className: "off-limits", label: "Off limits", meaning: "Not for me." },
 ];
 

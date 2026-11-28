@@ -24,9 +24,10 @@ import {
 /** Answers in order from "no" to "yes", used to measure how far apart answers are. */
 export const ANSWER_RANK: Record<RelationshipMenuItemValue, number> = {
   "off-limits": 0,
-  maybe: 1,
-  "like-to-have": 2,
-  "must-have": 3,
+  "soft-no": 1,
+  maybe: 2,
+  "like-to-have": 3,
+  "must-have": 4,
 };
 
 const isAnswer = (v: ComparedMenuItemValue): v is RelationshipMenuItemValue =>

@@ -152,7 +152,7 @@ test.describe("SV-14: Import menus", () => {
     await expect(form).toBeVisible();
     const [chooser] = await Promise.all([
       other.waitForEvent("filechooser"),
-      form.locator("label", { hasText: "Choose backup file" }).click(),
+      form.locator("label", { hasText: "Choose a file" }).click(),
     ]);
     await chooser.setFiles(backup);
     await expect(other.getByText("Added 2 menus.")).toBeVisible();
@@ -165,7 +165,7 @@ test.describe("SV-14: Import menus", () => {
     await other.getByRole("button", { name: "Import menus" }).click();
     const [again] = await Promise.all([
       other.waitForEvent("filechooser"),
-      form.locator("label", { hasText: "Choose backup file" }).click(),
+      form.locator("label", { hasText: "Choose a file" }).click(),
     ]);
     await again.setFiles(backup);
     await expect(other.getByText("Nothing new: 2 menus were already here.")).toBeVisible();

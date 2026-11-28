@@ -13,6 +13,35 @@ import { menuArb } from "./arbitraries";
 const menusArb = fc.array(menuArb, { minLength: 1, maxLength: 3 });
 const KIND_ORDER: TopicKind[] = ["celebrate", "explore", "conflict", "check-in"];
 
+describe("soft no (CP-35)", () => {
+  const answers = ["must-have", "like-to-have", "maybe", "soft-no", "off-limits", null, undefined] as const;
+
+  it("never makes a conflict on its own, and never clears one made by others", () => {
+    // With one other person there is nothing to pair with, so a soft no is never a conflict.
+    for (const other of answers) expect(itemCategories(["soft-no", other]).has("conflict")).toBe(false);
+    // Adding a soft no to a group changes nothing about whether it is a conflict.
+    fc.assert(
+      fc.property(fc.array(fc.constantFrom(...answers), { minLength: 1, maxLength: 2 }), fc.nat({ max: 2 }), (values, at) => {
+        const withSoft = [...values.slice(0, at), "soft-no" as const, ...values.slice(at)];
+        expect(itemCategories(withSoft).has("conflict")).toBe(itemCategories(values).has("conflict"));
+      })
+    );
+  });
+
+  it("gets its own shared bucket when everyone says it, and Talk about it otherwise", () => {
+    expect(bucketOf(["soft-no", "soft-no"])).toBe("shared-soft-no");
+    for (const other of ["must-have", "like-to-have", "maybe", "off-limits"] as const) {
+      expect(bucketOf(["soft-no", other])).toBe("talk");
+    }
+  });
+
+  it("is one step from Maybe and one from Off limits", () => {
+    expect(answerGap(["maybe", "soft-no"])).toBe(1);
+    expect(answerGap(["soft-no", "off-limits"])).toBe(1);
+    expect(answerGap(["must-have", "soft-no"])).toBe(3);
+  });
+});
+
 describe("where people stand", () => {
   it("CP-30: every item is in exactly one bucket and one zone; every total adds up", () => {
     fc.assert(

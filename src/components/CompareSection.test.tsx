@@ -1,5 +1,7 @@
 import { render, screen, fireEvent } from "@testing-library/react";
-import { CompareSection } from "./CompareSection";
+import { COMPARE_LIMIT, CompareSection } from "./CompareSection";
+import { encodeMenuSlug } from "../compare-slug";
+import { encodeData } from "../data-encoder";
 
 describe("CompareSection", () => {
   it("should render inputs for existing menus", () => {
@@ -207,5 +209,66 @@ describe("CompareSection", () => {
     );
     expect(screen.getByLabelText("Alice")).toHaveValue("encoded1");
     expect(screen.getByLabelText("Menu 2")).toHaveValue("");
+  });
+});
+
+describe("CompareSection: adding menus (SV-19)", () => {
+  const library = [
+    { title: "Ana", encoded: encodeData({ Time: [{ item: "Weekly time together", value: "must-have" }] }) },
+    { title: "Ben", encoded: encodeData({ Time: [{ item: "Weekly time together", value: "off-limits" }] }) },
+  ];
+
+  it("adds a saved menu from this browser instead of a pasted link", () => {
+    const onChange = vi.fn();
+    render(
+      <CompareSection
+        titles={["Ana"]}
+        menus={[encodeMenuSlug("Ana", library[0].encoded)]}
+        onChange={onChange}
+        onCompare={vi.fn()}
+        canCompare={false}
+        library={library}
+      />
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Add a menu/ }));
+    // Ana is already in the comparison, so only Ben is offered.
+    expect(screen.queryByRole("button", { name: "Ana" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Ben" }));
+    expect(onChange).toHaveBeenCalledWith([
+      encodeMenuSlug("Ana", library[0].encoded),
+      encodeMenuSlug("Ben", library[1].encoded),
+    ]);
+  });
+
+  it("says when there is nothing saved to add", () => {
+    render(
+      <CompareSection titles={[]} menus={[]} onChange={vi.fn()} onCompare={vi.fn()} canCompare={false} library={[]} />
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Add a menu/ }));
+    expect(screen.getByText(/haven't saved any menus/)).toBeInTheDocument();
+  });
+
+  it("stops at the comparison limit", () => {
+    const menus = Array.from({ length: COMPARE_LIMIT }, (_, i) => `menu${i}`);
+    render(
+      <CompareSection
+        titles={menus.map((_, i) => `Menu ${i + 1}`)}
+        menus={menus}
+        onChange={vi.fn()}
+        onCompare={vi.fn()}
+        canCompare
+        library={library}
+      />
+    );
+    expect(screen.queryByRole("button", { name: /Add a menu/ })).toBeNull();
+    // No trailing empty box once it's full: every box holds a menu.
+    expect(screen.getAllByRole("textbox")).toHaveLength(COMPARE_LIMIT);
+  });
+
+  it("shows how many menus are in the comparison", () => {
+    render(
+      <CompareSection titles={["A", "B"]} menus={["e1", "e2"]} onChange={vi.fn()} onCompare={vi.fn()} canCompare />
+    );
+    expect(screen.getByText(`2 of ${COMPARE_LIMIT} menus`)).toBeInTheDocument();
   });
 });
