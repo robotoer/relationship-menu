@@ -58,6 +58,8 @@ type Call = {
 
 type Trace = {
   calls: Call[];
+  /** How many saves had happened when the quiet status was read (SV-1 is about then). */
+  callsBeforeUnmount: number;
   /** Documents moved onto the queue (timer fired or page left), in order. */
   flushes: RelationshipMenuDocument[];
   /** For each save call: the doc that was successfully saved before it started. */
@@ -188,10 +190,13 @@ const run = async (actions: Action[], appLike = false): Promise<Trace> => {
   }
   for (let i = 0; i < 20 && inFlight().length > 0; i++) await settle(0, true);
   if (mounted) statusAfterQuiet = result.current;
+  // The saves made by leaving happen after the status was read, so they can't be
+  // what the status was about. (SV-1 is checked against the quiet moment.)
+  const callsBeforeUnmount = calls.length;
   await doUnmount();
   for (let i = 0; i < 20 && inFlight().length > 0; i++) await settle(0, true);
 
-  return { calls, flushes, savedBefore, latest, statusAfterQuiet, store, violations };
+  return { calls, callsBeforeUnmount, flushes, savedBefore, latest, statusAfterQuiet, store, violations };
 };
 
 describe("useAutosave properties (spec §5)", () => {
@@ -248,9 +253,10 @@ describe("useAutosave properties (spec §5)", () => {
     await fc.assert(
       fc.asyncProperty(scenarioArb, async (actions) => {
         const t = await run(actions);
-        const succeeded = t.calls.filter((c) => c.ok);
+        const calls = t.calls.slice(0, t.callsBeforeUnmount);
+        const succeeded = calls.filter((c) => c.ok);
         const lastOk = succeeded.length ? succeeded[succeeded.length - 1].doc : null;
-        const last = t.calls[t.calls.length - 1];
+        const last = calls[calls.length - 1];
         // TLA+ SV1_EventuallySaved: stored = latest, unless the last save failed.
         if (lastOk !== t.latest) {
           expect(last?.ok).toBe(false);
