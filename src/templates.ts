@@ -3,9 +3,10 @@
  *
  * The wording is original. The topics follow those commonly covered by published
  * relationship menus, especially the Relationship Anarchy Smorgasbord (Lyrica Lawrence
- * and Heather Orr, Vancouver Polyamory, 2016), "non-escalator" relationship menus, and
- * Amy Gahran's "Stepping Off the Relationship Escalator" (2017). No source's list is
- * reproduced. Items are deliberately non-explicit.
+ * and Heather Orr, Vancouver Polyamory, 2016), the "non-escalator" menus that circulate
+ * as spreadsheets and as the web menu at zerisinyu.github.io, and Amy Gahran's
+ * "Stepping Off the Relationship Escalator" (2017). No source's list is reproduced:
+ * items are reworded and made specific (SV-17). Items are deliberately non-explicit.
  */
 
 import { RelationshipMenu } from "./model/menu";
@@ -353,6 +354,78 @@ export const MENU_TEMPLATES: MenuTemplate[] = [
     },
   },
   {
+    id: "non-escalator-expanded",
+    name: "Non-escalator Menu (expanded)",
+    description:
+      "The broad menu that circulates as spreadsheets, gathered into one starting point: commitment taken piece by piece, autonomy, money, health and being out.",
+    groups: {
+      "Milestones, one at a time": [
+        "Using a relationship label",
+        "Exclusivity",
+        "Living together",
+        "Marriage or legal partnership",
+        "A non-legal commitment ceremony",
+        "Long-term planning without a fixed timeline",
+        "Talking about commitment before deciding anything",
+        "Reserved rituals that are ours",
+      ],
+      "How often we see each other": HOW_OFTEN,
+      "Priorities & occasions": PRIORITIES,
+      Autonomy: [
+        "Time alone every week",
+        "Making everyday decisions without checking in",
+        "Keeping some friendships separate",
+        "Telling each other plans rather than asking permission",
+        "No partner ranked above another",
+        "A primary partner, with others alongside",
+      ],
+      "Other relationships": [
+        "Other romantic relationships",
+        "Either of us marrying someone else",
+        "Either of us having kids with someone else",
+        "Overnights with other partners",
+      ],
+      "Emotional connection": [
+        "Telling each other how the day really went",
+        "Talking openly about mental health",
+        "Talking about what helps when either of us is low",
+      ],
+      Communication: [
+        "Saying when something is bothering us, early",
+        "Agreeing how to disagree",
+        "An emergency way to reach each other",
+      ],
+      "Time together": [
+        "Scheduled time together each week",
+        "Taking turns choosing what we do",
+      ],
+      "Physical closeness": [
+        "Talking about what we each enjoy physically",
+        "Checking in during physical closeness",
+      ],
+      "Boundaries & veto": [
+        "Agreeing what's off the table for now",
+        "Deciding together what needs a check-in",
+      ],
+      Finances: [
+        "A joint account for shared costs only",
+        "Telling each other about debts",
+        "Agreeing who pays for what",
+        "Full financial transparency",
+      ],
+      "Health & emergencies": [
+        ...HEALTH_AND_EMERGENCIES,
+        "Being each other's executor",
+        "Knowing who to call in an emergency",
+      ],
+      "Social & identity": [
+        "Being publicly known as connected",
+        "Deciding together who we're out to",
+        "Being each other's first choice for events",
+      ],
+    },
+  },
+  {
     id: "co-living-partnership",
     name: "Co-living & Practical Partnership",
     description:
@@ -400,6 +473,16 @@ export const MENU_TEMPLATES: MenuTemplate[] = [
 ];
 
 export const GROUP_TEMPLATES: GroupTemplate[] = [
+  {
+    name: "Autonomy",
+    items: [
+      "Time alone every week",
+      "Making everyday decisions without checking in",
+      "Keeping some friendships separate",
+      "Telling each other plans rather than asking permission",
+    ],
+  },
+
   {
     name: "Communication",
     items: [

@@ -8,7 +8,7 @@ Live at **https://wantsandwonts.com**. The old address, relationship-menu.vercel
 
 ## Using it
 
-1. **Start a menu.** Pick one of the templates (romantic starter, relationship anarchy smorgasbord, polyamory agreements, close friendship, early dating, co-living) or start blank. Rename, reorder or delete anything, and add ready-made groups as you go.
+1. **Start a menu.** Pick one of the templates (romantic starter, relationship anarchy smorgasbord, polyamory agreements, off the escalator, non-escalator expanded, close friendship, early dating, co-living) or start blank. Rename, reorder or delete anything, and add ready-made groups as you go.
 2. **Answer each item.** Click the colored picker, or use the keyboard: arrow keys or `j`/`k` to move, `1`–`4` to answer, `?` for the full list of shortcuts. Add a note to any item (✎) for nuance like "weekends only". If an item turns out to need more detail, make it into a group (⤴) and add items under it.
 3. **Share.** The Share button explains each link:
    - the *template link* has your items but none of your answers, for someone to fill in fresh;

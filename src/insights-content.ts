@@ -57,6 +57,8 @@ export const ITEM_THEMES: Record<Theme, string[]> = {
     "Massage",
     "Dancing together",
     "Sharing a bed without touching",
+    "Talking about what we each enjoy physically",
+    "Checking in during physical closeness",
   ],
   talk: [
     "Daily check-in messages",
@@ -99,6 +101,9 @@ export const ITEM_THEMES: Record<Theme, string[]> = {
     "Talking about mental health",
     "Adapting to each other's communication needs",
     "Talking about love languages",
+    "Saying when something is bothering us, early",
+    "Agreeing how to disagree",
+    "An emergency way to reach each other",
   ],
   space: [
     "Time alone respected",
@@ -124,6 +129,14 @@ export const ITEM_THEMES: Record<Theme, string[]> = {
     "Equal say in the relationship",
     "Veto over each other's other relationships",
     "Other romantic relationships",
+    "Agreeing what's off the table for now",
+    "Deciding together what needs a check-in",
+    "Time alone every week",
+    "Making everyday decisions without checking in",
+    "Keeping some friendships separate",
+    "Telling each other plans rather than asking permission",
+    "No partner ranked above another",
+    "A primary partner, with others alongside",
   ],
   roots: [
     "Exclusivity",
@@ -163,6 +176,9 @@ export const ITEM_THEMES: Record<Theme, string[]> = {
     "Coming first when plans clash",
     "Being named in each other's will",
     "Power of attorney for each other",
+    "Long-term planning without a fixed timeline",
+    "Talking about commitment before deciding anything",
+    "Reserved rituals that are ours",
   ],
   spotlight: [
     "Meeting each other's friends",
@@ -205,6 +221,8 @@ export const ITEM_THEMES: Record<Theme, string[]> = {
     "Being out about us at work",
     "Being each other's plus-one",
     "First pick as plus-one",
+    "Deciding together who we're out to",
+    "Being each other's first choice for events",
   ],
   hearth: [
     "Sharing a home",
@@ -239,6 +257,10 @@ export const ITEM_THEMES: Record<Theme, string[]> = {
     "Shared financial goals",
     "Cleaning schedule",
     "Pet care",
+    "A joint account for shared costs only",
+    "Telling each other about debts",
+    "Agreeing who pays for what",
+    "Full financial transparency",
   ],
   care: [
     "Emotional support in hard times",
@@ -265,6 +287,11 @@ export const ITEM_THEMES: Record<Theme, string[]> = {
     "Supporting each other's therapy",
     "Knowing each other's triggers",
     "Sharing past hurts",
+    "Telling each other how the day really went",
+    "Talking openly about mental health",
+    "Talking about what helps when either of us is low",
+    "Being each other's executor",
+    "Knowing who to call in an emergency",
   ],
   adventure: [
     "Regular date nights",
@@ -285,6 +312,8 @@ export const ITEM_THEMES: Record<Theme, string[]> = {
     "Some weekends together",
     "Most weekends together",
     "Every weekend together",
+    "Scheduled time together each week",
+    "Taking turns choosing what we do",
   ],
 };
 
@@ -311,6 +340,7 @@ export const GROUP_THEMES: Record<Theme, string[]> = {
     "Independence",
     "Other partners",
     "Pace",
+    "Autonomy",
   ],
   roots: [
     "Future",
